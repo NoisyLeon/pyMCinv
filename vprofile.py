@@ -12,7 +12,7 @@ Numba is used for speeding up of the code.
 """
 
 import numpy as np
-import vmodel, data
+import vmodel, data, modparam
 import fast_surf, theo
 
 
@@ -44,7 +44,13 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+dtype)
         return
     
-    
+    def readmod(self, infname, dtype='iso'):
+        dtype=dtype.lower()
+        if dtype=='iso' or dtype == 'isotropic':
+            modparam.readmodtxt(infname=infname, inmod=self.model.isomod)
+        else:
+            raise ValueError('Unexpected wave type: '+dtype)
+        return
             
     
     

@@ -14,6 +14,7 @@ import numpy as np
 import numba
 import matplotlib.pyplot as plt
 import tdisp96
+import modparam
 
 @numba.jit(numba.float32[:](numba.float32, numba.float32, numba.float32))
 def _get_array(xmin, xmax, dx):
@@ -465,6 +466,11 @@ def _bondmat(axis, angle):
 ####################################################
 # Predefine the parameters for the model2d object
 ####################################################
+
+# 
+isomod_type = numba.deferred_type()
+isomod_type.define(modparam.isomod.class_type.instance_type)
+
 spec = [
         # velocity parameters
         ('VsvArr', numba.float32[:]),
@@ -535,7 +541,9 @@ spec = [
         # flat Earth or not
         ('flat', numba.boolean),
         ('rmin', numba.float32),
-        ('tilt', numba.boolean)
+        ('tilt', numba.boolean),
+        # mod parameterization objects
+        ('isomod', isomod_type)
         ]
 
 @numba.jitclass(spec)
@@ -565,6 +573,7 @@ class model1d(object):
     """
     def __init__(self):
         self.flat   = True
+        self.isomod = modparam.isomod()
         return
     
     def get_depth(self):
