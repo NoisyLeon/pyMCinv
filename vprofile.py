@@ -2,8 +2,6 @@
 """
 Module for 1D profile inversion
 
-Numba is used for speeding up of the code.
-
 :Copyright:
     Author: Lili Feng
     Graduate Research Assistant
@@ -14,6 +12,7 @@ Numba is used for speeding up of the code.
 import numpy as np
 import vmodel, data, modparam
 import fast_surf, theo
+import warnings
 
 
 
@@ -55,6 +54,7 @@ class vprofile1d(object):
     def update_mod(self, mtype='iso'):
         mtype=mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
+            warnings.filterwarnings("ignore")
             self.model.isomod.update()
         else:
             raise ValueError('Unexpected wave type: '+mtype)
@@ -67,6 +67,7 @@ class vprofile1d(object):
             self.hArr   = np.append(hArr, 0.)
             self.vsArr  = np.append(vs, vs[-1])
             self.vpArr  = np.append(vp, vp[-1])
+            self.vpvsArr= self.vpArr/self.vsArr
             self.rhoArr = np.append(rho, rho[-1])
             self.qsArr  = np.append(qs, qs[-1])
             self.qpArr  = np.append(qp, qp[-1])
@@ -75,7 +76,7 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+mtype)
         return
     
-    def get_period(self):
+    def get_period(self, dtype='ph'):
         
         TR                          = np.array(list(set.union(set(self.indata.dispR.pper), set(self.indata.dispR.gper))), dtype=np.float32)
         TR                          = np.sort(TR)
@@ -86,9 +87,33 @@ class vprofile1d(object):
         TL                          = np.sort(TL)
         self.indata.dispL.period    = TL
         self.indata.dispL.nper      = TL.size
-        self.TR = TR.copy()
-        self.TL = TL.copy()
+        
+        if dtype == 'ph' or dtype =='phase':
+            self.TR = self.indata.dispR.pper.copy()
+            self.TL = self.indata.dispL.pper.copy()
+        elif dtype == 'gr' or dtype =='group':
+            self.TR = self.indata.dispR.gper.copy()
+            self.TL = self.indata.dispL.gper.copy()
+        elif dtype == 'both':
+            try:
+                if not np.allclose(self.indata.dispR.pper, self.indata.dispR.gper):
+                    raise ValueError ('Unconsistent phase/group period arrays for Rayleigh wave!')
+            except:
+                raise ValueError ('Unconsistent phase/group period arrays for Rayleigh wave!')
+                
+            try:
+                if not np.allclose(self.indata.dispL.pper, self.indata.dispL.gper):
+                    raise ValueError ( 'Unconsistent phase/group period arrays for Love wave!')
+            except:
+                raise ValueError ( 'Unconsistent phase/group period arrays for Love wave!')
+            self.TR = self.indata.dispR.pper.copy()
+            self.TL = self.indata.dispL.pper.copy()
+        self.surfdtype  = dtype
         return
+    
+    def get_rf_param(self):
+        self.fs     = max(self.indata.rfr.fs, self.indata.rft.fs)
+        self.npts   = max(self.indata.rfr.npts, self.indata.rft.npts)
     
     def compute_fsurf(self, wtype='ray'):
         wtype   = wtype.lower()
@@ -111,9 +136,46 @@ class vprofile1d(object):
                                     self.vpArr, self.vsArr, self.rhoArr, self.hArr, self.qsinv, per, nper)
             self.indata.dispL.pvelp     = cl0[:nper]
             self.indata.dispL.gvelp     = ul0[:nper]
+        return
+    
         
     
-    # def compute_rftheo(self):
+    def compute_rftheo(self, dtype='r', slowness = 0.06, din=None):
+        dtype=dtype.lower()
+        if dtype=='r' or dtype == 'radial':
+            # initialize input model arrays
+            hin         = np.zeros(100, dtype=np.float32)
+            vsin        = np.zeros(100, dtype=np.float32)
+            vpvs        = np.zeros(100, dtype=np.float32)
+            qsin        = 600.*np.ones(100, dtype=np.float32)
+            qpin        = 1400.*np.ones(100, dtype=np.float32)
+            # assign model arrays to the input arrays
+            if self.hArr.size<100:
+                nl      = self.hArr.size
+            else:
+                nl      = 100
+            hin[:nl]    = self.hArr
+            vsin[:nl]   = self.vsArr
+            vpvs[:nl]   = self.vpvsArr
+            qsin[:nl]   = self.qsArr
+            qpin[:nl]   = self.qpArr
+            # fs/npts
+            fs          = self.fs
+            ntimes      = self.npts
+            # incident angle
+            if din is None:
+                din     = 180.*np.arcsin(vsin[nl-1]*vpvs[nl-1]*slowness)/np.pi
+            # solve for receiver function using theo
+            rx 	                = theo.theo(nl, vsin, hin, vpvs, qpin, qsin, fs, din, 2.5, 0.005, 0, ntimes)
+            # store the predicted receiver function (ONLY radial component) to the data object
+            self.indata.rfr.rfp = rx[:ntimes]
+            self.indata.rfr.tp  = np.arange(ntimes, dtype=np.float32)*1./self.fs
+        # elif dtype=='t' or dtype == 'transverse':
+        #     
+        else:
+            raise ValueError('Unexpected receiver function type: '+dtype)
+        return
+        
         
     
     # def init_fwrd_compute(self, mtype='iso'):

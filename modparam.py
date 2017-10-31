@@ -71,7 +71,9 @@ def readmodtxt(infname, inmod):
         inmod.ratio[:nr, iid]   = ratio
     return True
     
-
+####################################################
+# auxiliary functions
+####################################################
 
 @numba.jit(numba.types.Tuple((numba.float32[:], numba.float32[:,:]))(\
         numba.int32, numba.int32, numba.float32, numba.float32, numba.int32, numba.int32))
@@ -227,10 +229,10 @@ class isomod(object):
         elif self.thickness[i] < 20:
             self.nlay[i]    = 10
         if self.isspl[i] == 1:
-            print 'spline basis already exists!'
+            print("spline basis already exists!")
             return
         if self.mtype[i] != 2:
-            print 'Not spline parameterization!'
+            print('Not spline parameterization!')
             return 
         # initialize
         if i >= self.nmod:
@@ -340,12 +342,12 @@ class isomod(object):
                         rho.append(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
                     else:
                         rho.append(3.35) # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
-        vs  = np.array(vs, dtype=np.float32)
-        vp  = np.array(vp, dtype=np.float32)
-        rho = np.array(rho, dtype=np.float32)
-        qs  = np.array(qs, dtype=np.float32)
-        qp  = np.array(qp, dtype=np.float32)
-        hArr= np.array(hArr, dtype=np.float32)
+        vs      = np.array(vs, dtype=np.float32)
+        vp      = np.array(vp, dtype=np.float32)
+        rho     = np.array(rho, dtype=np.float32)
+        qs      = np.array(qs, dtype=np.float32)
+        qp      = np.array(qp, dtype=np.float32)
+        hArr    = np.array(hArr, dtype=np.float32)
         return hArr, vs, vp, rho, qs, qp
                      
                 

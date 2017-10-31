@@ -31,7 +31,7 @@ def readdisptxt(infname, indisp, dtype='ph'):
         try:
             indisp.stdpvelo= inArr[:,2]
         except IndexError:
-            pass
+            indisp.stdpvelo= np.ones(indisp.npper, dtype=np.float32)
         indisp.isphase = True
     elif dtype == 'gr' or dtype == 'group':
         if indisp.isgroup:
@@ -44,7 +44,7 @@ def readdisptxt(infname, indisp, dtype='ph'):
         try:
             indisp.stdgvelo= inArr[:,2]
         except IndexError:
-            pass
+            indisp.stdgvelo= np.ones(indisp.ngper, dtype=np.float32)
         indisp.isgroup  = True
     else:
         raise ValueError('Unexpected dtype: '+dtype)
@@ -122,6 +122,77 @@ class disp(object):
         self.isphase= False
         self.isgroup= False
         return
+    
+    def get_pmisfit(self):
+        temp    = 0.
+        for i in xrange(self.npper):
+            temp+= (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
+            
+        misfit  = np.sqrt(temp/self.npper)
+        if temp > 50.:
+            temp= np.sqrt(temp*50.)
+        L       = np.exp(-0.5 * temp)
+        
+        self.pmisfit    = misfit
+        self.pL         = L
+        return
+    
+    def get_gmisfit(self):
+        temp    = 0.
+        for i in xrange(self.npper):
+            temp+= (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
+            
+        misfit  = np.sqrt(temp/self.ngper)
+        if temp > 50.:
+            temp= np.sqrt(temp*50.)
+        L       = np.exp(-0.5 * temp)
+        
+        self.gmisfit    = misfit
+        self.gL         = L
+        return
+    
+    def get_misfit(self):
+        temp1   = 0.; temp2 = 0.
+        # misfit for phase velocities
+        if self.isphase:
+            for i in xrange(self.npper):
+                temp1   += (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
+            tS          = temp1
+            misfit      = np.sqrt(temp1/self.npper)
+            if tS > 50.:
+                tS      = np.sqrt(tS*50.)
+            L           = np.exp(-0.5 * tS)
+            
+            self.pmisfit    = misfit
+            self.pL         = L
+        # misfit for group velocities
+        if self.isgroup:
+            for i in xrange(self.ngper):
+                temp2   += (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
+                
+            tS          = temp2
+            misfit      = np.sqrt(temp2/self.ngper)
+            if tS > 50.:
+                tS      = np.sqrt(tS*50.)
+            L           = np.exp(-0.5 * tS)
+            self.gmisfit    = misfit
+            self.gL         = L
+        # misfit for both
+        temp    = temp1 + temp2
+        self.misfit     = np.sqrt(temp/(self.npper+self.ngper))
+        if temp > 50.:
+            temp = np.sqrt(temp*50.)
+        if temp > 50.:
+            temp = np.sqrt(temp*50.)
+        self.L          = np.exp(-0.5 * temp)
+        return
+    
+    
+        
+        
+    
+    
+        
     
 ####################################################
 # Predefine the parameters for the rf object

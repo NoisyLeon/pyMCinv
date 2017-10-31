@@ -1,12 +1,9 @@
-import spline
+import modparam
 
-spl = spline.isospl()
-# spl.init_arr(5)
-# spl.numbp[0] = 10
-# spl.thickness[0] = 200.
-# spl.bspline(0)
+imod = modparam.isomod()
 
-spline.readspltxt('old_code/TEST/Q22A.mod1', inspl=spl)
+
+modparam.readmodtxt('old_code/TEST/Q22A.mod1', inmod=imod)
 
 # 
 # spl2 = spline.isospl()
