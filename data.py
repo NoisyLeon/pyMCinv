@@ -107,7 +107,10 @@ spec_disp = [
         ('gL', numba.float32),
         # total misfit/likelihood
         ('misfit', numba.float32),
-        ('L', numba.float32)
+        ('L', numba.float32),
+        # common period for phase/group
+        ('period', numba.float32[:]),
+        ('nper', numba.int32)
         ]
 
 @numba.jitclass(spec_disp)
@@ -115,6 +118,7 @@ class disp(object):
     def __init__(self):
         self.npper  = 0
         self.ngper  = 0
+        self.nper   = 0
         self.isphase= False
         self.isgroup= False
         return

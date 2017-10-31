@@ -2773,6 +2773,11 @@ class model1d(object):
             dip     = self.dipifArr[indds]; strike     = self.strikeifArr[indds]
         return dip, strike
     
+    #######################################################################
+    # functions for inversion
+    #######################################################################
+    def get_iso_vmodel(self):
+        return self.isomod.get_vmodel()
     
     
         

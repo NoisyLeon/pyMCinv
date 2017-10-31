@@ -44,13 +44,81 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+dtype)
         return
     
-    def readmod(self, infname, dtype='iso'):
-        dtype=dtype.lower()
-        if dtype=='iso' or dtype == 'isotropic':
+    def readmod(self, infname, mtype='iso'):
+        mtype=mtype.lower()
+        if mtype=='iso' or mtype == 'isotropic':
             modparam.readmodtxt(infname=infname, inmod=self.model.isomod)
         else:
-            raise ValueError('Unexpected wave type: '+dtype)
+            raise ValueError('Unexpected wave type: '+mtype)
         return
+    
+    def update_mod(self, mtype='iso'):
+        mtype=mtype.lower()
+        if mtype=='iso' or mtype == 'isotropic':
+            self.model.isomod.update()
+        else:
+            raise ValueError('Unexpected wave type: '+mtype)
+        return
+    
+    def get_vmodel(self, mtype='iso'):
+        mtype=mtype.lower()
+        if mtype=='iso' or mtype == 'isotropic':
+            hArr, vs, vp, rho, qs, qp = self.model.get_iso_vmodel()
+            self.hArr   = np.append(hArr, 0.)
+            self.vsArr  = np.append(vs, vs[-1])
+            self.vpArr  = np.append(vp, vp[-1])
+            self.rhoArr = np.append(rho, rho[-1])
+            self.qsArr  = np.append(qs, qs[-1])
+            self.qpArr  = np.append(qp, qp[-1])
+            self.qsinv  = 1./self.qsArr
+        else:
+            raise ValueError('Unexpected wave type: '+mtype)
+        return
+    
+    def get_period(self):
+        
+        TR                          = np.array(list(set.union(set(self.indata.dispR.pper), set(self.indata.dispR.gper))), dtype=np.float32)
+        TR                          = np.sort(TR)
+        self.indata.dispR.period    = TR
+        self.indata.dispR.nper      = TR.size
+        
+        TL                          = np.array(list(set.union(set(self.indata.dispL.pper), set(self.indata.dispL.gper))), dtype=np.float32)
+        TL                          = np.sort(TL)
+        self.indata.dispL.period    = TL
+        self.indata.dispL.nper      = TL.size
+        self.TR = TR.copy()
+        self.TL = TL.copy()
+        return
+    
+    def compute_fsurf(self, wtype='ray'):
+        wtype   = wtype.lower()
+        if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+            ilvry               = 2
+            nper                = self.TR.size
+            per                 = np.zeros(200, dtype=np.float32)
+            per[:nper]          = self.TR[:]
+            (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(self.vsArr.size, ilvry, \
+                                    self.vpArr, self.vsArr, self.rhoArr, self.hArr, self.qsinv, per, nper)
+            self.indata.dispR.pvelp     = cr0[:nper]
+            self.indata.dispR.gvelp     = ur0[:nper]
+            
+        elif wtype=='l' or wtype == 'love':
+            ilvry               = 1
+            nper                = self.TL.size
+            per                 = np.zeros(200, dtype=np.float32)
+            per[:nper]          = self.TL[:]
+            (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(self.vsArr.size, ilvry, \
+                                    self.vpArr, self.vsArr, self.rhoArr, self.hArr, self.qsinv, per, nper)
+            self.indata.dispL.pvelp     = cl0[:nper]
+            self.indata.dispL.gvelp     = ul0[:nper]
+        
+    
+    # def compute_rftheo(self):
+        
+    
+    # def init_fwrd_compute(self, mtype='iso'):
+        
+        
             
     
     

@@ -147,11 +147,48 @@ spec_isomod = [
 
 @numba.jitclass(spec_isomod)
 class isomod(object):
+    """
+    An object for handling parameterization of 1d isotropic model for the inversion
+    =====================================================================================================================
+    ::: parameters :::
+    :   numbers     :
+    nmod        - number of model groups
+    maxlay      - maximum layers for each group (default - 100)
+    maxspl      - maximum spline coefficients for each group (default - 20)
+    :   1D arrays   :
+    numbp       - number of control points/basis (1D int array of nmod)
+    mtype       - model parameterization types (1D int array of nmod)
+                    1   - layer
+                    2   - B-splines
+                    4   - gradient layer
+                    5   - water
+    thickness   - thickness of each group (1D float array of nmod)
+    nlay        - number of layres in each group (1D int array of nmod)
+    vpvs        - vp/vs ratio in each group (1D float array of nmod)
+    isspl       - flag array indicating the existence of basis B spline (1D int array of nmod)
+                    0 - spline basis has NOT been computed
+                    1 - spline basis has been computed
+    :   multi-dim arrays    :
+    t           - knot vectors for B splines (2D array - [:(self.numb[i]+degBs), i]; i indicating group id)
+    spl         - B spline basis array (3D array - [:self.numb[i], :self.nlay[i], i]; i indicating group id)
+                    ONLY used for mtype == 2
+    ratio       - array for the ratio of each layer (2D array - [:self.nlay[i], i]; i indicating group id)
+                    ONLY used for mtype == 1
+    cvel        - velocity coefficients (2D array - [:self.numb[i], i]; i indicating group id)
+                    layer mod   - input velocities for each layer
+                    spline mod  - coefficients for B spline
+                    gradient mod- top/bottom layer velocity
+    :   model arrays        :
+    vs          - vs velocity arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    hArr        - layer arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    =====================================================================================================================
+    """
     
     def __init__(self):
+
         self.nmod       = 0
         self.maxlay     = 100
-        self.maxspl     = 50
+        self.maxspl     = 20
         return
     
     def init_arr(self, nmod):
@@ -212,8 +249,8 @@ class isomod(object):
         m           = nBs-1+degBs
         if m > self.maxspl:
             raise ValueError('number of splines is too large, change default maxspl!')
-        self.spl[:m, :npts, i]  = nbasis[:m, :]
-        # # # self.spl[:nBs, :npts, i]= nbasis[:nBs, :]
+        # # # self.spl[:m, :npts, i]  = nbasis[:m, :]
+        self.spl[:nBs, :npts, i]= nbasis[:nBs, :]
         self.isspl[i]           = 1
         self.t[:m+1,i]          = t
         return 
@@ -226,6 +263,7 @@ class isomod(object):
             # layered model
             if self.mtype[i] == 1:
                 self.nlay[i]    = self.numbp[i]
+                
                 self.hArr[:, i] = self.ratio[:, i] * self.thickness[i]
                 self.vs[:, i]   = self.cvel[:, i]
             # B spline model
@@ -236,13 +274,78 @@ class isomod(object):
                     tvalue 	= 0.
                     for ibs in xrange(self.numbp[i]):
                         tvalue = tvalue + self.spl[ibs, ilay, i] * self.cvel[ibs, i]
+                        
                     self.vs[ilay, i]  = tvalue
                     self.hArr[ilay, i]  = self.thickness[i]/self.nlay[i]
             # gradient layer
-            # elif self.mtype[i] == 4:
+            elif self.mtype[i] == 4:
+                nlay 	    = 4
+                if self.thickness[i] >= 20.:
+                    nlay    = 20
+                if self.thickness[i] > 10. and self.thickness[i] < 20.:
+                    nlay    = int(self.thickness[i]/1.)
+                if self.thickness[i] > 2. and self.thickness[i] <= 10.:
+                    nlay    = int(self.thickness[i]/0.5)
+                if self.thickness[i] < 0.5:
+                    nlay    = 2
+                dh 	        = self.thickness[i]/float(nlay)
+                dcvel 		= (self.cvel[1, i] - self.cvel[0, i])/(nlay - 1.)
+                vs          = np.zeros(np.int64(nlay), dtype=np.float32)
+                for ilay in xrange(nlay):
+                    vs[ilay]= self.cvel[0, i] + dcvel*np.float32(ilay)
+                hArr 	    = np.ones(nlay, dtype=np.float32)*np.float32(dh)
                 
-            
-            
-        
+                self.vs[:nlay, i]   = vs
+                self.hArr[:nlay, i] = hArr
+                self.nlay[i]        = nlay
+            # water layer
+            elif self.mtype[i] == 5:
+                nlay    = 1
+                self.vs[0, i]       = 0.
+                self.hArr[0, i]     = self.thickness[i]
+                self.nlay[i]        = 1
+        return
     
-    
+    def get_vmodel(self):
+        vs      = []
+        vp      = []
+        rho     = []
+        qs      = []
+        qp      = []
+        hArr    = []
+        depth   = 0.
+        for i in xrange(self.nmod):
+            for j in xrange(self.nlay[i]):
+                hArr.append(self.hArr[j, i])
+                depth += self.hArr[j, i]
+                if self.mtype[i] == 5:
+                    vs.append(0.)
+                    vp.append(self.cvel[0, i])
+                    rho.append(1.02)
+                    qs.append(10000.)
+                    qp.append(57822.)
+                elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
+                    vs.append(self.vs[j, i])
+                    vp.append(self.vs[j, i]*self.vpvs[i])
+                    rho.append(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
+                    qs.append(80.)
+                    qp.append(160.)
+                else:
+                    vs.append(self.vs[j, i])
+                    vp.append(self.vs[j, i]*self.vpvs[i])
+                    # if depth < 18.:
+                    qs.append(600.)
+                    qp.append(1400.)
+                    if depth < 7.5:
+                        rho.append(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
+                    else:
+                        rho.append(3.35) # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
+        vs  = np.array(vs, dtype=np.float32)
+        vp  = np.array(vp, dtype=np.float32)
+        rho = np.array(rho, dtype=np.float32)
+        qs  = np.array(qs, dtype=np.float32)
+        qp  = np.array(qp, dtype=np.float32)
+        hArr= np.array(hArr, dtype=np.float32)
+        return hArr, vs, vp, rho, qs, qp
+                     
+                
