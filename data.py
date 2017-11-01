@@ -220,6 +220,44 @@ class rf(object):
         self.fs     = 0.
         return
     
+    def get_misfit_incompatible(self):
+        temp    = 0.
+        k       = 0
+        factor  = 40.
+        for i in xrange(self.npts):
+            for j in xrange(self.tp.size):
+                if self.to[i] == self.tp[j] and self.to[i] <= 10 and self.to[i] >= 0 :
+                    temp    += ( (self.rfo[i] - self.rfp[j])**2 / (self.stdrfo[i]**2) )
+                    k = k+1
+                    break
+        self.misfit = np.sqrt(temp/k)
+        tS      = temp/factor
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
+        self.L      = np.exp(-0.5 * tS)
+        return
+    
+    def get_misfit(self):
+        temp    = 0.
+        k       = 0
+        factor  = 40.
+        for i in xrange(self.npts):
+            if self.to[i] != self.tp[i]:
+                # # # raise ValueError('Incompatible time arrays!')
+                print ('Incompatible time arrays!')
+                self.get_misfit_incompatible()
+                return
+            if self.to[i] >= 0:
+                temp    += ( (self.rfo[i] - self.rfp[i])**2 / (self.stdrfo[i]**2) )
+                k       += 1
+            if self.to[i] > 10:
+                break
+        self.misfit = np.sqrt(temp/k)
+        tS      = temp/factor
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
+        self.L      = np.exp(-0.5 * tS)
+        return
 
         
     
@@ -242,6 +280,9 @@ spec_data=[# Rayleigh/Love dispersion data
             # radial/transverse receiver function data
             ('rfr',     rf_type),
             ('rft',     rf_type),
+            # misfit/likelihood
+            ('misfit',  numba.float32),
+            ('L',       numba.float32)
         ]
 
 @numba.jitclass(spec_data)
@@ -252,6 +293,8 @@ class data1d(object):
         self.rfr    = rf()
         self.rft    = rf()
         return
+    
+    
     
     
     
