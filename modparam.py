@@ -70,6 +70,25 @@ def readmodtxt(infname, inmod):
         inmod.cvel[:tnp, iid]   = cvel
         inmod.ratio[:nr, iid]   = ratio
     return True
+
+def readparatxt(infname, inpara):
+    npara   = 0
+    for l1 in open(infname,"r"):
+        npara   += 1
+    print "Number of model parameter groups: %d " % npara
+    inpara.init_arr(npara)
+    i   = 0
+    with open(infname, 'r') as fid:
+        for line in fid.readlines():
+            temp                    = np.array(line.split(), dtype=np.float32)
+            ne                      = temp.size
+            inpara.numbe[i]         = ne
+            inpara.paraArr[:ne, i]  = temp
+            i                       += 1
+    print "read para over!"
+    return
+    
+    
     
 ####################################################
 # auxiliary functions
@@ -124,6 +143,40 @@ def bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts):
     return t, nbasis
 
 ####################################################
+# Predefine the parameters for the para1d object
+####################################################
+spec_para1d = [
+        ('npara',       numba.int32),
+        ('maxnelement', numba.int32),
+        ('paraArr',     numba.float32[:,:]),
+        ('numbe',       numba.int32[:]),
+        
+        # total misfit/likelihood
+        ('misfit',  numba.float32),
+        ('L',       numba.float32)
+        ]
+@numba.jitclass(spec_para1d)
+class para1d(object):
+    def __init__(self):
+        self.npara          = 0
+        self.misfit         = -1.
+        self.L              = 1.
+        self.maxnelement    = 10
+        return
+    
+    def init_arr(self, npara):
+        self.npara      = npara
+        self.numbe      = np.zeros(np.int64(self.npara), dtype=np.int32)
+        self.paraArr    = np.zeros((np.int64(self.maxnelement), np.int64(self.npara)), dtype = np.float32)
+        return
+    
+    
+
+# define type of disp object
+para1d_type   = numba.deferred_type()
+para1d_type.define(para1d.class_type.instance_type)
+
+####################################################
 # Predefine the parameters for the isospl object
 ####################################################
 spec_isomod = [
@@ -143,8 +196,11 @@ spec_isomod = [
         ('cvel',        numba.float32[:, :]),
         ('vs',          numba.float32[:, :]),
         ('hArr',        numba.float32[:, :]),
-        ('t',           numba.float32[:, :])
+        ('t',           numba.float32[:, :]),
+        # para1d object
+        ('para',        para1d_type)
         ]
+
 
 
 @numba.jitclass(spec_isomod)
@@ -191,6 +247,7 @@ class isomod(object):
         self.nmod       = 0
         self.maxlay     = 100
         self.maxspl     = 20
+        self.para       = para1d()
         return
     
     def init_arr(self, nmod):
@@ -198,7 +255,7 @@ class isomod(object):
         self.numbp      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         self.mtype      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         self.thickness  = np.zeros(np.int64(self.nmod), dtype=np.float32)
-        self.nlay       = np.ones(np.int64(self.nmod), dtype=np.int32)*np.int32(20)
+        self.nlay       = np.ones(np.int64(self.nmod), dtype=np.int32)*np.int32(20) 
         self.vpvs       = np.ones(np.int64(self.nmod), dtype=np.float32)*np.float32(1.75)
         self.isspl      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         
@@ -228,6 +285,9 @@ class isomod(object):
             self.nlay[i]    = 5
         elif self.thickness[i] < 20:
             self.nlay[i]    = 10
+        else:
+            self.nlay[i]    = 30
+            
         if self.isspl[i] == 1:
             print("spline basis already exists!")
             return
@@ -277,7 +337,7 @@ class isomod(object):
                     for ibs in xrange(self.numbp[i]):
                         tvalue = tvalue + self.spl[ibs, ilay, i] * self.cvel[ibs, i]
                         
-                    self.vs[ilay, i]  = tvalue
+                    self.vs[ilay, i]    = tvalue
                     self.hArr[ilay, i]  = self.thickness[i]/self.nlay[i]
             # gradient layer
             elif self.mtype[i] == 4:
@@ -338,7 +398,7 @@ class isomod(object):
                     # if depth < 18.:
                     qs.append(600.)
                     qp.append(1400.)
-                    if depth < 7.5:
+                    if (self.vs[j, i]*self.vpvs[i]) < 7.5:
                         rho.append(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
                     else:
                         rho.append(3.35) # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions

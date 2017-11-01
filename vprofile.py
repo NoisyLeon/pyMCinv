@@ -13,6 +13,7 @@ import numpy as np
 import vmodel, data, modparam
 import fast_surf, theo
 import warnings
+import os
 
 
 
@@ -47,6 +48,14 @@ class vprofile1d(object):
         mtype=mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             modparam.readmodtxt(infname=infname, inmod=self.model.isomod)
+        else:
+            raise ValueError('Unexpected wave type: '+mtype)
+        return
+    
+    def readpara(self, infname, mtype='iso'):
+        mtype=mtype.lower()
+        if mtype=='iso' or mtype == 'isotropic':
+            modparam.readparatxt(infname=infname, inpara=self.model.isomod.para)
         else:
             raise ValueError('Unexpected wave type: '+mtype)
         return
@@ -114,6 +123,7 @@ class vprofile1d(object):
     def get_rf_param(self):
         self.fs     = max(self.indata.rfr.fs, self.indata.rft.fs)
         self.npts   = max(self.indata.rfr.npts, self.indata.rft.npts)
+        return
     
     def compute_fsurf(self, wtype='ray'):
         wtype   = wtype.lower()
@@ -138,8 +148,6 @@ class vprofile1d(object):
             self.indata.dispL.gvelp     = ul0[:nper]
         return
     
-        
-    
     def compute_rftheo(self, dtype='r', slowness = 0.06, din=None):
         dtype=dtype.lower()
         if dtype=='r' or dtype == 'radial':
@@ -161,6 +169,7 @@ class vprofile1d(object):
             qpin[:nl]   = self.qpArr
             # fs/npts
             fs          = self.fs
+            # # # ntimes      = 1000
             ntimes      = self.npts
             # incident angle
             if din is None:
@@ -168,13 +177,39 @@ class vprofile1d(object):
             # solve for receiver function using theo
             rx 	                = theo.theo(nl, vsin, hin, vpvs, qpin, qsin, fs, din, 2.5, 0.005, 0, ntimes)
             # store the predicted receiver function (ONLY radial component) to the data object
-            self.indata.rfr.rfp = rx[:ntimes]
-            self.indata.rfr.tp  = np.arange(ntimes, dtype=np.float32)*1./self.fs
+            self.indata.rfr.rfp = rx[:self.npts]
+            self.indata.rfr.tp  = np.arange(self.npts, dtype=np.float32)*1./self.fs
         # elif dtype=='t' or dtype == 'transverse':
         #     
         else:
             raise ValueError('Unexpected receiver function type: '+dtype)
         return
+    
+    def get_misfit(self, wdisp=1., rffactor=40.):
+        self.indata.get_misfit(wdisp, rffactor)
+        return
+        
+    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=1., rffactor=40.):
+        
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        # initializations
+        self.get_period(dtype = dispdtype)
+        self.update_mod(mtype = 'isotropic')
+        self.get_rf_param()
+        self.get_vmodel(mtype = 'isotropic')
+        # first run
+        self.compute_fsurf()
+        self.compute_rftheo()
+        self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+        
+        outmod  = outdir+'/MC.p1.mod'
+        vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
+        
+        outdisp = outdir+'/MC.p1.p.disp'
+        data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+        outrf   = outdir+'/MC.p1.rf'
+        data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
         
         
     

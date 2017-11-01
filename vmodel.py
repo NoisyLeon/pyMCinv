@@ -70,6 +70,35 @@ def read_model(model, infname, unit=1000., isotropic=True,
     model.get_data_vel(vsv, vsh, vpv, vph, eta, rho, radius)
     return model
 
+def write_model(model, outfname, isotropic=True, unit=1000.):
+    """
+    Write model in txt format
+    ===========================================================================================================
+    ::: input parameters :::
+    model                       - input model1d object
+    outfname                    - output txt file name
+    unit                        - unit of output, default = 1000., means output has units of km
+    isotropic                   - whether the input is isotrpic or not
+    ===========================================================================================================
+    """
+    unit    = np.float32(unit)
+    outArr  = np.append(model.zArr[::-1], (model.VsvArr[::-1]/unit))
+    if not isotropic:
+        outArr  = np.append(outArr, (model.VshArr[::-1]/unit) )
+    outArr  = np.append(outArr, model.VpvArr[::-1]/unit)
+    if not isotropic:
+        outArr  = np.append(outArr, model.VphArr[::-1]/unit)
+        outArr  = np.append(outArr, model.etaArr[::-1])
+    outArr  = np.append(outArr, model.rhoArr[::-1]/unit)
+    if isotropic:
+        N   = 4
+    else:
+        N   = 7
+    outArr  = outArr.reshape((N, model.zArr.size))
+    outArr  = outArr.T
+    np.savetxt(outfname, outArr, fmt='%g')
+    return 
+
 def read_axisem_bm(model, infname):
     """
     Read 1D block model from AxiSEM
@@ -479,6 +508,9 @@ spec = [
         ('VphArr', numba.float32[:]),
         ('etaArr', numba.float32[:]),
         ('rhoArr', numba.float32[:]),
+        # Q factor
+        ('qsArr',   numba.float32[:]),
+        ('qpArr',   numba.float32[:]),
         # Earth flattening transformed density for Rayleigh wave
         ('rhoArrR', numba.float32[:]),
         # Earth flattening transformed density for Love wave
@@ -2777,9 +2809,54 @@ class model1d(object):
     # functions for inversion
     #######################################################################
     def get_iso_vmodel(self):
+        hArr, vs, vp, rho, qs, qp = self.isomod.get_vmodel()
+        zArr            = hArr.cumsum()
+        N               = zArr.size
+        self.zArr       = np.zeros(2*N, dtype=np.float32)
+        self.VsvArr     = np.zeros(2*N, dtype=np.float32)
+        self.VshArr     = np.zeros(2*N, dtype=np.float32)
+        self.VpvArr     = np.zeros(2*N, dtype=np.float32)
+        self.VphArr     = np.zeros(2*N, dtype=np.float32)
+        self.qsArr      = np.zeros(2*N, dtype=np.float32)
+        self.qpArr      = np.zeros(2*N, dtype=np.float32)
+        self.rhoArr     = np.zeros(2*N, dtype=np.float32)
+        self.rArr       = np.zeros(2*N, dtype=np.float32)
+        for i in xrange(2*N):
+            if i == 0:
+                self.VsvArr[i]  = vs[i]*1000.
+                self.VshArr[i]  = vs[i]*1000.
+                self.VpvArr[i]  = vp[i]*1000.
+                self.VphArr[i]  = vp[i]*1000.
+                self.qsArr[i]   = qs[i]
+                self.qpArr[i]   = qp[i]
+                self.rhoArr[i]  = rho[i]*1000.
+                continue
+            j   = int(i/2)
+            k   = i%2
+            self.zArr[i]    = zArr[j+k-1]
+            self.VsvArr[i]  = vs[j]*1000.
+            self.VshArr[i]  = vs[j]*1000.
+            self.VpvArr[i]  = vp[j]*1000.
+            self.VphArr[i]  = vp[j]*1000.
+            self.qsArr[i]   = qs[j]
+            self.qpArr[i]   = qp[j]
+            self.rhoArr[i]  = rho[j]*1000.
+        self.zArr       = self.zArr[::-1]
+        self.VsvArr     = self.VsvArr[::-1]
+        self.VshArr     = self.VshArr[::-1]
+        self.VpvArr     = self.VpvArr[::-1]
+        self.VphArr     = self.VphArr[::-1]
+        self.etaArr     = np.ones(2*N, dtype=np.float32)
+        self.qsArr      = self.qsArr[::-1]
+        self.qpArr      = self.qpArr[::-1]
+        self.rhoArr     = self.rhoArr[::-1]
+        self.rArr       = (np.float32(6371000.) - self.zArr*np.float32(1000.))
+        self.vel2love()
+        return hArr, vs, vp, rho, qs, qp
+        
+    
+    def get_iso_vmodel2(self):
         return self.isomod.get_vmodel()
-    
-    
         
     
     

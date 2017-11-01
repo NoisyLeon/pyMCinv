@@ -50,6 +50,33 @@ def readdisptxt(infname, indisp, dtype='ph'):
         raise ValueError('Unexpected dtype: '+dtype)
     return True
 
+def writedisptxt(outfname, outdisp, dtype='ph'):
+    if dtype == 'ph' or dtype == 'phase':
+        if not outdisp.isphase:
+            print 'phase velocity data is not stored!'
+            return
+        outArr  = np.append(outdisp.pper, outdisp.pvelp)
+        outArr  = np.append(outArr, outdisp.pvelo)
+        outArr  = np.append(outArr, outdisp.stdpvelo)
+        outArr  = outArr.reshape((4, outdisp.npper))
+        outArr  = outArr.T
+        np.savetxt(outfname, outArr, fmt='%g')
+    
+    elif dtype == 'gr' or dtype == 'group':
+        if not outdisp.isgroup:
+            print 'group velocity data is not stored!'
+            return
+        outArr  = np.append(outdisp.gper, outdisp.gvelp)
+        outArr  = np.append(outArr, outdisp.gvelo)
+        outArr  = np.append(outArr, outdisp.stdgvelo)
+        outArr  = outArr.reshape((4, outdisp.ngper))
+        outArr  = outArr.T
+        np.savetxt(outfname, outArr, fmt='%g')
+    else:
+        raise ValueError('Unexpected dtype: '+dtype)
+    return
+    
+
 def readrftxt(infname, inrf):
     if inrf.npts > 0:
         print 'receiver function data is already stored!'
@@ -64,6 +91,29 @@ def readrftxt(infname, inrf):
         inrf.stdrfo = np.ones(self.npts, dtype=np.float32)*np.float32(0.1)
     inrf.fs     = 1./(inrf.to[1] - inrf.to[0])
     return True
+
+def writerftxt(outfname, outrf, tf=10.):
+    if outrf.npts == 0:
+        print 'receiver function data is not stored!'
+        return 
+    nout    = int(outrf.fs*tf)+1
+    nout    = min(nout, outrf.npts)
+    outArr  = np.append(outrf.tp[:nout], outrf.rfp[:nout])
+    outArr  = np.append(outArr, outrf.to[:nout])
+    outArr  = np.append(outArr, outrf.rfo[:nout])
+    outArr  = np.append(outArr, outrf.stdrfo[:nout])
+    outArr  = outArr.reshape((5, nout))
+    
+    # # outArr  = np.append(outrf.tp, outrf.rfp)
+    # # outArr  = np.append(outArr, outrf.to)
+    # # outArr  = np.append(outArr, outrf.rfo)
+    # # outArr  = np.append(outArr, outrf.stdrfo)
+    # # outArr  = outArr.reshape((5, outrf.npts))
+    outArr  = outArr.T
+    np.savetxt(outfname, outArr, fmt='%g')
+    return
+
+
     
 
 
@@ -81,7 +131,7 @@ spec_disp = [
         ('pampo', numba.float32[:]),
         # predicted
         ('pvelp', numba.float32[:]),
-        ('stdpvelp', numba.float32[:]),
+        #('stdpvelp', numba.float32[:]),
         ('pphip', numba.float32[:]),
         ('pampp', numba.float32[:]),
         # 
@@ -98,7 +148,7 @@ spec_disp = [
         ('gampo', numba.float32[:]),
         # predicted
         ('gvelp', numba.float32[:]),
-        ('stdgvelp', numba.float32[:]),
+       # ('stdgvelp', numba.float32[:]),
         ('gphip', numba.float32[:]),
         ('gampp', numba.float32[:]),
         #
@@ -177,6 +227,10 @@ class disp(object):
             L           = np.exp(-0.5 * tS)
             self.gmisfit    = misfit
             self.gL         = L
+        if (not self.isphase) and (not self.isgroup):
+            self.misfit = 0.
+            self.L      = 1.
+            return
         # misfit for both
         temp    = temp1 + temp2
         self.misfit     = np.sqrt(temp/(self.npper+self.ngper))
@@ -186,13 +240,7 @@ class disp(object):
             temp = np.sqrt(temp*50.)
         self.L          = np.exp(-0.5 * temp)
         return
-    
-    
-        
-        
-    
-    
-        
+
     
 ####################################################
 # Predefine the parameters for the rf object
@@ -220,7 +268,7 @@ class rf(object):
         self.fs     = 0.
         return
     
-    def get_misfit_incompatible(self):
+    def get_misfit_incompatible(self, rffactor):
         temp    = 0.
         k       = 0
         factor  = 40.
@@ -231,21 +279,24 @@ class rf(object):
                     k = k+1
                     break
         self.misfit = np.sqrt(temp/k)
-        tS      = temp/factor
+        tS      = temp/rffactor
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
         return
     
-    def get_misfit(self):
+    def get_misfit(self, rffactor):
         temp    = 0.
         k       = 0
-        factor  = 40.
+        if self.npts == 0:
+            self.misfit = 0.
+            self.L      = 1.
+            return
         for i in xrange(self.npts):
             if self.to[i] != self.tp[i]:
                 # # # raise ValueError('Incompatible time arrays!')
                 print ('Incompatible time arrays!')
-                self.get_misfit_incompatible()
+                self.get_misfit_incompatible(rffactor)
                 return
             if self.to[i] >= 0:
                 temp    += ( (self.rfo[i] - self.rfp[i])**2 / (self.stdrfo[i]**2) )
@@ -253,7 +304,7 @@ class rf(object):
             if self.to[i] > 10:
                 break
         self.misfit = np.sqrt(temp/k)
-        tS      = temp/factor
+        tS      = temp/rffactor
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
@@ -293,6 +344,16 @@ class data1d(object):
         self.rfr    = rf()
         self.rft    = rf()
         return
+    
+    def get_misfit(self, wdisp, rffactor):
+        self.dispR.get_misfit()
+        self.rfr.get_misfit(rffactor)
+        
+        self.misfit = wdisp*self.dispR.misfit + (1.-wdisp)*self.rfr.misfit
+        self.L      = ((self.dispR.L)**wdisp)*((self.rfr.L)**(1-wdisp))
+        return
+        
+        
     
     
     
