@@ -14,6 +14,7 @@ import vmodel, data, modparam
 import fast_surf, theo
 import warnings
 import os
+import time
 
 
 
@@ -210,6 +211,105 @@ class vprofile1d(object):
         data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
         outrf   = outdir+'/MC.p1.rf'
         data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
+        
+        self.model.isomod.mod2para()
+        
+        print "Original misfit: ", self.indata.L, self.indata.misfit
+        
+        run     = True     # the key that controls the sampling
+        inew    = 0     # count new paras
+        iacc    = 0     # count acceptance model
+        start   = time.time()
+        # nparaval= 
+        # 
+        # while ( run ):
+        #     inew+= 1
+        # 
+        #     if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
+        #         run   = False
+        #         
+        #     if (np.fmod(inew,500) ==0):
+        #         print inew, time.time()-start
+        #         
+        #     if ( np.fmod(inew,1501) == 1500 ):
+        #         
+        #         # continue here, need to keep a copy of old para until a good model is found
+                # nparaval= self.model.isomod.para.new_paraval(0)
+                # 
+                # 
+                # para1   = para.new_para(0)
+        #         ttmodel = model.para2mod(para1)
+        #         ttmodel.update()
+        #         iii     = 0
+        #         while (ttmodel.goodmodel([0,1],[]) == 0):
+        #             iii = iii + 1
+        #             para1 = para.new_para(0)
+        #             ttmodel = model.para2mod(para1)
+        #             ttmodel.update()
+        #         ttmodel.compute_rf()
+        #         ttmodel.compute_disp()
+        #         ttmodel.compute_misfit(pp,nn)
+        #         oldL = ttmodel.data.L
+        #         oldmisfit = ttmodel.data.misfit
+        #         para = para1
+        #         ii = ii + 1
+        #         print para.parameter
+        #         print "new para!!", oldL, oldmisfit
+            
+            # 
+            # ############################ do inversion#####################################
+            # # sample the posterior distribution ##########################################
+            # if (pp >= 0 and pp <=1):
+            #     para1 = para.new_para(1)
+            #     ttmodel = model.para2mod(para1)
+            #     ttmodel.update()
+            #     if (monoc == 1):
+            #         newL = 0.;
+            #         newmisfit = 100;
+            #         if (ttmodel.goodmodel([0,1],[]) == 0):
+            #             continue
+            #     (newL,newmisfit,ttmodel) = get_misfit(para1,model,pp,nn)
+            #     if (newL < oldL):
+            #         prob = (oldL-newL)/oldL
+            #         cvt = random.random()
+            #         # reject
+            #         if (cvt<prob):
+            #             ff.write("-1 %d %d " % (i,ii))
+            #             for j in range (para1.npara):
+            #                 ff.write("%g " % para1.parameter[j])
+            #             ff.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, ttmodel.data.rf.L, ttmodel.data.rf.misfit, ttmodel.data.disp.L,
+            #                                                 ttmodel.data.disp.misfit, time.time()-start))
+            #             ttmodel.writeb (para1, ffb,[-1,i,ii])
+            #             continue
+            #     ff.write("1 %d %d " % (i,ii))
+            #     for j in range (para1.npara):
+            #         ff.write("%g " % para1.parameter[j])
+            #     ff.write("%g %g %g %g %g %g %g\n" % (newL,newmisfit,ttmodel.data.rf.L,ttmodel.data.rf.misfit,ttmodel.data.disp.L,ttmodel.data.disp.misfit,time.time()-start));
+            #     print "accept!! ", i, ii, oldL, newL, ttmodel.data.rf.L, ttmodel.data.rf.misfit, ttmodel.data.disp.L, \
+            #         ttmodel.data.disp.misfit, time.time()-start
+            #     tname1 = tname + ".%d" % ii
+            #     ttmodel.write_model(tname1, outdir)
+            #     ttmodel.writeb (para1,ffb,[1,i,ii])
+            #     para = para1
+            #     oldL = newL
+            #     oldmisfit = newmisfit
+            #     ii = ii + 1
+            #     continue
+            # else:
+            #     if (monoc == 1):
+            #         para1 = para.new_para(1)
+            #         ttmodel = model.para2mod(para1)
+            #         ttmodel.update()
+            #         if (ttmodel.goodmodel([0,1],[]) == 0):
+            #             continue
+            #     else:
+            #         para1 = para.new_para(0)
+            #     ff.write("-2 %d 0 " % i)
+            #     for j in range (para1.npara):
+            #         ff.write("%g " % para1.parameter[j])
+            #     ff.write("\n")
+            #     para = para1
+            #     continue
         
         
     

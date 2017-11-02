@@ -13,6 +13,7 @@ Numba is used for speeding up of the code.
 import numpy as np
 import math
 import numba
+import random
 
 ####################################################
 # I/O functions
@@ -150,7 +151,10 @@ spec_para1d = [
         ('maxnelement', numba.int32),
         ('paraArr',     numba.float32[:,:]),
         ('numbe',       numba.int32[:]),
+        ('paraval',     numba.float32[:]),
         
+        ('isspace',     numba.boolean),
+        ('space',       numba.float32[:,:]),
         # total misfit/likelihood
         ('misfit',  numba.float32),
         ('L',       numba.float32)
@@ -162,13 +166,56 @@ class para1d(object):
         self.misfit         = -1.
         self.L              = 1.
         self.maxnelement    = 10
+        self.isspace        = False
         return
     
     def init_arr(self, npara):
-        self.npara      = npara
-        self.numbe      = np.zeros(np.int64(self.npara), dtype=np.int32)
-        self.paraArr    = np.zeros((np.int64(self.maxnelement), np.int64(self.npara)), dtype = np.float32)
+        self.npara          = npara
+        self.numbe          = np.zeros(np.int64(self.npara), dtype=np.int32)
+        self.paraval        = np.zeros(np.int64(self.npara), dtype=np.float32)
+        self.paraArr        = np.zeros((np.int64(self.maxnelement), np.int64(self.npara)), dtype = np.float32)
+        self.space          = np.zeros((3, np.int64(self.npara)), dtype = np.float32)
         return
+    
+    def space2true(self): self.isspace = True
+    
+    def new_paraval(self, ptype):
+        """
+        ptype   - perturbation type
+        """
+        paralst = []
+        if ptype == 0:
+            for i in xrange(self.npara):
+                newval  = np.random.uniform(self.space[0, i], self.space[1, i])
+                paralst.append(newval)
+        else:
+            for i in xrange(self.npara):
+                oldval 	= self.paraval[i]
+                step 	= self.space[2, i]
+                run 	= True
+                j		= 0
+                while (run and j<10000): 
+                    newval  = random.gauss(oldval, step)
+                    if (newval >= self.space[0, i] and newval <= self.space[1, i]):
+                        run = False
+                    j   +=1
+                paralst.append(newval)
+        paraval = np.array(paralst, dtype=np.float32)
+        return paraval
+    
+        
+    def copy(self):
+        outpara         = para1d()
+        outpara.init_arr(self.npara)
+        outpara.paraArr = self.paraArr.copy()
+        outpara.numbe   = self.numbe.copy()
+        outpara.paraval = self.paraval.copy()
+        outpara.isspace = self.isspace
+        outpara.space   = self.space.copy()
+        outpara.misfit  = self.misfit
+        outpara.L       = self.L
+        return outpara
+
     
     
 
@@ -410,37 +457,82 @@ class isomod(object):
         hArr    = np.array(hArr, dtype=np.float32)
         return hArr, vs, vp, rho, qs, qp
     
-    # def mod2para(self):
-    #     for i in xrange(self.para.npara):
-    #         ng      = self.para.paraArr[4, i]
-    #         if para.para0[i][0] == 0:	     # value (vs/Bs)
-    #             nv = para.para0[i][5]
-    #             tv = self.groups[ng].value[nv]
-    #         elif para.para0[i][0] == 1:           # thickness of group
-    #             tv = self.groups[ng].thickness
-    #         elif para.para0[i][0] == -1:          # vpvs value;
-    #             tv = self.groups[ng].vpvs
-    #         else:
-    #             print "WTF???? "
-    #             sys.exit()
-    #         para1.parameter.append(tv - 0.);
-    #         if (para.flag != 1):
-    #             tstep = para.para0[i][3];
-    #             if (para.para0[i][1] == 1):
-    #                 tmin = tv - para.para0[i][2];
-    #                 tmax = tv + para.para0[i][2];
-    #             else:
-    #                 tmin = tv - tv*para.para0[i][2]/100.
-    #                 tmax = tv + tv*para.para0[i][2]/100.
-    #             tmin = max (0.,tmin);
-    #             tmax = max (tmin + 0.0001, tmax);
+    def mod2para(self):
+        paralst     = [] 
+        for i in xrange(self.para.npara):
+            ig      = int(self.para.paraArr[4, i])
+            
+            # velocity coeficient for splines
+            if self.para.paraArr[0, i] == 0:
+                ispl= int(self.para.paraArr[5, i])
+                val = self.cvel[ispl , ig]
+            # total thickness of the group
+            elif self.para.paraArr[0, i] == 1:
+                val = self.thickness[ig]
+            # vp/vs ratio
+            elif self.para.paraArr[0, i] == -1:
+                val = self.vpvs[ig]
+            else:
+                raise ValueError('Unexpected value in paraArr!')
+            paralst.append(val)
+            
+            if not self.para.isspace:
+                step    = self.para.paraArr[3, i]
+                if self.para.paraArr[1, i] == 1:
+                    valmin  = val - self.para.paraArr[2, i]
+                    valmax  = val + self.para.paraArr[2, i]
+                else:
+                    valmin  = val - val*self.para.paraArr[2, i]/100.
+                    valmax  = val + val*self.para.paraArr[2, i]/100.
+                valmin  = max (0.,valmin)
+                valmax  = max (valmin + 0.0001, valmax)
+                
+                if (self.para.paraArr[0, i] == 0 and i == 0 and self.para.paraArr[5, i] == 0): # if it is the upper sedi:
+                    valmin  = max (0.2, valmin)
+                    valmax  = max (0.5, valmax)            
+                self.para.space[:, i] = np.array([valmin, valmax, step], dtype=np.float32)
+        
+        self.para.space2true()
+        paraval             = np.array(paralst, dtype = np.float32)
+        self.para.paraval[:]= paraval
+        return
     # 
-    #             if (para.para0[i][0] == 0 and i == 0 and para.para0[i][5] == 0): # if it is the upper sedi:
-    #                 tmin = max (0.2, tmin)
-    #                 tmax = max (0.5, tmax)
-    #             para1.space1.append([tmin,tmax,tstep])
-    #             para1.flag = 1
-    #     self.para = para1
-    #     return para1
+    def para2mod(self):
+        """
+        Convert paratemers (for perturbation) to model parameters
+        
+        """
+        for i in xrange(self.para.npara):
+            val = self.para.paraval[i]
+            ig  = int(self.para.paraArr[4, i])
+            
+            # velocity coeficient for splines
+            if self.para.paraArr[0, i] == 0:
+                ispl                = int(self.para.paraArr[5, i])
+                self.cvel[ispl , ig]= val
+            # total thickness of the group
+            elif self.para.paraArr[0, i] == 1:
+                self.thickness[ig]  = val
+            # vp/vs ratio
+            elif self.para.paraArr[0, i] == -1:
+                self.vpvs[ig]       = val
+            else:
+                raise ValueError('Unexpected value in paraArr!')
+        return
+
+    def copy(self):
+        outmod  = isomod()
+        
+        # outpara         = para1d()
+        # outpara.init_arr(self.npara)
+        # outpara.paraArr = self.paraArr.copy()
+        # outpara.numbe   = self.numbe.copy()
+        # outpara.paraval = self.paraval.copy()
+        # outpara.isspace = self.isspace
+        # outpara.space   = self.space.copy()
+        # outpara.misfit  = self.misfit
+        # outpara.L       = self.L
+        return outmod
+            
                      
                 
