@@ -409,5 +409,38 @@ class isomod(object):
         qp      = np.array(qp, dtype=np.float32)
         hArr    = np.array(hArr, dtype=np.float32)
         return hArr, vs, vp, rho, qs, qp
+    
+    # def mod2para(self):
+    #     for i in xrange(self.para.npara):
+    #         ng      = self.para.paraArr[4, i]
+    #         if para.para0[i][0] == 0:	     # value (vs/Bs)
+    #             nv = para.para0[i][5]
+    #             tv = self.groups[ng].value[nv]
+    #         elif para.para0[i][0] == 1:           # thickness of group
+    #             tv = self.groups[ng].thickness
+    #         elif para.para0[i][0] == -1:          # vpvs value;
+    #             tv = self.groups[ng].vpvs
+    #         else:
+    #             print "WTF???? "
+    #             sys.exit()
+    #         para1.parameter.append(tv - 0.);
+    #         if (para.flag != 1):
+    #             tstep = para.para0[i][3];
+    #             if (para.para0[i][1] == 1):
+    #                 tmin = tv - para.para0[i][2];
+    #                 tmax = tv + para.para0[i][2];
+    #             else:
+    #                 tmin = tv - tv*para.para0[i][2]/100.
+    #                 tmax = tv + tv*para.para0[i][2]/100.
+    #             tmin = max (0.,tmin);
+    #             tmax = max (tmin + 0.0001, tmax);
+    # 
+    #             if (para.para0[i][0] == 0 and i == 0 and para.para0[i][5] == 0): # if it is the upper sedi:
+    #                 tmin = max (0.2, tmin)
+    #                 tmax = max (0.5, tmax)
+    #             para1.space1.append([tmin,tmax,tstep])
+    #             para1.flag = 1
+    #     self.para = para1
+    #     return para1
                      
                 
