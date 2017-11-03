@@ -15,6 +15,7 @@ import fast_surf, theo
 import warnings
 import os
 import time
+import random
 
 
 
@@ -190,7 +191,7 @@ class vprofile1d(object):
         self.indata.get_misfit(wdisp, rffactor)
         return
         
-    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=1., rffactor=40.):
+    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=1., rffactor=40., monoc=True):
         
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
@@ -203,38 +204,42 @@ class vprofile1d(object):
         self.compute_fsurf()
         self.compute_rftheo()
         self.get_misfit(wdisp=wdisp, rffactor=rffactor)
-        
+        # write initial model
         outmod  = outdir+'/MC.p1.mod'
         vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
-        
+        # write initial predicted data
         outdisp = outdir+'/MC.p1.p.disp'
         data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
         outrf   = outdir+'/MC.p1.rf'
         data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
-        
+        # conver initial model to para
         self.model.isomod.mod2para()
-        
-        print "Original misfit: ", self.indata.L, self.indata.misfit
+        # likelihood/misfit
+        oldL        = self.indata.L
+        oldmisfit   = self.indata.misfit
+        print "Original misfit: ", oldL, oldmisfit
         
         run     = True     # the key that controls the sampling
         inew    = 0     # count new paras
         iacc    = 0     # count acceptance model
         start   = time.time()
-
+        
+        # output log files
+        outtxtfname = outdir+'/MC.p1.out'
+        outbinfname = outdir+'/MC.p1.bin'
+        fidout      = open(outtxtfname, "w")
+        # fidoutb     = open(outbinfname, "wb")
+        pfx = 'MC.p1'
         while ( run ):
             inew+= 1
         
-            if ( inew > 1000 or iacc > 2000 or time.time()-start > 3600.):
+            if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
                 run   = False
                 
             if (np.fmod(inew, 500) == 0):
                 print inew, time.time()-start
                 
-            self.compute_fsurf()
-            self.compute_rftheo()
-            self.get_misfit(wdisp=wdisp, rffactor=rffactor)
             if ( np.fmod(inew, 1501) == 1500 ):
-                # continue here, need to keep a copy of old para until a good model is found
                 newmod  = self.model.isomod.copy()
                 newmod.para.new_paraval(0)
                 newmod.para2mod()
@@ -248,87 +253,94 @@ class vprofile1d(object):
                     newmod.para2mod()
                     newmod.update()
                     
-                hArr, vs, vp, rho, qs, qp = newmod.get_vmodel()
-                self.hArr   = np.append(hArr, 0.)
-                self.vsArr  = np.append(vs, vs[-1])
-                self.vpArr  = np.append(vp, vp[-1])
-                self.vpvsArr= self.vpArr/self.vsArr
-                self.rhoArr = np.append(rho, rho[-1])
-                self.qsArr  = np.append(qs, qs[-1])
-                self.qpArr  = np.append(qp, qp[-1])
-                self.qsinv  = 1./self.qsArr
+                # assign new model to old ones
+                self.model.isomod   = newmod
+                self.get_vmodel()
                 # forward computation
                 self.compute_fsurf()
                 self.compute_rftheo()
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
-                
-                self.model.isomod   = newmod
-                # 
-                # ttmodel.compute_rf()
-                # ttmodel.compute_disp()
-                # ttmodel.compute_misfit(pp,nn)
-                # oldL = ttmodel.data.L
-                # oldmisfit = ttmodel.data.misfit
-                # para = para1
+                oldL                = self.indata.L
+                oldmisfit           = self.indata.misfit
                 iacc += 1
-                # 
-                # print para.parameter
-                # print "new para!!", oldL, oldmisfit
+                print "new para!!", self.indata.L, self.indata.misfit
             
-            # 
-            # ############################ do inversion#####################################
-            # # sample the posterior distribution ##########################################
-            # if (pp >= 0 and pp <=1):
-            #     para1 = para.new_para(1)
-            #     ttmodel = model.para2mod(para1)
-            #     ttmodel.update()
-            #     if (monoc == 1):
-            #         newL = 0.;
-            #         newmisfit = 100;
-            #         if (ttmodel.goodmodel([0,1],[]) == 0):
-            #             continue
-            #     (newL,newmisfit,ttmodel) = get_misfit(para1,model,pp,nn)
-            #     if (newL < oldL):
-            #         prob = (oldL-newL)/oldL
-            #         cvt = random.random()
-            #         # reject
-            #         if (cvt<prob):
-            #             ff.write("-1 %d %d " % (i,ii))
-            #             for j in range (para1.npara):
-            #                 ff.write("%g " % para1.parameter[j])
-            #             ff.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, ttmodel.data.rf.L, ttmodel.data.rf.misfit, ttmodel.data.disp.L,
-            #                                                 ttmodel.data.disp.misfit, time.time()-start))
-            #             ttmodel.writeb (para1, ffb,[-1,i,ii])
-            #             continue
-            #     ff.write("1 %d %d " % (i,ii))
-            #     for j in range (para1.npara):
-            #         ff.write("%g " % para1.parameter[j])
-            #     ff.write("%g %g %g %g %g %g %g\n" % (newL,newmisfit,ttmodel.data.rf.L,ttmodel.data.rf.misfit,ttmodel.data.disp.L,ttmodel.data.disp.misfit,time.time()-start));
-            #     print "accept!! ", i, ii, oldL, newL, ttmodel.data.rf.L, ttmodel.data.rf.misfit, ttmodel.data.disp.L, \
-            #         ttmodel.data.disp.misfit, time.time()-start
-            #     tname1 = tname + ".%d" % ii
-            #     ttmodel.write_model(tname1, outdir)
-            #     ttmodel.writeb (para1,ffb,[1,i,ii])
-            #     para = para1
-            #     oldL = newL
-            #     oldmisfit = newmisfit
-            #     ii = ii + 1
-            #     continue
-            # else:
-            #     if (monoc == 1):
-            #         para1 = para.new_para(1)
-            #         ttmodel = model.para2mod(para1)
-            #         ttmodel.update()
-            #         if (ttmodel.goodmodel([0,1],[]) == 0):
-            #             continue
-            #     else:
-            #         para1 = para.new_para(0)
-            #     ff.write("-2 %d 0 " % i)
-            #     for j in range (para1.npara):
-            #         ff.write("%g " % para1.parameter[j])
-            #     ff.write("\n")
-            #     para = para1
-            #     continue
+            
+            ######################### do inversion#####################################
+            # sample the posterior distribution ##########################################
+            if (wdisp >= 0 and wdisp <=1):
+                newmod  = self.model.isomod.copy()
+                newmod.para.new_paraval(1)
+                newmod.para2mod()
+                newmod.update()
+                if monoc:
+                    if not newmod.isgood(0, 1, 1, 0):
+                        continue
+                # assign new model to old ones
+                oldmod              = self.model.isomod.copy()
+                self.model.isomod   = newmod
+                self.get_vmodel()
+                # forward computation
+                self.compute_fsurf()
+                self.compute_rftheo()
+                self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+                newL                = self.indata.L
+                newmisfit           = self.indata.misfit
+                # 
+                if newL < oldL:
+                    prob    = (oldL-newL)/oldL
+                    rnumb   = random.random()
+                    # reject the model
+                    if rnumb < prob:
+                        fidout.write("-1 %d %d " % (inew,iacc))
+                        for i in xrange(newmod.para.npara):
+                            fidout.write("%g " % newmod.para.paraval[i])
+                        fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.rfr.L, self.indata.rfr.misfit,\
+                                self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start))        
+                        ### ttmodel.writeb (para1, ffb,[-1,i,ii])
+                        # return to oldmod
+                        self.model.isomod   = oldmod
+                        continue
+                # accept because oldL < newL
+                fidout.write("1 %d %d " % (inew,iacc))
+                for i in xrange(newmod.para.npara):
+                    fidout.write("%g " % newmod.para.paraval[i])
+                fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.rfr.L, self.indata.rfr.misfit,\
+                        self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start))        
+                print "accept!! ", inew, iacc, oldL, newL, self.indata.rfr.L, self.indata.rfr.misfit,\
+                                self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start
+                # write accepted model
+                outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
+                vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
+                # write corresponding data
+                outdisp = outdir+'/MC.p1.%d.disp' % iacc
+                data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                outrf   = outdir+'/MC.p1.%d.rf' % iacc
+                data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
+                
+                oldL        = newL
+                oldmisfit   = newmisfit
+                iacc        += 1
+                continue
+            else:
+                if monoc:
+                    newmod  = self.model.isomod.copy()
+                    newmod.para.new_paraval(1)
+                    newmod.para2mod()
+                    newmod.update()
+                    if not newmod.isgood(0, 1, 1, 0):
+                        continue
+                else:
+                    newmod  = self.model.isomod.copy()
+                    newmod.para.new_paraval(0)
+                fidout.write("-2 %d 0 " % inew)
+                for i in xrange(newmod.para.npara):
+                    fidout.write("%g " % newmod.para.paraval[i])
+                fidout.write("\n")
+                self.model.isomod   = newmod
+                continue
+        fidout.close()
+        
         
         
     

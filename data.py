@@ -13,17 +13,29 @@ Numba is used for speeding up of the code.
 import numpy as np
 import numba
 
-
-
 ####################################################
 # I/O functions
 ####################################################
 
 def readdisptxt(infname, indisp, dtype='ph'):
+    """
+    Read input txt file of dispersion curve
+    ==========================================================================
+    ::: input :::
+    infname     - input file name
+    indisp      - disp object to store dispersion data
+    dtype       - data type (phase/group)
+    ::: output :::
+    dispersion curve is stored in indisp
+    ==========================================================================
+    """
+    if not isinstance(indisp, disp):
+        raise ValueError('indisp should be type of disp!')
+    dtype   = dtype.lower()
     if dtype == 'ph' or dtype == 'phase':
         if indisp.isphase:
             print 'phase velocity data is already stored!'
-            return
+            return False
         inArr 		= np.loadtxt(infname, dtype=np.float32)
         indisp.pper = inArr[:,0]
         indisp.pvelo= inArr[:,1]
@@ -36,7 +48,7 @@ def readdisptxt(infname, indisp, dtype='ph'):
     elif dtype == 'gr' or dtype == 'group':
         if indisp.isgroup:
             print 'group velocity data is already stored!'
-            return
+            return False
         inArr 		= np.loadtxt(infname, dtype=np.float32)
         indisp.gper = inArr[:,0]
         indisp.gvelo= inArr[:,1]
@@ -51,10 +63,23 @@ def readdisptxt(infname, indisp, dtype='ph'):
     return True
 
 def writedisptxt(outfname, outdisp, dtype='ph'):
+    """
+    Write dispersion curve to a txt file
+    ==========================================================================
+    ::: input :::
+    outfname    - output file name
+    outdisp     - disp object storing dispersion data
+    dtype       - data type (phase/group)
+    ::: output :::
+    a txt file contains predicted and observed dispersion data
+    ==========================================================================
+    """
+    if not isinstance(outdisp, disp):
+        raise ValueError('outdisp should be type of disp!')
     if dtype == 'ph' or dtype == 'phase':
         if not outdisp.isphase:
             print 'phase velocity data is not stored!'
-            return
+            return False
         outArr  = np.append(outdisp.pper, outdisp.pvelp)
         outArr  = np.append(outArr, outdisp.pvelo)
         outArr  = np.append(outArr, outdisp.stdpvelo)
@@ -65,7 +90,7 @@ def writedisptxt(outfname, outdisp, dtype='ph'):
     elif dtype == 'gr' or dtype == 'group':
         if not outdisp.isgroup:
             print 'group velocity data is not stored!'
-            return
+            return False
         outArr  = np.append(outdisp.gper, outdisp.gvelp)
         outArr  = np.append(outArr, outdisp.gvelo)
         outArr  = np.append(outArr, outdisp.stdgvelo)
@@ -74,10 +99,22 @@ def writedisptxt(outfname, outdisp, dtype='ph'):
         np.savetxt(outfname, outArr, fmt='%g')
     else:
         raise ValueError('Unexpected dtype: '+dtype)
-    return
+    return True
     
 
 def readrftxt(infname, inrf):
+    """
+    Read input txt file of receiver function
+    ==========================================================================
+    ::: input :::
+    infname     - input file name
+    inrf        - disp object to store dispersion data
+    ::: output :::
+    receiver function data is stored in inrf
+    ==========================================================================
+    """
+    if not isinstance(inrf, rf):
+        raise ValueError('inrf should be type of rf!')
     if inrf.npts > 0:
         print 'receiver function data is already stored!'
         return False
@@ -93,78 +130,122 @@ def readrftxt(infname, inrf):
     return True
 
 def writerftxt(outfname, outrf, tf=10.):
+    """
+    Write receiver function data to a txt file
+    ==========================================================================
+    ::: input :::
+    outfname    - output file name
+    outdisp     - rf object storing dispersion data
+    tf          - end time point for trim
+    ::: output :::
+    a txt file contains predicted and observed receiver function data
+    ==========================================================================
+    """
+    if not isinstance(outrf, rf):
+        raise ValueError('outrf should be type of rf!')
     if outrf.npts == 0:
         print 'receiver function data is not stored!'
-        return 
+        return False
     nout    = int(outrf.fs*tf)+1
     nout    = min(nout, outrf.npts)
     outArr  = np.append(outrf.tp[:nout], outrf.rfp[:nout])
     outArr  = np.append(outArr, outrf.to[:nout])
     outArr  = np.append(outArr, outrf.rfo[:nout])
     outArr  = np.append(outArr, outrf.stdrfo[:nout])
-    outArr  = outArr.reshape((5, nout))
-    
-    # # outArr  = np.append(outrf.tp, outrf.rfp)
-    # # outArr  = np.append(outArr, outrf.to)
-    # # outArr  = np.append(outArr, outrf.rfo)
-    # # outArr  = np.append(outArr, outrf.stdrfo)
-    # # outArr  = outArr.reshape((5, outrf.npts))
+    outArr  = outArr.reshape((5, nout))    
     outArr  = outArr.T
     np.savetxt(outfname, outArr, fmt='%g')
-    return
-
-
-    
-
+    return True
 
 ####################################################
 # Predefine the parameters for the disp object
 ####################################################
 spec_disp = [
+        #########################
         # phase velocities
-        ('npper', numba.int32),
-        ('pper', numba.float32[:]),
+        #########################
+        ('npper',   numba.int32),
+        ('pper',    numba.float32[:]),
         # observed 
-        ('pvelo', numba.float32[:]),
-        ('stdpvelo', numba.float32[:]),
-        ('pphio', numba.float32[:]),
-        ('pampo', numba.float32[:]),
+        ('pvelo',   numba.float32[:]),
+        ('stdpvelo',numba.float32[:]),
+        ('pphio',   numba.float32[:]),
+        ('pampo',   numba.float32[:]),
         # predicted
-        ('pvelp', numba.float32[:]),
-        #('stdpvelp', numba.float32[:]),
-        ('pphip', numba.float32[:]),
-        ('pampp', numba.float32[:]),
+        ('pvelp',   numba.float32[:]),
+        ('pphip',   numba.float32[:]),
+        ('pampp',   numba.float32[:]),
         # 
         ('isphase', numba.boolean),
         ('pmisfit', numba.float32),
-        ('pL', numba.float32),
+        ('pL',      numba.float32),
+        #########################
         # group velocities
-        ('ngper', numba.int32),
-        ('gper', numba.float32[:]),
+        #########################
+        ('ngper',   numba.int32),
+        ('gper',    numba.float32[:]),
         # observed
-        ('gvelo', numba.float32[:]),
-        ('stdgvelo', numba.float32[:]),
-        ('gphio', numba.float32[:]),
-        ('gampo', numba.float32[:]),
+        ('gvelo',   numba.float32[:]),
+        ('stdgvelo',numba.float32[:]),
+        # ('gphio', numba.float32[:]),
+        # ('gampo', numba.float32[:]),
         # predicted
-        ('gvelp', numba.float32[:]),
-       # ('stdgvelp', numba.float32[:]),
-        ('gphip', numba.float32[:]),
-        ('gampp', numba.float32[:]),
-        #
+        ('gvelp',   numba.float32[:]),
+        # ('gphip', numba.float32[:]),
+        # ('gampp', numba.float32[:]),
         ('isgroup', numba.boolean),
         ('gmisfit', numba.float32),
-        ('gL', numba.float32),
+        ('gL',      numba.float32),
         # total misfit/likelihood
-        ('misfit', numba.float32),
-        ('L', numba.float32),
+        ('misfit',  numba.float32),
+        ('L',       numba.float32),
         # common period for phase/group
-        ('period', numba.float32[:]),
-        ('nper', numba.int32)
+        ('period',  numba.float32[:]),
+        ('nper',    numba.int32)
         ]
 
 @numba.jitclass(spec_disp)
 class disp(object):
+    """
+    An object for handling dispersion data and computing misfit
+    ==========================================================================
+    ::: parameters :::
+    --------------------------------------------------------------------------
+    ::  phase   ::
+    :   isotropic   :
+    npper   - number of phase period
+    pper    - phase period array
+    pvelo   - observed phase velocities
+    stdpvelo- uncertainties for observed phase velocities
+    pvelp   - predicted phase velocities
+    :   anisotropic :
+    pphio   - observed phase velocity fast direction angle
+    pampo   - observed phase velocity azimuthal anisotropic amplitude
+    pphip   - predicted phase velocity fast direction angle
+    pampp   - predicted phase velocity azimuthal anisotropic amplitude
+    :   others  :
+    isphase - phase dispersion data is stored or not
+    pmisfit - phase dispersion misfit
+    pL      - phase dispersion likelihood 
+    --------------------------------------------------------------------------
+    ::  group   ::
+    ngper   - number of group period
+    gper    - group period array
+    gvelo   - observed group velocities
+    stdgvelo- uncertainties for observed group velocities
+    gvelp   - predicted group velocities
+    :   others  :
+    isgroup - group dispersion data is stored or not
+    gmisfit - group dispersion misfit
+    gL      - group dispersion likelihood
+    --------------------------------------------------------------------------
+    ::  others  ::
+    misfit  - total misfit
+    L       - total likelihood
+    period  - common period array
+    nper    - common number of periods
+    ==========================================================================
+    """
     def __init__(self):
         self.npper  = 0
         self.ngper  = 0
@@ -174,34 +255,45 @@ class disp(object):
         return
     
     def get_pmisfit(self):
+        """
+        Compute the misfit for phase velocities
+        """
+        if not self.isphase:
+            print 'No phase velocity data stored'
+            return False
         temp    = 0.
         for i in xrange(self.npper):
             temp+= (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
-            
         misfit  = np.sqrt(temp/self.npper)
         if temp > 50.:
             temp= np.sqrt(temp*50.)
         L       = np.exp(-0.5 * temp)
-        
         self.pmisfit    = misfit
         self.pL         = L
-        return
+        return True
     
     def get_gmisfit(self):
+        """
+        Compute the misfit for group velocities
+        """
+        if not self.isgroup:
+            print 'No group velocity data stored'
+            return False
         temp    = 0.
         for i in xrange(self.npper):
             temp+= (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
-            
         misfit  = np.sqrt(temp/self.ngper)
         if temp > 50.:
             temp= np.sqrt(temp*50.)
         L       = np.exp(-0.5 * temp)
-        
         self.gmisfit    = misfit
         self.gL         = L
-        return
+        return True
     
     def get_misfit(self):
+        """
+        Compute combined misfit
+        """
         temp1   = 0.; temp2 = 0.
         # misfit for phase velocities
         if self.isphase:
@@ -212,14 +304,12 @@ class disp(object):
             if tS > 50.:
                 tS      = np.sqrt(tS*50.)
             L           = np.exp(-0.5 * tS)
-            
             self.pmisfit    = misfit
             self.pL         = L
         # misfit for group velocities
         if self.isgroup:
             for i in xrange(self.ngper):
                 temp2   += (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
-                
             tS          = temp2
             misfit      = np.sqrt(temp2/self.ngper)
             if tS > 50.:
@@ -228,9 +318,10 @@ class disp(object):
             self.gmisfit    = misfit
             self.gL         = L
         if (not self.isphase) and (not self.isgroup):
+            print 'No dispersion data stored!'
             self.misfit = 0.
             self.L      = 1.
-            return
+            return False
         # misfit for both
         temp    = temp1 + temp2
         self.misfit     = np.sqrt(temp/(self.npper+self.ngper))
@@ -239,8 +330,7 @@ class disp(object):
         if temp > 50.:
             temp = np.sqrt(temp*50.)
         self.L          = np.exp(-0.5 * temp)
-        return
-
+        return True
     
 ####################################################
 # Predefine the parameters for the rf object
@@ -263,56 +353,82 @@ spec_rf = [
 
 @numba.jitclass(spec_rf)
 class rf(object):
+    """
+    An object for handling receiver function data and computing misfit
+    ==========================================================================
+    ::: parameters :::
+    fs      - sampling rate
+    npts    - number of data points
+    rfo     - observed receiver function array
+    to      - time array of observed receiver function
+    stdrfo  - uncerntainties in observed receiver function
+    rfp     - predicted receiver function array
+    tp      - time array of predicted receiver function
+    misfit  - misfit value
+    L       - likelihood value
+    ==========================================================================
+    """
     def __init__(self):
         self.npts   = 0
         self.fs     = 0.
         return
     
     def get_misfit_incompatible(self, rffactor):
+        """
+        compute misfit when the time array of predicted and observed data is incompatible, quite slow!
+        ==============================================================================
+        ::: input :::
+        rffactor    - factor for downweighting the misfit for likelihood computation
+        ==============================================================================
+        """
+        if self.npts == 0:
+            self.misfit = 0.
+            self.L      = 1.
+            return False
         temp    = 0.
         k       = 0
-        factor  = 40.
         for i in xrange(self.npts):
             for j in xrange(self.tp.size):
                 if self.to[i] == self.tp[j] and self.to[i] <= 10 and self.to[i] >= 0 :
                     temp    += ( (self.rfo[i] - self.rfp[j])**2 / (self.stdrfo[i]**2) )
-                    k = k+1
+                    k       += 1
                     break
         self.misfit = np.sqrt(temp/k)
-        tS      = temp/rffactor
+        tS          = temp/rffactor
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
-        return
+        return True
     
     def get_misfit(self, rffactor):
+        """
+        Compute misfit for receiver function
+        ==============================================================================
+        ::: input :::
+        rffactor    - factor for downweighting the misfit for likelihood computation
+        ==============================================================================
+        """
         temp    = 0.
         k       = 0
         if self.npts == 0:
             self.misfit = 0.
             self.L      = 1.
-            return
+            return False
         for i in xrange(self.npts):
             if self.to[i] != self.tp[i]:
-                # # # raise ValueError('Incompatible time arrays!')
                 print ('Incompatible time arrays!')
-                self.get_misfit_incompatible(rffactor)
-                return
+                return self.get_misfit_incompatible(rffactor)
             if self.to[i] >= 0:
                 temp    += ( (self.rfo[i] - self.rfp[i])**2 / (self.stdrfo[i]**2) )
                 k       += 1
             if self.to[i] > 10:
                 break
         self.misfit = np.sqrt(temp/k)
-        tS      = temp/rffactor
+        tS          = temp/rffactor
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
-        return
-
-        
-    
-
+        return True
     
 # define type of disp object
 disp_type   = numba.deferred_type()
@@ -338,6 +454,18 @@ spec_data=[# Rayleigh/Love dispersion data
 
 @numba.jitclass(spec_data)
 class data1d(object):
+    """
+    An object for handling input data for inversion
+    ==========================================================================
+    ::: parameters :::
+    dispR   - Rayleigh wave dispersion data
+    dispL   - Love wave dispersion data
+    rfr     - radial receiver function data
+    rft     - transverse receiver function data
+    misfit  - misfit value
+    L       - likelihood value
+    ==========================================================================
+    """
     def __init__(self):
         self.dispR  = disp()
         self.dispL  = disp()
@@ -346,18 +474,17 @@ class data1d(object):
         return
     
     def get_misfit(self, wdisp, rffactor):
+        """
+        Compute combined misfit
+        ==============================================================================
+        ::: input :::
+        wdisp       - relative weigh for dispersion data ( 0.~1. )
+        rffactor    - factor for downweighting the misfit for likelihood computation
+        ==============================================================================
+        """
         self.dispR.get_misfit()
         self.rfr.get_misfit(rffactor)
-        
+        # compute combined misfit and likelihood
         self.misfit = wdisp*self.dispR.misfit + (1.-wdisp)*self.rfr.misfit
-        self.L      = ((self.dispR.L)**wdisp)*((self.rfr.L)**(1-wdisp))
+        self.L      = ((self.dispR.L)**wdisp)*((self.rfr.L)**(1.-wdisp))
         return
-        
-        
-    
-    
-    
-    
-    
-    
-    

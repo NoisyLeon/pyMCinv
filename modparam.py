@@ -20,7 +20,7 @@ import random
 ####################################################
 def readmodtxt(infname, inmod):
     """
-    Read mod groups
+    Read model parameterization from a txt file
     column 1: id
     column 2: flag  - layer(1)/B-splines(2/3)/gradient layer(4)/water(5)
     column 3: thickness
@@ -28,11 +28,18 @@ def readmodtxt(infname, inmod):
     column 5 - (4+tnp): value
     column 4+tnp - 4+2*tnp: ratio
     column -1: vpvs ratio
+    ==========================================================================
+    ::: input :::
+    infname - input file name
+    inmod   - isomod object to store model parameterization
+    ==========================================================================
     """
+    if not isinstance(inmod, isomod):
+        raise ValueError('inmod should be type of isomod!')
     nmod   = 0
     for l1 in open(infname,"r"):
         nmod    += 1
-    print "Number of model spline groups: %d " % nmod
+    print "Number of model parameter groups: %d " % nmod
     inmod.init_arr(nmod)
     
     for l1 in open(infname,"r"):
@@ -47,23 +54,23 @@ def readmodtxt(infname, inmod):
         inmod.numbp[iid] 	= tnp 
         if (int(l2[1]) == 5):  # water layer			
             if (tnp != 1):
-                print " water layer! only 1 values for Vp"
+                print " Water layer! Only one value for Vp"
                 return False
         if (int(l2[1]) == 4):
             if (tnp != 2):
-                print "only 2 values ok for gradient!!! and 1 value for vpvs"
+                print "Error: only two values needed for gradient type, and one value for vpvs"
                 print tnp
                 return False
         if ( (int(l2[1])==1 and len(l2) != 4+2*tnp + 1) or (int(l2[1]) == 2 and len(l2) != 4+tnp + 1) ): # tnp parameters (+ tnp ratio for layered model) + 1 vpvs parameter
             print "wrong input !!!"
             return False
-        cvel     = []
-        ratio   = []
-        nr      = 0
+        cvel        = []
+        ratio       = []
+        nr          = 0
         for i in xrange(tnp):
             cvel.append(float(l2[4+i]))
             if (int(l2[1]) ==1):  # type 1 layer
-                nr += 1
+                nr  += 1
                 ratio.append(float(l2[4+tnp+i]))
         inmod.vpvs[iid]         = (float(l2[-1]))-0.
         cvel                    = np.array(cvel, dtype=np.float32)
