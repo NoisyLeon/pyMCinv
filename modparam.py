@@ -200,9 +200,10 @@ class para1d(object):
                         run = False
                     j   +=1
                 paralst.append(newval)
-        paraval = np.array(paralst, dtype=np.float32)
-        return paraval
-    
+        # paraval = np.array(paralst, dtype=np.float32)
+        self.paraval = np.array(paralst, dtype=np.float32)
+        # return paraval
+        return
         
     def copy(self):
         outpara         = para1d()
@@ -519,19 +520,49 @@ class isomod(object):
             else:
                 raise ValueError('Unexpected value in paraArr!')
         return
-
-    def copy(self):
-        outmod  = isomod()
+    
+    def isgood(self, m0, m1, g0, g1):
         
-        # outpara         = para1d()
-        # outpara.init_arr(self.npara)
-        # outpara.paraArr = self.paraArr.copy()
-        # outpara.numbe   = self.numbe.copy()
-        # outpara.paraval = self.paraval.copy()
-        # outpara.isspace = self.isspace
-        # outpara.space   = self.space.copy()
-        # outpara.misfit  = self.misfit
-        # outpara.L       = self.L
+        for i in xrange (self.nmod-1):
+            if self.vs[0, i+1] < self.vs[-1, i]:
+                return False
+        if m1 >= self.nmod:
+            m1  = self.nmod -1
+        if m0 < 0:
+            m0  = 0
+        if g1 >= self.nmod:
+            g1  = self.nmod -1
+        if g0 < 0:
+            g0  = 0
+        # monotonic change
+        if m0 <= m1:
+            for j in range(m0, m1+1):
+                for i in xrange(self.nlay[j]-1):
+                    if self.vs[i, j] > self.vs[i+1, j]:
+                        return False
+        # gradient check
+        if g0<=g1:
+            for j in range(g0, g1+1):
+                if self.vs[0, j] > self.vs[1, j]:
+                    return False
+        return True
+    
+    def copy(self):
+        outmod          = isomod()
+        outmod.init_arr(self.nmod)
+        outmod.numbp    = self.numbp.copy()
+        outmod.mtype    = self.mtype.copy()
+        outmod.thickness= self.thickness.copy()
+        outmod.nlay     = self.nlay.copy()
+        outmod.vpvs     = self.vpvs.copy()
+        outmod.isspl    = self.isspl.copy()
+        outmod.spl      = self.spl.copy()
+        outmod.ratio    = self.ratio.copy()
+        outmod.cvel     = self.cvel.copy()
+        outmod.vs       = self.vs.copy()
+        outmod.hArr     = self.hArr.copy()
+        outmod.t        = self.t.copy()
+        outmod.para     = self.para.copy()
         return outmod
             
                      

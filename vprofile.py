@@ -220,41 +220,60 @@ class vprofile1d(object):
         inew    = 0     # count new paras
         iacc    = 0     # count acceptance model
         start   = time.time()
-        # nparaval= 
-        # 
-        # while ( run ):
-        #     inew+= 1
-        # 
-        #     if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
-        #         run   = False
-        #         
-        #     if (np.fmod(inew,500) ==0):
-        #         print inew, time.time()-start
-        #         
-        #     if ( np.fmod(inew,1501) == 1500 ):
-        #         
-        #         # continue here, need to keep a copy of old para until a good model is found
-                # nparaval= self.model.isomod.para.new_paraval(0)
+
+        while ( run ):
+            inew+= 1
+        
+            if ( inew > 1000 or iacc > 2000 or time.time()-start > 3600.):
+                run   = False
+                
+            if (np.fmod(inew, 500) == 0):
+                print inew, time.time()-start
+                
+            self.compute_fsurf()
+            self.compute_rftheo()
+            self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+            if ( np.fmod(inew, 1501) == 1500 ):
+                # continue here, need to keep a copy of old para until a good model is found
+                newmod  = self.model.isomod.copy()
+                newmod.para.new_paraval(0)
+                newmod.para2mod()
+                newmod.update()
+                
+                igood   = 0
+                while ( not newmod.isgood(0, 1, 1, 0)):
+                    igood   += igood + 1
+                    newmod  = self.model.isomod.copy()
+                    newmod.para.new_paraval(0)
+                    newmod.para2mod()
+                    newmod.update()
+                    
+                hArr, vs, vp, rho, qs, qp = newmod.get_vmodel()
+                self.hArr   = np.append(hArr, 0.)
+                self.vsArr  = np.append(vs, vs[-1])
+                self.vpArr  = np.append(vp, vp[-1])
+                self.vpvsArr= self.vpArr/self.vsArr
+                self.rhoArr = np.append(rho, rho[-1])
+                self.qsArr  = np.append(qs, qs[-1])
+                self.qpArr  = np.append(qp, qp[-1])
+                self.qsinv  = 1./self.qsArr
+                # forward computation
+                self.compute_fsurf()
+                self.compute_rftheo()
+                self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+                
+                self.model.isomod   = newmod
                 # 
+                # ttmodel.compute_rf()
+                # ttmodel.compute_disp()
+                # ttmodel.compute_misfit(pp,nn)
+                # oldL = ttmodel.data.L
+                # oldmisfit = ttmodel.data.misfit
+                # para = para1
+                iacc += 1
                 # 
-                # para1   = para.new_para(0)
-        #         ttmodel = model.para2mod(para1)
-        #         ttmodel.update()
-        #         iii     = 0
-        #         while (ttmodel.goodmodel([0,1],[]) == 0):
-        #             iii = iii + 1
-        #             para1 = para.new_para(0)
-        #             ttmodel = model.para2mod(para1)
-        #             ttmodel.update()
-        #         ttmodel.compute_rf()
-        #         ttmodel.compute_disp()
-        #         ttmodel.compute_misfit(pp,nn)
-        #         oldL = ttmodel.data.L
-        #         oldmisfit = ttmodel.data.misfit
-        #         para = para1
-        #         ii = ii + 1
-        #         print para.parameter
-        #         print "new para!!", oldL, oldmisfit
+                # print para.parameter
+                # print "new para!!", oldL, oldmisfit
             
             # 
             # ############################ do inversion#####################################
