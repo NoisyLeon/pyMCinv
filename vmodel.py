@@ -2809,6 +2809,9 @@ class model1d(object):
     # functions for inversion
     #######################################################################
     def get_iso_vmodel(self):
+        """
+        get the isotropic model from isomod
+        """
         hArr, vs, vp, rho, qs, qp = self.isomod.get_vmodel()
         zArr            = hArr.cumsum()
         N               = zArr.size

@@ -80,23 +80,29 @@ def readmodtxt(infname, inmod):
     return True
 
 def readparatxt(infname, inpara):
+    """
+    read txt perturbation parameter file
+    ==========================================================================
+    ::: input :::
+    infname - input file name
+    inpara  - para object
+    ==========================================================================
+    """
     npara   = 0
     for l1 in open(infname,"r"):
         npara   += 1
-    print "Number of model parameter groups: %d " % npara
+    print "Number of parameters for perturbation: %d " % npara
     inpara.init_arr(npara)
     i   = 0
     with open(infname, 'r') as fid:
         for line in fid.readlines():
-            temp                    = np.array(line.split(), dtype=np.float32)
-            ne                      = temp.size
-            inpara.numbe[i]         = ne
-            inpara.paraArr[:ne, i]  = temp
-            i                       += 1
-    print "read para over!"
+            temp                        = np.array(line.split(), dtype=np.float32)
+            ne                          = temp.size
+            # # # inpara.numbind[i]           = ne
+            inpara.paraindex[:ne, i]    = temp
+            i                           += 1
+    # print "read para over!"
     return
-    
-    
     
 ####################################################
 # auxiliary functions
@@ -155,32 +161,63 @@ def bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts):
 ####################################################
 spec_para1d = [
         ('npara',       numba.int32),
-        ('maxnelement', numba.int32),
-        ('paraArr',     numba.float32[:,:]),
-        ('numbe',       numba.int32[:]),
+        ('maxind',      numba.int32),
+        ('paraindex',   numba.float32[:,:]),
+        # # # ('numbind',     numba.int32[:]),
         ('paraval',     numba.float32[:]),
-        
         ('isspace',     numba.boolean),
         ('space',       numba.float32[:,:]),
         # total misfit/likelihood
-        ('misfit',  numba.float32),
-        ('L',       numba.float32)
+        ('misfit',      numba.float32),
+        ('L',           numba.float32)
         ]
 @numba.jitclass(spec_para1d)
 class para1d(object):
+    """
+    An object for handling parameter perturbations
+    =====================================================================================================================
+    ::: parameters :::
+    :   values  :
+    npara       - number of parameters for perturbations
+    misfit      - misfit
+    L           - likelihood
+    maxind      - maximum number of index for each parameters
+    isspace     - if space array is computed or not
+    :   arrays  :
+    numbind     - number of index for each parameters (currently deprecated, may be reused later...)
+    paraval     - parameter array for perturbation
+    paraindex   - index array indicating numerical setup for each parameter
+                    paraindex[0, :] - type of parameters
+                                        0   - velocity coefficient for splines
+                                        1   - thickness
+                                        -1  - vp/vs ratio
+                                        others to be added for tilted TI model
+                    paraindex[1, :] - index for type of amplitude for parameter perturbation
+                                        1   - absolute
+                                        else- relative
+                    paraindex[2, :] - amplitude for parameter perturbation (absolute/relative)
+                    paraindex[3, :] - step for parameter space 
+                    paraindex[4, :] - index for the parameter in the model group   
+                    paraindex[5, :] - index for spline basis/grid point, ONLY works when paraindex[0, :] == 0
+    space       - space array for defining perturbation range
+                    space[0, :]     - min value
+                    space[1, :]     - max value
+                    space[2, :]     - step, used as sigma in Gaussian random generator
+    =====================================================================================================================
+    """
     def __init__(self):
         self.npara          = 0
         self.misfit         = -1.
         self.L              = 1.
-        self.maxnelement    = 10
+        self.maxind         = 6
         self.isspace        = False
         return
     
     def init_arr(self, npara):
         self.npara          = npara
-        self.numbe          = np.zeros(np.int64(self.npara), dtype=np.int32)
+        # # # self.numbind        = np.zeros(np.int64(self.npara), dtype=np.int32)
         self.paraval        = np.zeros(np.int64(self.npara), dtype=np.float32)
-        self.paraArr        = np.zeros((np.int64(self.maxnelement), np.int64(self.npara)), dtype = np.float32)
+        self.paraindex      = np.zeros((np.int64(self.maxind), np.int64(self.npara)), dtype = np.float32)
         self.space          = np.zeros((3, np.int64(self.npara)), dtype = np.float32)
         return
     
@@ -188,7 +225,13 @@ class para1d(object):
     
     def new_paraval(self, ptype):
         """
+        peturb parameters in paraval array
+        ===============================================================================
+        ::: input :::
         ptype   - perturbation type
+                    0   - uniform random value generated from parameter space
+                    1   - Gauss random number generator given mu = oldval, sigma=step
+        ===============================================================================
         """
         paralst = []
         if ptype == 0:
@@ -207,25 +250,23 @@ class para1d(object):
                         run = False
                     j   +=1
                 paralst.append(newval)
-        # paraval = np.array(paralst, dtype=np.float32)
         self.paraval = np.array(paralst, dtype=np.float32)
-        # return paraval
         return
         
     def copy(self):
-        outpara         = para1d()
+        """
+        return a copy of the object
+        """
+        outpara             = para1d()
         outpara.init_arr(self.npara)
-        outpara.paraArr = self.paraArr.copy()
-        outpara.numbe   = self.numbe.copy()
-        outpara.paraval = self.paraval.copy()
-        outpara.isspace = self.isspace
-        outpara.space   = self.space.copy()
-        outpara.misfit  = self.misfit
-        outpara.L       = self.L
+        outpara.paraindex   = self.paraindex.copy()
+        outpara.numbind     = self.numbind.copy()
+        outpara.paraval     = self.paraval.copy()
+        outpara.isspace     = self.isspace
+        outpara.space       = self.space.copy()
+        outpara.misfit      = self.misfit
+        outpara.L           = self.L
         return outpara
-
-    
-    
 
 # define type of disp object
 para1d_type   = numba.deferred_type()
@@ -256,8 +297,6 @@ spec_isomod = [
         ('para',        para1d_type)
         ]
 
-
-
 @numba.jitclass(spec_isomod)
 class isomod(object):
     """
@@ -269,16 +308,17 @@ class isomod(object):
     maxlay      - maximum layers for each group (default - 100)
     maxspl      - maximum spline coefficients for each group (default - 20)
     :   1D arrays   :
-    numbp       - number of control points/basis (1D int array of nmod)
-    mtype       - model parameterization types (1D int array of nmod)
-                    1   - layer
-                    2   - B-splines
-                    4   - gradient layer
-                    5   - water
-    thickness   - thickness of each group (1D float array of nmod)
-    nlay        - number of layres in each group (1D int array of nmod)
-    vpvs        - vp/vs ratio in each group (1D float array of nmod)
-    isspl       - flag array indicating the existence of basis B spline (1D int array of nmod)
+    numbp       - number of control points/basis (1D int array with length nmod)
+    mtype       - model parameterization types (1D int array with length nmod)
+                    1   - layer         - nlay  = numbp, hArr = ratio*thickness, vs = cvel
+                    2   - B-splines     - hArr  = thickness/nlay, vs    = (cvel*spl)_sum over numbp
+                    4   - gradient layer- nlay is defined depends on thickness
+                                            hArr  = thickness/nlay, vs  = from cvel[0, i] to cvel[1, i]
+                    5   - water         - nlay  = 1, vs = 0., hArr = thickness
+    thickness   - thickness of each group (1D float array with length nmod)
+    nlay        - number of layres in each group (1D int array with length nmod)
+    vpvs        - vp/vs ratio in each group (1D float array with length nmod)
+    isspl       - flag array indicating the existence of basis B spline (1D int array with length nmod)
                     0 - spline basis has NOT been computed
                     1 - spline basis has been computed
     :   multi-dim arrays    :
@@ -287,13 +327,15 @@ class isomod(object):
                     ONLY used for mtype == 2
     ratio       - array for the ratio of each layer (2D array - [:self.nlay[i], i]; i indicating group id)
                     ONLY used for mtype == 1
-    cvel        - velocity coefficients (2D array - [:self.numb[i], i]; i indicating group id)
+    cvel        - velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
                     layer mod   - input velocities for each layer
                     spline mod  - coefficients for B spline
                     gradient mod- top/bottom layer velocity
     :   model arrays        :
     vs          - vs velocity arrays (2D array - [:self.nlay[i], i]; i indicating group id)
     hArr        - layer arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    :   para1d  :
+    para        - object storing parameters for perturbation
     =====================================================================================================================
     """
     
@@ -306,22 +348,26 @@ class isomod(object):
         return
     
     def init_arr(self, nmod):
+        """
+        initialization of arrays
+        """
         self.nmod       = nmod
+        # arrays of size nmod
         self.numbp      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         self.mtype      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         self.thickness  = np.zeros(np.int64(self.nmod), dtype=np.float32)
         self.nlay       = np.ones(np.int64(self.nmod), dtype=np.int32)*np.int32(20) 
         self.vpvs       = np.ones(np.int64(self.nmod), dtype=np.float32)*np.float32(1.75)
         self.isspl      = np.zeros(np.int64(self.nmod), dtype=np.int32)
-        
-        self.spl        = np.zeros((np.int64(self.maxspl), np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        # arrays of size maxspl, nmod
         self.cvel       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
         self.t          = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        
+        # arrays of size maxlay, nmod
         self.ratio      = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
         self.vs         = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
         self.hArr       = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        
+        # arrays of size maxspl, maxlay, nmod
+        self.spl        = np.zeros((np.int64(self.maxspl), np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
         return
     
     def bspline(self, i):
@@ -374,13 +420,15 @@ class isomod(object):
 
     
     def update(self):
+        """
+        Update model (vs and hArr arrays)
+        """
         for i in xrange(self.nmod):
             if self.nlay[i] > self.maxlay:
-                raise ValueError('number of layers is too large, change default maxlay!')
+                raise ValueError('number of layers is too large, need change default maxlay!')
             # layered model
             if self.mtype[i] == 1:
                 self.nlay[i]    = self.numbp[i]
-                
                 self.hArr[:, i] = self.ratio[:, i] * self.thickness[i]
                 self.vs[:, i]   = self.cvel[:, i]
             # B spline model
@@ -391,7 +439,6 @@ class isomod(object):
                     tvalue 	= 0.
                     for ibs in xrange(self.numbp[i]):
                         tvalue = tvalue + self.spl[ibs, ilay, i] * self.cvel[ibs, i]
-                        
                     self.vs[ilay, i]    = tvalue
                     self.hArr[ilay, i]  = self.thickness[i]/self.nlay[i]
             # gradient layer
@@ -411,7 +458,6 @@ class isomod(object):
                 for ilay in xrange(nlay):
                     vs[ilay]= self.cvel[0, i] + dcvel*np.float32(ilay)
                 hArr 	    = np.ones(nlay, dtype=np.float32)*np.float32(dh)
-                
                 self.vs[:nlay, i]   = vs
                 self.hArr[:nlay, i] = hArr
                 self.nlay[i]        = nlay
@@ -424,6 +470,13 @@ class isomod(object):
         return
     
     def get_vmodel(self):
+        """
+        get velocity models
+        ==========================================================================
+        ::: output :::
+        hArr, vs, vp, rho, qs, qp
+        ==========================================================================
+        """
         vs      = []
         vp      = []
         rho     = []
@@ -465,41 +518,84 @@ class isomod(object):
         hArr    = np.array(hArr, dtype=np.float32)
         return hArr, vs, vp, rho, qs, qp
     
+    def get_paraind(self):
+        """
+        get parameter index arrays for para
+        """
+        npara   = self.numbp.sum()  + self.nmod - 1
+        self.para.init_arr(npara)
+        ipara   = 0
+        for i in xrange(self.nmod):
+            for j in xrange(self.numbp[i]):
+                self.para.paraindex[0, ipara]   = 0
+                # sediment
+                if i == 0:
+                    self.para.paraindex[1, ipara]   = 1
+                    self.para.paraindex[2, ipara]   = 1.
+                else:
+                    self.para.paraindex[1, ipara]   = -1
+                    self.para.paraindex[2, ipara]   = 20.
+                self.para.paraindex[3, ipara]   = 0.05
+                self.para.paraindex[4, ipara]   = i
+                self.para.paraindex[5, ipara]   = j
+                ipara   +=1
+        if self.nmod >= 3:
+            # sediment thickness
+            self.para.paraindex[0, ipara]   = 1
+            self.para.paraindex[1, ipara]   = -1
+            self.para.paraindex[2, ipara]   = 100.
+            self.para.paraindex[3, ipara]   = 0.1
+            self.para.paraindex[4, ipara]   = 0
+            ipara   += 1
+        # crustal thickness
+        self.para.paraindex[0, ipara]   = 1
+        self.para.paraindex[1, ipara]   = -1
+        self.para.paraindex[2, ipara]   = 20.
+        self.para.paraindex[3, ipara]   = 1.
+        if self.nmod >= 3:
+            self.para.paraindex[4, ipara]   = 1.
+        else:
+            self.para.paraindex[4, ipara]   = 0.
+        return
+                
+        
     def mod2para(self):
+        """
+        convert model to parameter arrays for perturbation
+        """
         paralst     = [] 
         for i in xrange(self.para.npara):
-            ig      = int(self.para.paraArr[4, i])
-            
-            # velocity coeficient for splines
-            if self.para.paraArr[0, i] == 0:
-                ispl= int(self.para.paraArr[5, i])
-                val = self.cvel[ispl , ig]
+            ig      = int(self.para.paraindex[4, i])
+            # velocity coefficient 
+            if int(self.para.paraindex[0, i]) == 0:
+                ip  = int(self.para.paraindex[5, i])
+                val = self.cvel[ip , ig]
             # total thickness of the group
-            elif self.para.paraArr[0, i] == 1:
+            elif int(self.para.paraindex[0, i]) == 1:
                 val = self.thickness[ig]
             # vp/vs ratio
-            elif self.para.paraArr[0, i] == -1:
+            elif int(self.para.paraindex[0, i]) == -1:
                 val = self.vpvs[ig]
             else:
-                raise ValueError('Unexpected value in paraArr!')
+                raise ValueError('Unexpected value in paraindex!')
             paralst.append(val)
-            
+            #-------------------------------------------
+            # defining parameter space for perturbation
+            #-------------------------------------------
             if not self.para.isspace:
-                step    = self.para.paraArr[3, i]
-                if self.para.paraArr[1, i] == 1:
-                    valmin  = val - self.para.paraArr[2, i]
-                    valmax  = val + self.para.paraArr[2, i]
+                step    = self.para.paraindex[3, i]
+                if int(self.para.paraindex[1, i]) == 1:
+                    valmin  = val - self.para.paraindex[2, i]
+                    valmax  = val + self.para.paraindex[2, i]
                 else:
-                    valmin  = val - val*self.para.paraArr[2, i]/100.
-                    valmax  = val + val*self.para.paraArr[2, i]/100.
+                    valmin  = val - val*self.para.paraindex[2, i]/100.
+                    valmax  = val + val*self.para.paraindex[2, i]/100.
                 valmin  = max (0.,valmin)
                 valmax  = max (valmin + 0.0001, valmax)
-                
-                if (self.para.paraArr[0, i] == 0 and i == 0 and self.para.paraArr[5, i] == 0): # if it is the upper sedi:
+                if (self.para.paraindex[0, i] == 0 and i == 0 and self.para.paraindex[5, i] == 0): # if it is the upper sedi:
                     valmin  = max (0.2, valmin)
                     valmax  = max (0.5, valmax)            
                 self.para.space[:, i] = np.array([valmin, valmax, step], dtype=np.float32)
-        
         self.para.space2true()
         paraval             = np.array(paralst, dtype = np.float32)
         self.para.paraval[:]= paraval
@@ -508,28 +604,28 @@ class isomod(object):
     def para2mod(self):
         """
         Convert paratemers (for perturbation) to model parameters
-        
         """
         for i in xrange(self.para.npara):
             val = self.para.paraval[i]
-            ig  = int(self.para.paraArr[4, i])
-            
+            ig  = int(self.para.paraindex[4, i])
             # velocity coeficient for splines
-            if self.para.paraArr[0, i] == 0:
-                ispl                = int(self.para.paraArr[5, i])
-                self.cvel[ispl , ig]= val
+            if int(self.para.paraindex[0, i]) == 0:
+                ip                  = int(self.para.paraindex[5, i])
+                self.cvel[ip , ig]  = val
             # total thickness of the group
-            elif self.para.paraArr[0, i] == 1:
+            elif int(self.para.paraindex[0, i]) == 1:
                 self.thickness[ig]  = val
             # vp/vs ratio
-            elif self.para.paraArr[0, i] == -1:
+            elif int(self.para.paraindex[0, i]) == -1:
                 self.vpvs[ig]       = val
             else:
-                raise ValueError('Unexpected value in paraArr!')
+                raise ValueError('Unexpected value in paraindex!')
         return
     
     def isgood(self, m0, m1, g0, g1):
-        
+        """
+        check the model is good or not
+        """
         for i in xrange (self.nmod-1):
             if self.vs[0, i+1] < self.vs[-1, i]:
                 return False
@@ -555,6 +651,9 @@ class isomod(object):
         return True
     
     def copy(self):
+        """
+        return a copy of the object
+        """
         outmod          = isomod()
         outmod.init_arr(self.nmod)
         outmod.numbp    = self.numbp.copy()
@@ -571,6 +670,4 @@ class isomod(object):
         outmod.t        = self.t.copy()
         outmod.para     = self.para.copy()
         return outmod
-            
-                     
-                
+ 

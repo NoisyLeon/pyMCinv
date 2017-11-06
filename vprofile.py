@@ -20,14 +20,31 @@ import random
 
 
 class vprofile1d(object):
+    """
+    An object for 1D velocity profile inversion
+    =====================================================================================================================
+    ::: parameters :::
+    indata      - object storing input data
+    model       - object storing 1D model
+    =====================================================================================================================
+    """
     def __init__(self):
         self.model  = vmodel.model1d()
         self.indata = data.data1d()
         return
     
     def readdisp(self, infname, dtype='ph', wtype='ray'):
-        dtype=dtype.lower()
-        wtype=wtype.lower()
+        """
+        read dispersion curve data from a txt file
+        ===========================================================
+        ::: input :::
+        infname     - input file name
+        dtype       - data type (phase or group)
+        wtype       - wave type (Rayleigh or Love)
+        ===========================================================
+        """
+        dtype   = dtype.lower()
+        wtype   = wtype.lower()
         if wtype=='ray' or wtype=='rayleigh' or wtype=='r':
             data.readdisptxt(infname=infname, indisp=self.indata.dispR, dtype=dtype)
         elif wtype=='lov' or wtype=='love' or wtype=='l':
@@ -36,7 +53,15 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+wtype)
         return
     
-    def readrf(self, infname, dtype='R'):
+    def readrf(self, infname, dtype='r'):
+        """
+        read receiver function data from a txt file
+        ===========================================================
+        ::: input :::
+        infname     - input file name
+        dtype       - data type (radial or trnasverse)
+        ===========================================================
+        """
         dtype=dtype.lower()
         if dtype=='r' or dtype == 'radial':
             data.readrftxt(infname=infname, inrf=self.indata.rfr)
@@ -47,7 +72,15 @@ class vprofile1d(object):
         return
     
     def readmod(self, infname, mtype='iso'):
-        mtype=mtype.lower()
+        """
+        read model from a txt file
+        ===========================================================
+        ::: input :::
+        infname     - input file name
+        mtype       - model type (isotropic or tti)
+        ===========================================================
+        """
+        mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             modparam.readmodtxt(infname=infname, inmod=self.model.isomod)
         else:
@@ -55,7 +88,15 @@ class vprofile1d(object):
         return
     
     def readpara(self, infname, mtype='iso'):
-        mtype=mtype.lower()
+        """
+        read parameter index indicating model parameters for perturbation
+        =====================================================================
+        ::: input :::
+        infname     - input file name
+        mtype       - model type (isotropic or tti)
+        =====================================================================
+        """
+        mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             modparam.readparatxt(infname=infname, inpara=self.model.isomod.para)
         else:
@@ -63,7 +104,14 @@ class vprofile1d(object):
         return
     
     def update_mod(self, mtype='iso'):
-        mtype=mtype.lower()
+        """
+        update model from model parameters
+        =====================================================================
+        ::: input :::
+        mtype       - model type (isotropic or tti)
+        =====================================================================
+        """
+        mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             warnings.filterwarnings("ignore")
             self.model.isomod.update()
@@ -72,7 +120,14 @@ class vprofile1d(object):
         return
     
     def get_vmodel(self, mtype='iso'):
-        mtype=mtype.lower()
+        """
+        get the velocity model arrays
+        =====================================================================
+        ::: input :::
+        mtype       - model type (isotropic or tti)
+        =====================================================================
+        """
+        mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             hArr, vs, vp, rho, qs, qp = self.model.get_iso_vmodel()
             self.hArr   = np.append(hArr, 0.)
@@ -88,12 +143,20 @@ class vprofile1d(object):
         return
     
     def get_period(self, dtype='ph'):
-        
+        """
+        get the period for surface wave inversion
+        =====================================================================
+        ::: input :::
+        dtype       - data type (phase or group)
+        =====================================================================
+        """
+        dtype   = dtype.lower()
+        # Rayleigh wave
         TR                          = np.array(list(set.union(set(self.indata.dispR.pper), set(self.indata.dispR.gper))), dtype=np.float32)
         TR                          = np.sort(TR)
         self.indata.dispR.period    = TR
         self.indata.dispR.nper      = TR.size
-        
+        # Love wave
         TL                          = np.array(list(set.union(set(self.indata.dispL.pper), set(self.indata.dispL.gper))), dtype=np.float32)
         TL                          = np.sort(TL)
         self.indata.dispL.period    = TL
@@ -123,11 +186,21 @@ class vprofile1d(object):
         return
     
     def get_rf_param(self):
+        """
+        get fs and npts for receiver function
+        """
         self.fs     = max(self.indata.rfr.fs, self.indata.rft.fs)
         self.npts   = max(self.indata.rfr.npts, self.indata.rft.npts)
         return
     
     def compute_fsurf(self, wtype='ray'):
+        """
+        compute surface wave dispersion of isotropic model using fast_surf
+        =====================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        =====================================================================
+        """
         wtype   = wtype.lower()
         if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
             ilvry               = 2
@@ -151,7 +224,16 @@ class vprofile1d(object):
         return
     
     def compute_rftheo(self, dtype='r', slowness = 0.06, din=None):
-        dtype=dtype.lower()
+        """
+        compute receiver function of isotropic model using theo
+        ===========================================================================================
+        ::: input :::
+        dtype   - data type (radial or trnasverse)
+        slowness- reference horizontal slowness (default - 0.06 s/km, 1./0.06=16.6667)
+        din     - incident angle in degree (default - None, din will be computed from slowness)
+        ===========================================================================================
+        """
+        dtype   = dtype.lower()
         if dtype=='r' or dtype == 'radial':
             # initialize input model arrays
             hin         = np.zeros(100, dtype=np.float32)
@@ -188,6 +270,14 @@ class vprofile1d(object):
         return
     
     def get_misfit(self, wdisp=1., rffactor=40.):
+        """
+        compute data misfit
+        =====================================================================
+        ::: input :::
+        wdisp       - weight for dispersion curves (0.~1., default - 1.)
+        rffactor    - downweighting factor for receiver function
+        =====================================================================
+        """
         self.indata.get_misfit(wdisp, rffactor)
         return
         

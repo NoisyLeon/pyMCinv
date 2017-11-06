@@ -476,11 +476,11 @@ class data1d(object):
     def get_misfit(self, wdisp, rffactor):
         """
         Compute combined misfit
-        ==============================================================================
+        ==========================================================================================
         ::: input :::
         wdisp       - relative weigh for dispersion data ( 0.~1. )
-        rffactor    - factor for downweighting the misfit for likelihood computation
-        ==============================================================================
+        rffactor    - factor for downweighting the misfit for likelihood computation of rf
+        ==========================================================================================
         """
         self.dispR.get_misfit()
         self.rfr.get_misfit(rffactor)
