@@ -250,7 +250,7 @@ class para1d(object):
                         run = False
                     j   +=1
                 paralst.append(newval)
-        self.paraval = np.array(paralst, dtype=np.float32)
+        self.paraval    = np.array(paralst, dtype=np.float32)
         return
         
     def copy(self):
@@ -260,7 +260,7 @@ class para1d(object):
         outpara             = para1d()
         outpara.init_arr(self.npara)
         outpara.paraindex   = self.paraindex.copy()
-        outpara.numbind     = self.numbind.copy()
+        # # # outpara.numbind     = self.numbind.copy()
         outpara.paraval     = self.paraval.copy()
         outpara.isspace     = self.isspace
         outpara.space       = self.space.copy()
@@ -418,7 +418,6 @@ class isomod(object):
         self.t[:m+1,i]          = t
         return 
 
-    
     def update(self):
         """
         Update model (vs and hArr arrays)
@@ -433,8 +432,10 @@ class isomod(object):
                 self.vs[:, i]   = self.cvel[:, i]
             # B spline model
             elif self.mtype[i] == 2:
-                if self.isspl[i] != 1:
-                    self.bspline(i)
+                self.isspl[i]   = 0
+                self.bspline(i)
+                # # if self.isspl[i] != 1:
+                # #     self.bspline(i)
                 for ilay in xrange(self.nlay[i]):
                     tvalue 	= 0.
                     for ibs in xrange(self.numbp[i]):
@@ -521,6 +522,12 @@ class isomod(object):
     def get_paraind(self):
         """
         get parameter index arrays for para
+        Table 1 and 2 in Shen et al. 2012
+        
+        references:
+        Shen, W., Ritzwoller, M.H., Schulte-Pelkum, V. and Lin, F.C., 2012.
+            Joint inversion of surface wave dispersion and receiver functions: a Bayesian Monte-Carlo approach.
+                Geophysical Journal International, 192(2), pp.807-836.
         """
         npara   = self.numbp.sum()  + self.nmod - 1
         self.para.init_arr(npara)
@@ -528,13 +535,15 @@ class isomod(object):
         for i in xrange(self.nmod):
             for j in xrange(self.numbp[i]):
                 self.para.paraindex[0, ipara]   = 0
-                # sediment
                 if i == 0:
+                    # sediment, cvel space is +- 1 km/s, different from Shen et al. 2012
                     self.para.paraindex[1, ipara]   = 1
                     self.para.paraindex[2, ipara]   = 1.
                 else:
+                    # +- 20 %
                     self.para.paraindex[1, ipara]   = -1
                     self.para.paraindex[2, ipara]   = 20.
+                # 0.05 km/s 
                 self.para.paraindex[3, ipara]   = 0.05
                 self.para.paraindex[4, ipara]   = i
                 self.para.paraindex[5, ipara]   = j
@@ -583,7 +592,6 @@ class isomod(object):
             # defining parameter space for perturbation
             #-------------------------------------------
             if not self.para.isspace:
-                print 'new space'
                 step    = self.para.paraindex[3, i]
                 if int(self.para.paraindex[1, i]) == 1:
                     valmin  = val - self.para.paraindex[2, i]
@@ -627,6 +635,7 @@ class isomod(object):
         """
         check the model is good or not
         """
+        # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
         for i in xrange (self.nmod-1):
             if self.vs[0, i+1] < self.vs[-1, i]:
                 return False
@@ -639,6 +648,7 @@ class isomod(object):
         if g0 < 0:
             g0  = 0
         # monotonic change
+        # velocity constrast, contraint (3) and (4) in 4.2 of Shen et al., 2012
         if m0 <= m1:
             for j in range(m0, m1+1):
                 for i in xrange(self.nlay[j]-1):

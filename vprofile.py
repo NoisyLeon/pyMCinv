@@ -281,7 +281,7 @@ class vprofile1d(object):
         self.indata.get_misfit(wdisp, rffactor)
         return
         
-    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=1., rffactor=40., monoc=True):
+    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=.714, rffactor=40., monoc=True, pfx='MC'):
         """
         
         """
@@ -297,18 +297,18 @@ class vprofile1d(object):
         self.compute_rftheo()
         self.get_misfit(wdisp=wdisp, rffactor=rffactor)
         # write initial model
-        outmod  = outdir+'/MC.0.mod'
+        outmod  = outdir+'/'+pfx+'.mod'
         vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
         # write initial predicted data
         if dispdtype != 'both':
-            outdisp = outdir+'/MC.0.'+dispdtype+'.disp'
+            outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
             data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
         else:
-            outdisp = outdir+'/MC.0.ph.disp'
+            outdisp = outdir+'/'+pfx+'.ph.disp'
             data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
-            outdisp = outdir+'/MC.0.gr.disp'
+            outdisp = outdir+'/'+pfx+'.gr.disp'
             data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
-        outrf   = outdir+'/MC.0.rf'
+        outrf   = outdir+'/'+pfx+'.rf'
         data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
         # conver initial model to para
         self.model.isomod.mod2para()
@@ -319,29 +319,30 @@ class vprofile1d(object):
         
         run     = True     # the key that controls the sampling
         inew    = 0     # count step (or new paras)
-        iacc    = 0     # count acceptance model
+        iacc    = 1     # count acceptance model
         start   = time.time()
         # output log files
-        outtxtfname = outdir+'/MC.out'
+        outtxtfname = outdir+'/'+pfx+'.out'
         outbinfname = outdir+'/MC.bin'
         fidout      = open(outtxtfname, "w")
         # fidoutb     = open(outbinfname, "wb")
-        pfx = 'MC.'
         while ( run ):
             inew+= 1
+            print 'run step = ',inew
             if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
                 run   = False
             if (np.fmod(inew, 500) == 0):
-                print 'step =',inew, time.time()-start
+                print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
             #------------------------------------------------------------------------------------------
-            # every 1500 step, perform a random walk with uniform random value in the paramerter space
+            # every 2500 step, perform a random walk with uniform random value in the paramerter space
             #------------------------------------------------------------------------------------------
-            if ( np.fmod(inew, 1501) == 1500 ):
+            if ( np.fmod(inew, 2501) == 2500 ):
                 newmod  = self.model.isomod.copy()
                 newmod.para.new_paraval(0)
                 newmod.para2mod()
                 newmod.update()
-                
+                # loop to find the "good" model,
+                # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
                 igood   = 0
                 while ( not newmod.isgood(0, 1, 1, 0)):
                     igood   += igood + 1
@@ -359,10 +360,10 @@ class vprofile1d(object):
                 oldL                = self.indata.L
                 oldmisfit           = self.indata.misfit
                 iacc                += 1
-                print "new para!!", self.indata.L, self.indata.misfit
-            
-            
-            ######################### do inversion#####################################
+                print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
+            #-------------------------------
+            # inversion part
+            #-------------------------------
             # sample the posterior distribution ##########################################
             if (wdisp >= 0 and wdisp <=1):
                 newmod  = self.model.isomod.copy()
@@ -370,6 +371,8 @@ class vprofile1d(object):
                 newmod.para2mod()
                 newmod.update()
                 if monoc:
+                    # loop to find the "good" model,
+                    # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
                     if not newmod.isgood(0, 1, 1, 0):
                         continue
                 # assign new model to old ones
@@ -397,23 +400,31 @@ class vprofile1d(object):
                         # return to oldmod
                         self.model.isomod   = oldmod
                         continue
-                # accept because oldL < newL
+                # accept the new model
                 fidout.write("1 %d %d " % (inew,iacc))
                 for i in xrange(newmod.para.npara):
                     fidout.write("%g " % newmod.para.paraval[i])
                 fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.rfr.L, self.indata.rfr.misfit,\
                         self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start))        
-                print "accept!! ", inew, iacc, oldL, newL, self.indata.rfr.L, self.indata.rfr.misfit,\
+                print "Accept a model", inew, iacc, oldL, newL, self.indata.rfr.L, self.indata.rfr.misfit,\
                                 self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start
                 # write accepted model
                 outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
                 vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
                 # write corresponding data
-                outdisp = outdir+'/MC.p1.%d.disp' % iacc
-                data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
-                outrf   = outdir+'/MC.p1.%d.rf' % iacc
+                if dispdtype != 'both':
+                    outdisp = outdir+'/'+pfx+'.'+dispdtype+'.%d.disp' % iacc
+                    data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                else:
+                    outdisp = outdir+'/'+pfx+'.ph.%d.disp' % iacc
+                    data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
+                    outdisp = outdir+'/'+pfx+'.gr.%d.disp' % iacc
+                    data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
+                # # outdisp = outdir+'/'+pfx+'.%d.disp' % iacc
+                # # data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                outrf   = outdir+'/'+pfx+'.%d.rf' % iacc
                 data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
-                
+                # assign likelihood/misfit
                 oldL        = newL
                 oldmisfit   = newmisfit
                 iacc        += 1
@@ -436,6 +447,72 @@ class vprofile1d(object):
                 self.model.isomod   = newmod
                 continue
         fidout.close()
+        return
+    
+    #-------------------------------------------------
+    # post-processing functions
+    #-------------------------------------------------
+    def read_iso_inv(self, indir, npara=13, pfx='MC'):
+        try:
+            npara   = self.model.isomod.para.npara
+        except:
+            print 'Using npara =',npara
+        infname     = indir+'/'+pfx+'.out'
+        inArr       = np.loadtxt(infname)
+        self.isacc  = inArr[:, 0]
+        self.inew   = inArr[:, 1]
+        self.iacc   = inArr[:, 2]
+        self.paraval= np.zeros([self.isacc.size, npara])
+        for i in xrange(npara):
+            self.paraval[:, i]  = inArr[:, 3+i]
+        self.L          = inArr[:, 3+npara]
+        self.misfit     = inArr[:, 4+npara]
+        self.rfL        = inArr[:, 5+npara]
+        self.rfmisfit   = inArr[:, 6+npara]
+        self.dispL      = inArr[:, 7+npara]
+        self.dispmisfit = inArr[:, 8+npara]
+        self.npara      = npara
+        return
+    
+    def get_min_iso_mod(self):
+        ind                             = self.misfit.argmin()
+        self.model.isomod.para.paraval  = np.float32(self.paraval[ind, :])
+        self.model.isomod.para2mod()
+        self.model.isomod.update()
+        self.get_vmodel(mtype='iso')
+        return
+    
+    def get_avg_iso_mod(self, threshhold=2.0, mtype='rel'):
+        minmisfit                       = self.misfit.min()
+        if threshhold < 1.:
+            raise ValueError('Relative threshhold should be larger than 1!')
+        if tmisfit  >= 0.5:
+            tmisfit = threshhold*minmisfit
+        else:
+            tmisfit = minmisfit + 0.5
+        ind                             = (self.misfit <= tmisfit)
+        self.model.isomod.para.paraval  = np.mean(self.paraval[ind, :], axis = 0, dtype=np.float32)
+        self.model.isomod.para2mod()
+        self.model.isomod.update()
+        self.get_vmodel(mtype='iso')
+        return
+    
+    def get_avg_iso_mod_2(self, threshhold=2.0, mtype='rel'):
+        minmisfit                       = self.misfit.min()
+        if mtype == 'rel':
+            if threshhold < 1.:
+                raise ValueError('Relative threshhold should be larger than 1!')
+            tmisfit = threshhold*minmisfit
+        else:
+            tmisfit = threshhold + minmisfit
+        ind                             = (self.misfit <= tmisfit)
+        self.model.isomod.para.paraval  = np.mean(self.paraval[ind, :], axis = 0, dtype=np.float32)
+        self.model.isomod.para2mod()
+        self.model.isomod.update()
+        self.get_vmodel(mtype='iso')
+        return
+        
+        
         
         
         
