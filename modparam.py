@@ -583,6 +583,7 @@ class isomod(object):
             # defining parameter space for perturbation
             #-------------------------------------------
             if not self.para.isspace:
+                print 'new space'
                 step    = self.para.paraindex[3, i]
                 if int(self.para.paraindex[1, i]) == 1:
                     valmin  = val - self.para.paraindex[2, i]

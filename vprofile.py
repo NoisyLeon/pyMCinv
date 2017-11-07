@@ -282,7 +282,9 @@ class vprofile1d(object):
         return
         
     def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=1., rffactor=40., monoc=True):
+        """
         
+        """
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
         # initializations
@@ -290,45 +292,50 @@ class vprofile1d(object):
         self.update_mod(mtype = 'isotropic')
         self.get_rf_param()
         self.get_vmodel(mtype = 'isotropic')
-        # first run
+        # initial run
         self.compute_fsurf()
         self.compute_rftheo()
         self.get_misfit(wdisp=wdisp, rffactor=rffactor)
         # write initial model
-        outmod  = outdir+'/MC.p1.mod'
+        outmod  = outdir+'/MC.0.mod'
         vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
         # write initial predicted data
-        outdisp = outdir+'/MC.p1.p.disp'
-        data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
-        outrf   = outdir+'/MC.p1.rf'
+        if dispdtype != 'both':
+            outdisp = outdir+'/MC.0.'+dispdtype+'.disp'
+            data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+        else:
+            outdisp = outdir+'/MC.0.ph.disp'
+            data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
+            outdisp = outdir+'/MC.0.gr.disp'
+            data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
+        outrf   = outdir+'/MC.0.rf'
         data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
         # conver initial model to para
         self.model.isomod.mod2para()
         # likelihood/misfit
         oldL        = self.indata.L
         oldmisfit   = self.indata.misfit
-        print "Original misfit: ", oldL, oldmisfit
+        print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
         
         run     = True     # the key that controls the sampling
-        inew    = 0     # count new paras
+        inew    = 0     # count step (or new paras)
         iacc    = 0     # count acceptance model
         start   = time.time()
-        
         # output log files
-        outtxtfname = outdir+'/MC.p1.out'
-        outbinfname = outdir+'/MC.p1.bin'
+        outtxtfname = outdir+'/MC.out'
+        outbinfname = outdir+'/MC.bin'
         fidout      = open(outtxtfname, "w")
         # fidoutb     = open(outbinfname, "wb")
-        pfx = 'MC.p1'
+        pfx = 'MC.'
         while ( run ):
             inew+= 1
-        
             if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
                 run   = False
-                
             if (np.fmod(inew, 500) == 0):
-                print inew, time.time()-start
-                
+                print 'step =',inew, time.time()-start
+            #------------------------------------------------------------------------------------------
+            # every 1500 step, perform a random walk with uniform random value in the paramerter space
+            #------------------------------------------------------------------------------------------
             if ( np.fmod(inew, 1501) == 1500 ):
                 newmod  = self.model.isomod.copy()
                 newmod.para.new_paraval(0)
@@ -342,7 +349,6 @@ class vprofile1d(object):
                     newmod.para.new_paraval(0)
                     newmod.para2mod()
                     newmod.update()
-                    
                 # assign new model to old ones
                 self.model.isomod   = newmod
                 self.get_vmodel()
@@ -352,7 +358,7 @@ class vprofile1d(object):
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 oldL                = self.indata.L
                 oldmisfit           = self.indata.misfit
-                iacc += 1
+                iacc                += 1
                 print "new para!!", self.indata.L, self.indata.misfit
             
             
