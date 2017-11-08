@@ -273,7 +273,7 @@ para1d_type   = numba.deferred_type()
 para1d_type.define(para1d.class_type.instance_type)
 
 ####################################################
-# Predefine the parameters for the isospl object
+# Predefine the parameters for the isomod object
 ####################################################
 spec_isomod = [
         ('nmod',        numba.int32),
@@ -362,6 +362,438 @@ class isomod(object):
         # arrays of size maxspl, nmod
         self.cvel       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
         self.t          = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        # arrays of size maxlay, nmod
+        self.ratio      = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        self.vs         = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        self.hArr       = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        # arrays of size maxspl, maxlay, nmod
+        self.spl        = np.zeros((np.int64(self.maxspl), np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        return
+    
+    def bspline(self, i):
+        """
+        Compute B-spline basis
+        The actual degree is k = degBs - 1
+        e.g. nBs = 5, degBs = 4, k = 3, cubic B spline
+        ::: output :::
+        self.spl    - (nBs+k, npts)
+                        [:nBs, :] B spline basis for nBs control points
+                        [nBs:,:] can be ignored
+        """
+        if self.thickness[i] >= 150:
+            self.nlay[i]    = 60
+        elif self.thickness[i] < 10:
+            self.nlay[i]    = 5
+        elif self.thickness[i] < 20:
+            self.nlay[i]    = 10
+        else:
+            self.nlay[i]    = 30
+            
+        if self.isspl[i] == 1:
+            print("spline basis already exists!")
+            return
+        if self.mtype[i] != 2:
+            print('Not spline parameterization!')
+            return 
+        # initialize
+        if i >= self.nmod:
+            raise ValueError('index for spline group out of range!')
+            return
+        nBs         = self.numbp[i]
+        if nBs < 4:
+            degBs   = 3
+        else:
+            degBs   = 4
+        zmin_Bs     = 0.
+        zmax_Bs     = self.thickness[i]
+        disfacBs    = 2.
+        npts        = self.nlay[i]
+        t, nbasis   = bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts)
+        m           = nBs-1+degBs
+        if m > self.maxspl:
+            raise ValueError('number of splines is too large, change default maxspl!')
+        # # # self.spl[:m, :npts, i]  = nbasis[:m, :]
+        self.spl[:nBs, :npts, i]= nbasis[:nBs, :]
+        self.isspl[i]           = 1
+        self.t[:m+1,i]          = t
+        return 
+
+    def update(self):
+        """
+        Update model (vs and hArr arrays)
+        """
+        for i in xrange(self.nmod):
+            if self.nlay[i] > self.maxlay:
+                raise ValueError('number of layers is too large, need change default maxlay!')
+            # layered model
+            if self.mtype[i] == 1:
+                self.nlay[i]    = self.numbp[i]
+                self.hArr[:, i] = self.ratio[:, i] * self.thickness[i]
+                self.vs[:, i]   = self.cvel[:, i]
+            # B spline model
+            elif self.mtype[i] == 2:
+                self.isspl[i]   = 0
+                self.bspline(i)
+                # # if self.isspl[i] != 1:
+                # #     self.bspline(i)
+                for ilay in xrange(self.nlay[i]):
+                    tvalue 	= 0.
+                    for ibs in xrange(self.numbp[i]):
+                        tvalue = tvalue + self.spl[ibs, ilay, i] * self.cvel[ibs, i]
+                    self.vs[ilay, i]    = tvalue
+                    self.hArr[ilay, i]  = self.thickness[i]/self.nlay[i]
+            # gradient layer
+            elif self.mtype[i] == 4:
+                nlay 	    = 4
+                if self.thickness[i] >= 20.:
+                    nlay    = 20
+                if self.thickness[i] > 10. and self.thickness[i] < 20.:
+                    nlay    = int(self.thickness[i]/1.)
+                if self.thickness[i] > 2. and self.thickness[i] <= 10.:
+                    nlay    = int(self.thickness[i]/0.5)
+                if self.thickness[i] < 0.5:
+                    nlay    = 2
+                dh 	        = self.thickness[i]/float(nlay)
+                dcvel 		= (self.cvel[1, i] - self.cvel[0, i])/(nlay - 1.)
+                vs          = np.zeros(np.int64(nlay), dtype=np.float32)
+                for ilay in xrange(nlay):
+                    vs[ilay]= self.cvel[0, i] + dcvel*np.float32(ilay)
+                hArr 	    = np.ones(nlay, dtype=np.float32)*np.float32(dh)
+                self.vs[:nlay, i]   = vs
+                self.hArr[:nlay, i] = hArr
+                self.nlay[i]        = nlay
+            # water layer
+            elif self.mtype[i] == 5:
+                nlay    = 1
+                self.vs[0, i]       = 0.
+                self.hArr[0, i]     = self.thickness[i]
+                self.nlay[i]        = 1
+        return
+    
+    def get_vmodel(self):
+        """
+        get velocity models
+        ==========================================================================
+        ::: output :::
+        hArr, vs, vp, rho, qs, qp
+        ==========================================================================
+        """
+        vs      = []
+        vp      = []
+        rho     = []
+        qs      = []
+        qp      = []
+        hArr    = []
+        depth   = 0.
+        for i in xrange(self.nmod):
+            for j in xrange(self.nlay[i]):
+                hArr.append(self.hArr[j, i])
+                depth += self.hArr[j, i]
+                if self.mtype[i] == 5:
+                    vs.append(0.)
+                    vp.append(self.cvel[0, i])
+                    rho.append(1.02)
+                    qs.append(10000.)
+                    qp.append(57822.)
+                elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
+                    vs.append(self.vs[j, i])
+                    vp.append(self.vs[j, i]*self.vpvs[i])
+                    rho.append(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
+                    qs.append(80.)
+                    qp.append(160.)
+                else:
+                    vs.append(self.vs[j, i])
+                    vp.append(self.vs[j, i]*self.vpvs[i])
+                    # if depth < 18.:
+                    qs.append(600.)
+                    qp.append(1400.)
+                    if (self.vs[j, i]*self.vpvs[i]) < 7.5:
+                        rho.append(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
+                    else:
+                        rho.append(3.35) # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
+        vs      = np.array(vs, dtype=np.float32)
+        vp      = np.array(vp, dtype=np.float32)
+        rho     = np.array(rho, dtype=np.float32)
+        qs      = np.array(qs, dtype=np.float32)
+        qp      = np.array(qp, dtype=np.float32)
+        hArr    = np.array(hArr, dtype=np.float32)
+        return hArr, vs, vp, rho, qs, qp
+    
+    def get_paraind(self):
+        """
+        get parameter index arrays for para
+        Table 1 and 2 in Shen et al. 2012
+        
+        references:
+        Shen, W., Ritzwoller, M.H., Schulte-Pelkum, V. and Lin, F.C., 2012.
+            Joint inversion of surface wave dispersion and receiver functions: a Bayesian Monte-Carlo approach.
+                Geophysical Journal International, 192(2), pp.807-836.
+        """
+        npara   = self.numbp.sum()  + self.nmod - 1
+        self.para.init_arr(npara)
+        ipara   = 0
+        for i in xrange(self.nmod):
+            for j in xrange(self.numbp[i]):
+                self.para.paraindex[0, ipara]   = 0
+                if i == 0:
+                    # sediment, cvel space is +- 1 km/s, different from Shen et al. 2012
+                    self.para.paraindex[1, ipara]   = 1
+                    self.para.paraindex[2, ipara]   = 1.
+                else:
+                    # +- 20 %
+                    self.para.paraindex[1, ipara]   = -1
+                    self.para.paraindex[2, ipara]   = 20.
+                # 0.05 km/s 
+                self.para.paraindex[3, ipara]   = 0.05
+                self.para.paraindex[4, ipara]   = i
+                self.para.paraindex[5, ipara]   = j
+                ipara   +=1
+        if self.nmod >= 3:
+            # sediment thickness
+            self.para.paraindex[0, ipara]   = 1
+            self.para.paraindex[1, ipara]   = -1
+            self.para.paraindex[2, ipara]   = 100.
+            self.para.paraindex[3, ipara]   = 0.1
+            self.para.paraindex[4, ipara]   = 0
+            ipara   += 1
+        # crustal thickness
+        self.para.paraindex[0, ipara]   = 1
+        self.para.paraindex[1, ipara]   = -1
+        self.para.paraindex[2, ipara]   = 20.
+        self.para.paraindex[3, ipara]   = 1.
+        if self.nmod >= 3:
+            self.para.paraindex[4, ipara]   = 1.
+        else:
+            self.para.paraindex[4, ipara]   = 0.
+        return
+                
+        
+    def mod2para(self):
+        """
+        convert model to parameter arrays for perturbation
+        """
+        paralst     = [] 
+        for i in xrange(self.para.npara):
+            ig      = int(self.para.paraindex[4, i])
+            # velocity coefficient 
+            if int(self.para.paraindex[0, i]) == 0:
+                ip  = int(self.para.paraindex[5, i])
+                val = self.cvel[ip , ig]
+            # total thickness of the group
+            elif int(self.para.paraindex[0, i]) == 1:
+                val = self.thickness[ig]
+            # vp/vs ratio
+            elif int(self.para.paraindex[0, i]) == -1:
+                val = self.vpvs[ig]
+            else:
+                raise ValueError('Unexpected value in paraindex!')
+            paralst.append(val)
+            #-------------------------------------------
+            # defining parameter space for perturbation
+            #-------------------------------------------
+            if not self.para.isspace:
+                step    = self.para.paraindex[3, i]
+                if int(self.para.paraindex[1, i]) == 1:
+                    valmin  = val - self.para.paraindex[2, i]
+                    valmax  = val + self.para.paraindex[2, i]
+                else:
+                    valmin  = val - val*self.para.paraindex[2, i]/100.
+                    valmax  = val + val*self.para.paraindex[2, i]/100.
+                valmin  = max (0.,valmin)
+                valmax  = max (valmin + 0.0001, valmax)
+                if (self.para.paraindex[0, i] == 0 and i == 0 and self.para.paraindex[5, i] == 0): # if it is the upper sedi:
+                    valmin  = max (0.2, valmin)
+                    valmax  = max (0.5, valmax)            
+                self.para.space[:, i] = np.array([valmin, valmax, step], dtype=np.float32)
+        self.para.space2true()
+        paraval             = np.array(paralst, dtype = np.float32)
+        self.para.paraval[:]= paraval
+        return
+    # 
+    def para2mod(self):
+        """
+        Convert paratemers (for perturbation) to model parameters
+        """
+        for i in xrange(self.para.npara):
+            val = self.para.paraval[i]
+            ig  = int(self.para.paraindex[4, i])
+            # velocity coeficient for splines
+            if int(self.para.paraindex[0, i]) == 0:
+                ip                  = int(self.para.paraindex[5, i])
+                self.cvel[ip , ig]  = val
+            # total thickness of the group
+            elif int(self.para.paraindex[0, i]) == 1:
+                self.thickness[ig]  = val
+            # vp/vs ratio
+            elif int(self.para.paraindex[0, i]) == -1:
+                self.vpvs[ig]       = val
+            else:
+                raise ValueError('Unexpected value in paraindex!')
+        return
+    
+    def isgood(self, m0, m1, g0, g1):
+        """
+        check the model is good or not
+        """
+        # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
+        for i in xrange (self.nmod-1):
+            if self.vs[0, i+1] < self.vs[-1, i]:
+                return False
+        if m1 >= self.nmod:
+            m1  = self.nmod -1
+        if m0 < 0:
+            m0  = 0
+        if g1 >= self.nmod:
+            g1  = self.nmod -1
+        if g0 < 0:
+            g0  = 0
+        # monotonic change
+        # velocity constrast, contraint (3) and (4) in 4.2 of Shen et al., 2012
+        if m0 <= m1:
+            for j in range(m0, m1+1):
+                for i in xrange(self.nlay[j]-1):
+                    if self.vs[i, j] > self.vs[i+1, j]:
+                        return False
+        # gradient check
+        if g0<=g1:
+            for j in range(g0, g1+1):
+                if self.vs[0, j] > self.vs[1, j]:
+                    return False
+        return True
+    
+    def copy(self):
+        """
+        return a copy of the object
+        """
+        outmod          = isomod()
+        outmod.init_arr(self.nmod)
+        outmod.numbp    = self.numbp.copy()
+        outmod.mtype    = self.mtype.copy()
+        outmod.thickness= self.thickness.copy()
+        outmod.nlay     = self.nlay.copy()
+        outmod.vpvs     = self.vpvs.copy()
+        outmod.isspl    = self.isspl.copy()
+        outmod.spl      = self.spl.copy()
+        outmod.ratio    = self.ratio.copy()
+        outmod.cvel     = self.cvel.copy()
+        outmod.vs       = self.vs.copy()
+        outmod.hArr     = self.hArr.copy()
+        outmod.t        = self.t.copy()
+        outmod.para     = self.para.copy()
+        return outmod
+    
+####################################################
+# Predefine the parameters for the ttimod object
+####################################################
+spec_ttimod = [
+        ('nmod',        numba.int32),
+        ('maxlay',      numba.int32),
+        ('maxspl',      numba.int32),
+        # number of control points
+        ('numbp',       numba.int32[:]),
+        ('mtype',       numba.int32[:]),
+        ('thickness',   numba.float32[:]),
+        ('nlay',        numba.int32[:]),
+        ('vpvs',        numba.float32[:]),
+        ('isspl',       numba.int32[:]),
+        # arrays
+        ('spl',         numba.float32[:, :, :]),
+        ('ratio',       numba.float32[:, :]),
+        # model coefficients 
+        ('cvph',        numba.float32[:, :]),
+        ('cvpv',        numba.float32[:, :]),
+        ('cvsh',        numba.float32[:, :]),
+        ('cvsv',        numba.float32[:, :]),
+        ('ceta',        numba.float32[:, :]),
+        # model arrays
+        ('vph',         numba.float32[:, :]),
+        ('vpv',         numba.float32[:, :]),
+        ('vsh',         numba.float32[:, :]),
+        ('vsv',         numba.float32[:, :]),
+        ('eta',         numba.float32[:, :]),
+        
+        ('dip',         numba.float32[:, :]),
+        ('strike',      numba.float32[:, :]),
+        ('hArr',        numba.float32[:, :]),
+        ('t',           numba.float32[:, :]),
+        # para1d object
+        ('para',        para1d_type)
+        ]
+
+@numba.jitclass(spec_ttimod)
+class ttimod(object):
+    """
+    An object for handling parameterization of 1d tilted TI model for the inversion
+    =====================================================================================================================
+    ::: parameters :::
+    :   numbers     :
+    nmod        - number of model groups
+    maxlay      - maximum layers for each group (default - 100)
+    maxspl      - maximum spline coefficients for each group (default - 20)
+    :   1D arrays   :
+    numbp       - number of control points/basis (1D int array with length nmod)
+    mtype       - model parameterization types (1D int array with length nmod)
+                    1   - layer         - nlay  = numbp, hArr = ratio*thickness, vs = cvel
+                    2   - B-splines     - hArr  = thickness/nlay, vs    = (cvel*spl)_sum over numbp
+                    4   - gradient layer- nlay is defined depends on thickness
+                                            hArr  = thickness/nlay, vs  = from cvel[0, i] to cvel[1, i]
+                    5   - water         - nlay  = 1, vs = 0., hArr = thickness
+    thickness   - thickness of each group (1D float array with length nmod)
+    nlay        - number of layres in each group (1D int array with length nmod)
+    vpvs        - vp/vs ratio in each group (1D float array with length nmod)
+    isspl       - flag array indicating the existence of basis B spline (1D int array with length nmod)
+                    0 - spline basis has NOT been computed
+                    1 - spline basis has been computed
+    :   multi-dim arrays    :
+    t           - knot vectors for B splines (2D array - [:(self.numb[i]+degBs), i]; i indicating group id)
+    spl         - B spline basis array (3D array - [:self.numb[i], :self.nlay[i], i]; i indicating group id)
+                    ONLY used for mtype == 2
+    ratio       - array for the ratio of each layer (2D array - [:self.nlay[i], i]; i indicating group id)
+                    ONLY used for mtype == 1
+    cvel        - velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+                    layer mod   - input velocities for each layer
+                    spline mod  - coefficients for B spline
+                    gradient mod- top/bottom layer velocity
+    :   model arrays        :
+    vs          - vs velocity arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    hArr        - layer arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    :   para1d  :
+    para        - object storing parameters for perturbation
+    =====================================================================================================================
+    """
+    
+    def __init__(self):
+
+        self.nmod       = 0
+        self.maxlay     = 100
+        self.maxspl     = 20
+        self.para       = para1d()
+        self.maxtilt    = 2
+        return
+    
+    def init_arr(self, nmod):
+        """
+        initialization of arrays
+        """
+        self.nmod       = nmod
+        # arrays of size nmod
+        self.numbp      = np.zeros(np.int64(self.nmod), dtype=np.int32)
+        self.mtype      = np.zeros(np.int64(self.nmod), dtype=np.int32)
+        self.thickness  = np.zeros(np.int64(self.nmod), dtype=np.float32)
+        self.nlay       = np.ones(np.int64(self.nmod), dtype=np.int32)*np.int32(20) 
+        self.vpvs       = np.ones(np.int64(self.nmod), dtype=np.float32)*np.float32(1.75)
+        self.isspl      = np.zeros(np.int64(self.nmod), dtype=np.int32)
+        # arrays of size maxspl, nmod
+        self.cvph       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        self.cvpv       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        self.cvsh       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        self.cvsv       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        self.ceta       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        self.t          = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        # 
+        self.dip       = np.zeros((np.int64(self.maxtilt), np.int64(self.nmod)), dtype = np.float32)
+        self.strike    = np.zeros((np.int64(self.maxtilt), np.int64(self.nmod)), dtype = np.float32)
+        
         # arrays of size maxlay, nmod
         self.ratio      = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
         self.vs         = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)

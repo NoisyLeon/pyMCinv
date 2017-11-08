@@ -170,7 +170,9 @@ spec_disp = [
         ('pvelo',   numba.float32[:]),
         ('stdpvelo',numba.float32[:]),
         ('pphio',   numba.float32[:]),
+        ('stdpphio',numba.float32[:]),
         ('pampo',   numba.float32[:]),
+        ('stdpampo',numba.float32[:]),
         # predicted
         ('pvelp',   numba.float32[:]),
         ('pphip',   numba.float32[:]),
@@ -337,18 +339,18 @@ class disp(object):
 ####################################################
 spec_rf = [
         # sampling frequency/npts
-        ('fs', numba.float32),
-        ('npts', numba.int32),
+        ('fs',      numba.float32),
+        ('npts',    numba.int32),
         # observed receiver function
-        ('rfo', numba.float32[:]),
-        ('to', numba.float32[:]),
-        ('stdrfo', numba.float32[:]),
+        ('rfo',     numba.float32[:]),
+        ('to',      numba.float32[:]),
+        ('stdrfo',  numba.float32[:]),
         # predicted receiver function
-        ('rfp', numba.float32[:]),
-        ('tp', numba.float32[:]),
+        ('rfp',     numba.float32[:]),
+        ('tp',      numba.float32[:]),
         # misfit/likelihood
-        ('misfit', numba.float32),
-        ('L', numba.float32)
+        ('misfit',  numba.float32),
+        ('L',       numba.float32)
         ]
 
 @numba.jitclass(spec_rf)
