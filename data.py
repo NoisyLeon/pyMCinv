@@ -100,6 +100,98 @@ def writedisptxt(outfname, outdisp, dtype='ph'):
     else:
         raise ValueError('Unexpected dtype: '+dtype)
     return True
+
+def readaziamptxt(infname, indisp, dtype='ph'):
+    """
+    Read input txt file of azimuthal amplitude
+    ==========================================================================
+    ::: input :::
+    infname     - input file name
+    indisp      - disp object to store azimuthal amplitude data
+    dtype       - data type (phase/group)
+    ::: output :::
+    azimuthal amplitude is stored in indisp
+    ==========================================================================
+    """
+    if not isinstance(indisp, disp):
+        raise ValueError('indisp should be type of disp!')
+    dtype   = dtype.lower()
+    if dtype == 'ph' or dtype == 'phase':
+        if not indisp.isphase:
+            print 'phase velocity data is not stored!'
+            return False
+        inArr 		= np.loadtxt(infname, dtype=np.float32)
+        if not np.allclose(indisp.pper , inArr[:,0]):
+            print 'inconsistent period array !'
+            return False
+        indisp.pampo= inArr[:,1]
+        indisp.npper= indisp.pper.size
+        try:
+            indisp.stdpampo= inArr[:,2]
+        except IndexError:
+            indisp.stdpampo= np.ones(indisp.npper, dtype=np.float32)
+    # # # elif dtype == 'gr' or dtype == 'group':
+    # # #     if indisp.isgroup:
+    # # #         print 'group velocity data is already stored!'
+    # # #         return False
+    # # #     inArr 		= np.loadtxt(infname, dtype=np.float32)
+    # # #     indisp.gper = inArr[:,0]
+    # # #     indisp.gvelo= inArr[:,1]
+    # # #     indisp.ngper= indisp.gper.size
+    # # #     try:
+    # # #         indisp.stdgvelo= inArr[:,2]
+    # # #     except IndexError:
+    # # #         indisp.stdgvelo= np.ones(indisp.ngper, dtype=np.float32)
+    # # #     indisp.isgroup  = True
+    else:
+        raise ValueError('Unexpected dtype: '+dtype)
+    return True
+
+def readaziphitxt(infname, indisp, dtype='ph'):
+    """
+    Read input txt file of fast direction azimuth
+    ==========================================================================
+    ::: input :::
+    infname     - input file name
+    indisp      - disp object to store fast direction azimuth data
+    dtype       - data type (phase/group)
+    ::: output :::
+    fast direction azimuth is stored in indisp
+    ==========================================================================
+    """
+    if not isinstance(indisp, disp):
+        raise ValueError('indisp should be type of disp!')
+    dtype   = dtype.lower()
+    if dtype == 'ph' or dtype == 'phase':
+        if not indisp.isphase:
+            print 'phase velocity data is not stored!'
+            return False
+        inArr 		= np.loadtxt(infname, dtype=np.float32)
+        if not np.allclose(indisp.pper , inArr[:,0]):
+            print 'inconsistent period array !'
+            return False
+        indisp.pphio= inArr[:,1]
+        indisp.npper= indisp.pper.size
+        try:
+            indisp.stdpphio= inArr[:,2]
+        except IndexError:
+            indisp.stdpphio= np.ones(indisp.npper, dtype=np.float32)
+    # # # elif dtype == 'gr' or dtype == 'group':
+    # # #     if indisp.isgroup:
+    # # #         print 'group velocity data is already stored!'
+    # # #         return False
+    # # #     inArr 		= np.loadtxt(infname, dtype=np.float32)
+    # # #     indisp.gper = inArr[:,0]
+    # # #     indisp.gvelo= inArr[:,1]
+    # # #     indisp.ngper= indisp.gper.size
+    # # #     try:
+    # # #         indisp.stdgvelo= inArr[:,2]
+    # # #     except IndexError:
+    # # #         indisp.stdgvelo= np.ones(indisp.ngper, dtype=np.float32)
+    # # #     indisp.isgroup  = True
+    else:
+        raise ValueError('Unexpected dtype: '+dtype)
+    return True
     
 
 def readrftxt(infname, inrf):

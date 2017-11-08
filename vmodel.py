@@ -500,6 +500,9 @@ def _bondmat(axis, angle):
 isomod_type = numba.deferred_type()
 isomod_type.define(modparam.isomod.class_type.instance_type)
 
+ttimod_type = numba.deferred_type()
+ttimod_type.define(modparam.ttimod.class_type.instance_type)
+
 spec = [
         # velocity parameters
         ('VsvArr', numba.float32[:]),
@@ -575,7 +578,8 @@ spec = [
         ('rmin', numba.float32),
         ('tilt', numba.boolean),
         # mod parameterization objects
-        ('isomod', isomod_type)
+        ('isomod', isomod_type),
+        ('ttimod', ttimod_type)
         ]
 
 @numba.jitclass(spec)
@@ -606,6 +610,7 @@ class model1d(object):
     def __init__(self):
         self.flat   = True
         self.isomod = modparam.isomod()
+        self.ttimod = modparam.ttimod()
         return
     
     def get_depth(self):
@@ -2860,6 +2865,61 @@ class model1d(object):
     
     def get_iso_vmodel2(self):
         return self.isomod.get_vmodel()
+    
+    def get_tti_vmodel(self):
+        """
+        get the tilted TI model from ttimod
+        """
+        hArr, vph, vpv, vsh, vsv, eta, rho, dip, strike = self.ttimod.get_vmodel()
+        zArr            = hArr.cumsum()
+        N               = zArr.size
+        self.zArr       = np.zeros(2*N, dtype=np.float32)
+        self.VsvArr     = np.zeros(2*N, dtype=np.float32)
+        self.VshArr     = np.zeros(2*N, dtype=np.float32)
+        self.VpvArr     = np.zeros(2*N, dtype=np.float32)
+        self.VphArr     = np.zeros(2*N, dtype=np.float32)
+        self.etaArr     = np.zeros(2*N, dtype=np.float32)
+        self.rhoArr     = np.zeros(2*N, dtype=np.float32)
+        self.rArr       = np.zeros(2*N, dtype=np.float32)
+        if not self.tilt:
+            self.init_dip_strike()
+        
+        for i in xrange(2*N):
+            if i == 0:
+                self.VsvArr[i]      = vsv[i]*1000.
+                self.VshArr[i]      = vsh[i]*1000.
+                self.VpvArr[i]      = vpv[i]*1000.
+                self.VphArr[i]      = vph[i]*1000.
+                self.etaArr[i]      = eta[i]
+                self.rhoArr[i]      = rho[i]*1000.
+                self.dipArr[i]      = dip[i]
+                self.strikeArr[i]   = strike[i]
+                continue
+            j   = int(i/2)
+            k   = i%2
+            self.zArr[i]        = zArr[j+k-1]
+            self.VsvArr[i]      = vsv[j]*1000.
+            self.VshArr[i]      = vsh[j]*1000.
+            self.VpvArr[i]      = vpv[j]*1000.
+            self.VphArr[i]      = vph[j]*1000.
+            self.etaArr[i]      = eta[j]
+            self.rhoArr[i]      = rho[j]*1000.
+            self.dipArr[i]      = dip[j]
+            self.strikeArr[i]   = strike[j]
+            
+        self.zArr       = self.zArr[::-1]
+        self.VsvArr     = self.VsvArr[::-1]
+        self.VshArr     = self.VshArr[::-1]
+        self.VpvArr     = self.VpvArr[::-1]
+        self.VphArr     = self.VphArr[::-1]
+        self.etaArr     = np.ones(2*N, dtype=np.float32)
+        self.qsArr      = self.qsArr[::-1]
+        self.qpArr      = self.qpArr[::-1]
+        self.rhoArr     = self.rhoArr[::-1]
+        self.rArr       = (np.float32(6371000.) - self.zArr*np.float32(1000.))
+        self.vel2love()
+        self.init_etensor()
+        return 
         
     
     

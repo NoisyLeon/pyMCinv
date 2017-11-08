@@ -53,6 +53,46 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+wtype)
         return
     
+    def readaziamp(self, infname, dtype='ph', wtype='ray'):
+        """
+        read azimuthal amplitude data from a txt file
+        ===========================================================
+        ::: input :::
+        infname     - input file name
+        dtype       - data type (phase or group)
+        wtype       - wave type (Rayleigh or Love)
+        ===========================================================
+        """
+        dtype   = dtype.lower()
+        wtype   = wtype.lower()
+        if wtype=='ray' or wtype=='rayleigh' or wtype=='r':
+            data.readaziamptxt(infname=infname, indisp=self.indata.dispR, dtype=dtype)
+        elif wtype=='lov' or wtype=='love' or wtype=='l':
+            data.readaziamptxt(infname=infname, indisp=self.indata.dispL, dtype=dtype)
+        else:
+            raise ValueError('Unexpected wave type: '+wtype)
+        return
+    
+    def readaziphi(self, infname, dtype='ph', wtype='ray'):
+        """
+        read fast direction azimuth data from a txt file
+        ===========================================================
+        ::: input :::
+        infname     - input file name
+        dtype       - data type (phase or group)
+        wtype       - wave type (Rayleigh or Love)
+        ===========================================================
+        """
+        dtype   = dtype.lower()
+        wtype   = wtype.lower()
+        if wtype=='ray' or wtype=='rayleigh' or wtype=='r':
+            data.readaziphitxt(infname=infname, indisp=self.indata.dispR, dtype=dtype)
+        elif wtype=='lov' or wtype=='love' or wtype=='l':
+            data.readaziphitxt(infname=infname, indisp=self.indata.dispL, dtype=dtype)
+        else:
+            raise ValueError('Unexpected wave type: '+wtype)
+        return
+    
     def readrf(self, infname, dtype='r'):
         """
         read receiver function data from a txt file
@@ -83,6 +123,8 @@ class vprofile1d(object):
         mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             modparam.readmodtxt(infname=infname, inmod=self.model.isomod)
+        elif mtype=='tti':
+            modparam.readtimodtxt(infname=infname, inmod=self.model.ttimod)
         else:
             raise ValueError('Unexpected wave type: '+mtype)
         return
@@ -103,6 +145,16 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+mtype)
         return
     
+    def getpara(self, mtype='iso'):
+        mtype   = mtype.lower()
+        if mtype=='iso' or mtype == 'isotropic':
+            self.model.isomod.get_paraind()
+        elif mtype=='tti':
+            self.model.ttimod.get_paraind_US()
+        else:
+            raise ValueError('Unexpected wave type: '+mtype)
+        return
+    
     def update_mod(self, mtype='iso'):
         """
         update model from model parameters
@@ -115,6 +167,8 @@ class vprofile1d(object):
         if mtype=='iso' or mtype == 'isotropic':
             warnings.filterwarnings("ignore")
             self.model.isomod.update()
+        elif mtype=='tti':
+            self.model.ttimod.update()
         else:
             raise ValueError('Unexpected wave type: '+mtype)
         return
@@ -448,6 +502,8 @@ class vprofile1d(object):
                 continue
         fidout.close()
         return
+    
+    # def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=.714, rffactor=40., monoc=True, pfx='MC'):
     
     #-------------------------------------------------
     # post-processing functions
