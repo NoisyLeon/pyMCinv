@@ -343,6 +343,8 @@ spec_disp = [
         ('stdpphio',numba.float32[:]),
         ('pampo',   numba.float32[:]),
         ('stdpampo',numba.float32[:]),
+        # reference
+        ('pvelref', numba.float32[:]),
         # predicted
         ('pvelp',   numba.float32[:]),
         ('pphip',   numba.float32[:]),
@@ -503,6 +505,9 @@ class disp(object):
             temp = np.sqrt(temp*50.)
         self.L          = np.exp(-0.5 * temp)
         return True
+    
+    # def get_misfit_tti(self):
+        
     
 ####################################################
 # Predefine the parameters for the rf object

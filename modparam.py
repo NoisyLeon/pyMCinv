@@ -1039,10 +1039,10 @@ class ttimod(object):
             
             # B spline model
             elif self.mtype[i] == 2:
-                self.isspl[i]   = 0
-                self.bspline(i)
-                # # if self.isspl[i] != 1:
-                # #     self.bspline(i)
+                # self.isspl[i]   = 0
+                # self.bspline(i)
+                if self.isspl[i] != 1:
+                    self.bspline(i)
                 for ilay in xrange(self.nlay[i]):
                     tvph    = 0.
                     tvpv    = 0.
@@ -1147,8 +1147,6 @@ class ttimod(object):
             self.rho[:self.nlay[i], i]  = 0.541 + 0.3601*self.vsv[:self.nlay[i], i]*self.vpvs[i]
             self.rho[ind, i]            = 3.35
         return
-            
-    
 
     def get_vmodel(self):
         """
@@ -1403,18 +1401,36 @@ class ttimod(object):
         Convert paratemers (for perturbation) to model parameters
         """
         for i in xrange(self.para.npara):
-            val = self.para.paraval[i]
-            ig  = int(self.para.paraindex[4, i])
-            # velocity coeficient for splines
+            val     = self.para.paraval[i]
+            ig      = int(self.para.paraindex[4, i])
+            # vph coefficient 
             if int(self.para.paraindex[0, i]) == 0:
                 ip                  = int(self.para.paraindex[5, i])
-                self.cvel[ip , ig]  = val
-            # total thickness of the group
+                self.cvph[ip , ig]  = val
+            # vpv coefficient 
             elif int(self.para.paraindex[0, i]) == 1:
-                self.thickness[ig]  = val
-            # vp/vs ratio
-            elif int(self.para.paraindex[0, i]) == -1:
-                self.vpvs[ig]       = val
+                ip                  = int(self.para.paraindex[5, i])
+                self.cvpv[ip , ig]  = val
+            # vsh coefficient 
+            elif int(self.para.paraindex[0, i]) == 2:
+                ip                  = int(self.para.paraindex[5, i])
+                self.cvsh[ip , ig]  = val
+            # vsv coefficient 
+            elif int(self.para.paraindex[0, i]) == 3:
+                ip                  = int(self.para.paraindex[5, i])
+                self.cvsv[ip , ig]  = val
+            # eta coefficient 
+            elif int(self.para.paraindex[0, i]) == 4:
+                ip                  = int(self.para.paraindex[5, i])
+                self.ceta[ip , ig]  = val
+            # dip
+            elif int(self.para.paraindex[0, i]) == 5:
+                ip                  = int(self.para.paraindex[5, i])
+                self.cdip[ip , ig]  = val
+            # strike
+            elif int(self.para.paraindex[0, i]) == 6:
+                ip                  = int(self.para.paraindex[5, i])
+                self.cstrike[ip,ig] = val
             else:
                 raise ValueError('Unexpected value in paraindex!')
         return
