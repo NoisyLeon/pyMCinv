@@ -277,6 +277,160 @@ class vprofile1d(object):
             self.indata.dispL.gvelp     = ul0[:nper]
         return
     
+    def compute_tcps(self, wtype='ray'):
+        """
+        compute surface wave dispersion of tilted TI model using tcps
+        =====================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        =====================================================================
+        """
+        wtype   = wtype.lower()
+        if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+            #- root-finding algorithm using tdisp96, compute phase velocities 
+            if self.model.tilt:
+                self.hArr        = self.model.get_dArr()
+                dArr, rhoArr, AArr, CArr, FArr, LArr, NArr, BcArr, BsArr, GcArr, GsArr, HcArr, HsArr, CcArr, CsArr =\
+                            self.model.get_layer_tilt_model(self.hArr, 200, 1.)
+                self.tilt   = True
+                self.egn96  = True
+                self.BcArr  = BcArr
+                self.BsArr  = BsArr
+                self.GcArr  = GcArr
+                self.GsArr  = GsArr
+                self.HcArr  = HcArr
+                self.HsArr  = HsArr
+                self.CcArr  = CcArr
+                self.CsArr  = CsArr
+            else:
+                dArr, rhoArr, AArr, CArr, FArr, LArr, NArr = self.model.get_layer_model(self.dArr, 200, 1.)
+            nfval   = self.freq.size
+            if not self.model.flat:
+                iflsph_in = 1
+            else:
+                iflsph_in = 0
+            ilvry   = 2
+            # solve for phase velocity
+            c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, self.verbose, nfval, \
+                    np.append(self.freq, np.zeros(2049-nfval)), self.cmin,self.cmax, dArr, AArr,CArr,FArr,LArr,NArr,rhoArr, dArr.size,\
+                    iflsph_in, 0., self.nmodes, 0.5, 0.5)
+            self.ilvry  = ilvry
+            self.C    = c_out[:nfval]
+            # Save flat transformed model if spherical flag is on
+            if not self.model.flat:
+                self.dsph   = d_out
+                self.Asph   = TA_out
+                self.Csph   = TC_out
+                self.Lsph   = TL_out
+                self.Fsph   = TF_out
+                self.Nsph   = TN_out
+                self.rhosph = TRho_out
+            self.AArr   = AArr
+            self.CArr   = CArr
+            self.LArr   = LArr
+            self.FArr   = FArr
+            self.NArr   = NArr
+            self.rhoArr = rhoArr
+            self.love2vel()
+            #- compute eigenfunction/kernels
+            if self.egn96:
+                hs_in       = 0.
+                hr_in       = 0.
+                ohr_in      = 0.
+                ohs_in      = 0.
+                refdep_in   = 0.
+                dogam       = False # No attenuation
+                nl_in       = dArr.size
+                k           = 2.*np.pi/self.C/self.T
+                k2d         = np.tile(k, (nl_in, 1))
+                k2d         = k2d.T
+                omega       = 2.*np.pi/self.T
+                omega2d     = np.tile(omega, (nl_in, 1))
+                omega2d     = omega2d.T
+                if not self.model.flat:
+                    d_in    = d_out
+                    TA_in   = TA_out
+                    TC_in   = TC_out
+                    TF_in   = TF_out
+                    TL_in   = TL_out
+                    TN_in   = TN_out
+                    TRho_in = TRho_out
+                else:
+                    d_in    = dArr
+                    TA_in   = AArr
+                    TC_in   = CArr
+                    TF_in   = FArr
+                    TL_in   = LArr
+                    TN_in   = NArr
+                    TRho_in = rhoArr
+                qai_in      = np.ones(nl_in)*1.e6
+                qbi_in      = np.ones(nl_in)*1.e6
+                etapi_in    = np.zeros(nl_in)
+                etasi_in    = np.zeros(nl_in)
+                frefpi_in   = np.ones(nl_in)
+                frefsi_in   = np.ones(nl_in)
+                # solve for group velocity, kernels and eigenfunctions
+                u_out, ur, tur, uz, tuz, dcdh,dcdav,dcdah,dcdbv,dcdbh,dcdn,dcdr = tregn96.tregn96(hs_in, hr_in, ohr_in, ohs_in,\
+                    refdep_in, dogam, nl_in, iflsph_in, d_in, TA_in, TC_in, TF_in, TL_in, TN_in, TRho_in, \
+                    qai_in,qbi_in,etapi_in,etasi_in, frefpi_in, frefsi_in, self.T.size, self.T, self.C)
+                ######################################################
+                # store output
+                ######################################################
+                self.U    = u_out
+                # eigenfunctions
+                self.uz     = uz[:nfval,:nl_in]
+                self.tuz    = tuz[:nfval,:nl_in]
+                self.ur     = ur[:nfval,:nl_in]
+                self.tur    = tur[:nfval,:nl_in]
+                # sensitivity kernels for velocity parameters and density
+                self.dcdah  = dcdah[:nfval,:nl_in]
+                self.dcdav  = dcdav[:nfval,:nl_in]
+                self.dcdbh  = dcdbh[:nfval,:nl_in]
+                self.dcdbv  = dcdbv[:nfval,:nl_in]
+                self.dcdr   = dcdr[:nfval,:nl_in]
+                self.dcdn   = dcdn[:nfval,:nl_in]
+                # Love parameters and density in the shape of nfval, nl_in
+                A           = np.tile(AArr, (nfval,1))
+                C           = np.tile(CArr, (nfval,1))
+                F           = np.tile(FArr, (nfval,1))
+                L           = np.tile(LArr, (nfval,1))
+                N           = np.tile(NArr, (nfval,1))
+                rho         = np.tile(rhoArr, (nfval,1))
+                d           = np.tile(dArr, (nfval,1))
+                eta         = F/(A-2.*L)
+                # derivative of eigenfunctions, $5.8 of R.Herrmann
+                self.durdz  = 1./L*self.tur - k2d*self.uz
+                self.duzdz  = k2d*F/C*self.ur + self.tuz/C
+                ########################################################################################################################################
+                # sensitivity kernels for Love parameters and density, derived from velocity kernels using chain rule
+                # NOTE: benchmark of love kernels predict somewhat different perturbed values compared with those using velocity kernel
+                # Possible reason:
+                #       By using the chain rule, infinitesimal perturbations for all the parameters is assumed.
+                #       However, for the benckmark cases, the perturbation can be large.
+                #       e.g. ah = sqrt(A/rho), dah = 0.5/sqrt(A*rho)*dA. But, if dA is large, dah = sqrt(A+dA/rho) - sqrt(A/rho) != 0.5/sqrt(A*rho)*dA
+                ########################################################################################################################################
+                self.dcdA   = 0.5/np.sqrt(A*rho)*self.dcdah - F/((A-2.*L)**2)*self.dcdn
+                self.dcdC   = 0.5/np.sqrt(C*rho)*self.dcdav
+                self.dcdF   = 1./(A-2.*L)*self.dcdn
+                self.dcdL   = 0.5/np.sqrt(L*rho)*self.dcdbv + 2.*F/((A-2.*L)**2)*self.dcdn
+                self.dcdN   = 0.5/np.sqrt(N*rho)*self.dcdbh
+                # density kernel
+                self.dcdrl  = -0.5*self.dcdah*np.sqrt(A/(rho**3)) - 0.5*self.dcdav*np.sqrt(C/(rho**3))\
+                                -0.5*self.dcdbh*np.sqrt(N/(rho**3)) -0.5*self.dcdbv*np.sqrt(L/(rho**3))\
+                                    + self.dcdr
+    
+            
+        elif wtype=='l' or wtype == 'love':
+            ilvry               = 1
+            nper                = self.TL.size
+            per                 = np.zeros(200, dtype=np.float32)
+            per[:nper]          = self.TL[:]
+            (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(self.vsArr.size, ilvry, \
+                                    self.vpArr, self.vsArr, self.rhoArr, self.hArr, self.qsinv, per, nper)
+            self.indata.dispL.pvelp     = cl0[:nper]
+            self.indata.dispL.gvelp     = ul0[:nper]
+        return
+    
     def compute_rftheo(self, dtype='r', slowness = 0.06, din=None):
         """
         compute receiver function of isotropic model using theo

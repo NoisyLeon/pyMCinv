@@ -23,8 +23,8 @@ def _get_array(xmin, xmax, dx):
     for i in xrange(Nx): xlst.append(dx*i+xmin)
     return np.array(xlst, dtype=np.float32)
 
-def read_model(model, infname, unit=1000., isotropic=True,
-        indz=0, indvpv=1, indvsv=2, indrho=3, indvph=4, indvsh=5, indeta=6, reverse=True):
+def read_model(model, infname, unit=1000., isotropic=True, tilt=False, 
+        indz=0, indvpv=1, indvsv=2, indrho=3, indvph=4, indvsh=5, indeta=6, inddip=7, indstrike=8, reverse=True):
     """
     Read model in txt format
     ===========================================================================================================
@@ -51,6 +51,9 @@ def read_model(model, infname, unit=1000., isotropic=True,
     else:
         vph     = inArr[:, indvph]*unit
         vsh     = inArr[:, indvsh]*unit
+        if tilt:
+            dip     = inArr[:, inddip]
+            srike   = inArr[:, indstrike]
     if reverse:
         vsv     = vsv[::-1]
         vsh     = vsh[::-1]
@@ -59,6 +62,9 @@ def read_model(model, infname, unit=1000., isotropic=True,
         eta     = eta[::-1]
         rho     = rho[::-1]
         radius  = radius[::-1]
+        if tilt:
+            dip     = dip[::-1]
+            strike  = strike[::-1]
     ind     = radius > 3700000.
     vsv     = vsv[ind]
     vsh     = vsh[ind]
@@ -68,6 +74,10 @@ def read_model(model, infname, unit=1000., isotropic=True,
     rho     = rho[ind]
     radius  = radius[ind]
     model.get_data_vel(vsv, vsh, vpv, vph, eta, rho, radius)
+    if tilt:
+        model.init_tilt()
+        model.dipArr    = dip
+        model.strikArr  = strike
     return model
 
 def write_model(model, outfname, isotropic=True, unit=1000.):
@@ -89,14 +99,23 @@ def write_model(model, outfname, isotropic=True, unit=1000.):
     if not isotropic:
         outArr  = np.append(outArr, model.VphArr[::-1]/unit)
         outArr  = np.append(outArr, model.etaArr[::-1])
+        if model.tilt:
+            outArr  = np.append(outArr, model.dipArr[::-1])
+            outArr  = np.append(outArr, model.strikeArr[::-1])
     outArr  = np.append(outArr, model.rhoArr[::-1]/unit)
     if isotropic:
-        N   = 4
+        N       = 4
+        header  = 'depth vs vp rho'
     else:
-        N   = 7
+        if model.tilt:
+            N       = 9
+            header  = 'depth vsv vsh vpv vph eta dip strike rho'
+        else:
+            N       = 7
+            header  = 'depth vsv vsh vpv vph eta rho'
     outArr  = outArr.reshape((N, model.zArr.size))
     outArr  = outArr.T
-    np.savetxt(outfname, outArr, fmt='%g')
+    np.savetxt(outfname, outArr, fmt='%g', header=header)
     return 
 
 def read_axisem_bm(model, infname):
@@ -2117,6 +2136,19 @@ class model1d(object):
         ind_even= np.arange(r_inv.size/2)*2 
         dArr    = (r_inv[ind_even] - r_inv[ind_odd])/np.float32(1000.)
         return self.get_layer_model(dArr, 1, 1.)
+    
+    def get_dArr(self):
+        """
+        Get layer array, the model need to be a layerized one
+        """
+        if not self.is_layer_model():
+            raise ValueError('The model is not a layerized one!')
+        r_inv   = self.rArr[::-1]
+        dArr    = np.zeros(r_inv.size/2, dtype=np.float32)
+        ind_odd = np.arange(r_inv.size/2)*2 +1
+        ind_even= np.arange(r_inv.size/2)*2 
+        dArr    = (r_inv[ind_even] - r_inv[ind_odd])/np.float32(1000.)
+        return dArr
     
     def get_layer_model(self, dArr, nl, dh):
         """

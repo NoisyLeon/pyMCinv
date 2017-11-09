@@ -147,6 +147,45 @@ def readaziamptxt(infname, indisp, dtype='ph'):
         raise ValueError('Unexpected dtype: '+dtype)
     return True
 
+def writeaziamptxt(outfname, outdisp, dtype='ph'):
+    """
+    Write azimuthal amplitude to a txt file
+    ==========================================================================
+    ::: input :::
+    outfname    - output file name
+    outdisp     - disp object storing azimuthal amplitude data
+    dtype       - data type (phase/group)
+    ::: output :::
+    a txt file contains predicted and observed dispersion data
+    ==========================================================================
+    """
+    if not isinstance(outdisp, disp):
+        raise ValueError('outdisp should be type of disp!')
+    if dtype == 'ph' or dtype == 'phase':
+        if not outdisp.isphase:
+            print 'phase velocity data is not stored!'
+            return False
+        outArr  = np.append(outdisp.pper, outdisp.pampp)
+        outArr  = np.append(outArr, outdisp.pampo)
+        outArr  = np.append(outArr, outdisp.stdpampo)
+        outArr  = outArr.reshape((4, outdisp.npper))
+        outArr  = outArr.T
+        np.savetxt(outfname, outArr, fmt='%g')
+    
+    # # # elif dtype == 'gr' or dtype == 'group':
+    # # #     if not outdisp.isgroup:
+    # # #         print 'group velocity data is not stored!'
+    # # #         return False
+    # # #     outArr  = np.append(outdisp.gper, outdisp.gvelp)
+    # # #     outArr  = np.append(outArr, outdisp.gvelo)
+    # # #     outArr  = np.append(outArr, outdisp.stdgvelo)
+    # # #     outArr  = outArr.reshape((4, outdisp.ngper))
+    # # #     outArr  = outArr.T
+    # # #     np.savetxt(outfname, outArr, fmt='%g')
+    else:
+        raise ValueError('Unexpected dtype: '+dtype)
+    return True
+
 def readaziphitxt(infname, indisp, dtype='ph'):
     """
     Read input txt file of fast direction azimuth
@@ -189,6 +228,45 @@ def readaziphitxt(infname, indisp, dtype='ph'):
     # # #     except IndexError:
     # # #         indisp.stdgvelo= np.ones(indisp.ngper, dtype=np.float32)
     # # #     indisp.isgroup  = True
+    else:
+        raise ValueError('Unexpected dtype: '+dtype)
+    return True
+
+def writeaziphitxt(outfname, outdisp, dtype='ph'):
+    """
+    Write fast direction azimuth to a txt file
+    ==========================================================================
+    ::: input :::
+    outfname    - output file name
+    outdisp     - disp object storing fast direction azimuth data
+    dtype       - data type (phase/group)
+    ::: output :::
+    a txt file contains predicted and observed dispersion data
+    ==========================================================================
+    """
+    if not isinstance(outdisp, disp):
+        raise ValueError('outdisp should be type of disp!')
+    if dtype == 'ph' or dtype == 'phase':
+        if not outdisp.isphase:
+            print 'phase velocity data is not stored!'
+            return False
+        outArr  = np.append(outdisp.pper, outdisp.pphip)
+        outArr  = np.append(outArr, outdisp.pphio)
+        outArr  = np.append(outArr, outdisp.stdpphio)
+        outArr  = outArr.reshape((4, outdisp.npper))
+        outArr  = outArr.T
+        np.savetxt(outfname, outArr, fmt='%g')
+    
+    # # # elif dtype == 'gr' or dtype == 'group':
+    # # #     if not outdisp.isgroup:
+    # # #         print 'group velocity data is not stored!'
+    # # #         return False
+    # # #     outArr  = np.append(outdisp.gper, outdisp.gvelp)
+    # # #     outArr  = np.append(outArr, outdisp.gvelo)
+    # # #     outArr  = np.append(outArr, outdisp.stdgvelo)
+    # # #     outArr  = outArr.reshape((4, outdisp.ngper))
+    # # #     outArr  = outArr.T
+    # # #     np.savetxt(outfname, outArr, fmt='%g')
     else:
         raise ValueError('Unexpected dtype: '+dtype)
     return True
