@@ -287,7 +287,7 @@ class eigkernel(object):
             amp[i]      = (faz.max() - faz.min())/2.
             indmax      = faz.argmax()
             phi[i]      = az[indmax]
-            if phi[i] >= 180.:
+            if phi[i] > 180.:
                 phi[i]  = phi[i] - 180.
         return amp, phi
             

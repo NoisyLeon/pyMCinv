@@ -200,8 +200,8 @@ class vprofile1d(object):
             self.qpArr  = np.append(qp, qp[-1])
             self.qsinv  = 1./self.qsArr
         elif mtype == 'tti':
-            self.model.get_tti_vmodel() # get the model arrays and initialize elastic tensor
-            self.model.rot_dip_strike() 
+            self.model.get_tti_vmodel()
+            self.model.rot_dip_strike()
             self.model.decompose()
         else:
             raise ValueError('Unexpected wave type: '+mtype)
@@ -319,8 +319,8 @@ class vprofile1d(object):
                     np.append(freq, np.zeros(2049-nfval)), cmin, cmax, dArr, AArr,CArr,FArr,LArr,NArr,rhoArr, dArr.size,\
                     iflsph_in, 0., nmodes, 0.5, 0.5)
             # store the reference dispersion curve
-            self.indata.dispR.pvelref   = np.float32(c_out[:nfval])
-            self.indata.dispR.pvelp     = np.float32(c_out[:nfval])
+            self.indata.dispR.pvelref   = c_out[:nfval]
+            self.indata.dispR.pvelp     = c_out[:nfval]
             #- compute eigenfunction/kernels
             if egn96:
                 hs_in       = 0.
@@ -389,8 +389,8 @@ class vprofile1d(object):
                 np.append(freq, np.zeros(2049-nfval)), cmin, cmax, dArr, AArr,CArr,FArr,LArr,NArr,rhoArr, dArr.size,\
                 iflsph_in, 0., nmodes, 0.5, 0.5)
             # store the reference dispersion curve
-            self.indata.dispL.pvelref   = np.float32(c_out[:nfval])
-            self.indata.dispL.pvelp     = np.float32(c_out[:nfval])
+            self.indata.dispL.pvelref   = c_out[:nfval]
+            self.indata.dispL.pvelp     = c_out[:nfval]
             if egn96:
                 hs_in       = 0.
                 hr_in       = 0.
