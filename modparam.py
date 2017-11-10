@@ -1450,17 +1450,20 @@ class ttimod(object):
             if self.vph[0, i+1] < self.vph[-1, i]:
                 return False
         
-        for i in xrange(self.nmod):
-            for j in xrange(self.nlay[i]):
+        for j in xrange(self.nmod):
+            if j == 0: # do not check sediments
+                continue
+            for i in xrange(self.nlay[j]):
                 # inherent anisotropy must be positive
                 if self.vsh[i, j] < self.vsv[i,j]:
                     return False
                 if self.vph[i, j] < self.vpv[i,j]:
                     return False
-                # vp/vs ratio must be within [1.65, 1.85]
-                vpvs    = (self.vph + self.vpv)/(self.vsh+self.vsv)
+                # vp/vs ratio must be within [1.65, 1.85], need modification for water layer !!
+                vpvs    = (self.vph[i, j] + self.vpv[i, j])/(self.vsh[i, j]+self.vsv[i, j]) 
                 if vpvs < 1.65 or vpvs > 1.85:
                     return False
+
         if m1 >= self.nmod:
             m1  = self.nmod -1
         if m0 < 0:
@@ -1482,13 +1485,39 @@ class ttimod(object):
                         return False
                     if self.vph[i, j] > self.vph[i+1, j]:
                         return False
-                    
+         
         # gradient check
         if g0<=g1:
             for j in range(g0, g1+1):
-                if self.vs[0, j] > self.vs[1, j]:
+                if self.vsv[0, j] > self.vsv[1, j]:
+                    return False
+                if self.vsh[0, j] > self.vsh[1, j]:
+                    return False
+                if self.vpv[0, j] > self.vpv[1, j]:
+                    return False
+                if self.vph[0, j] > self.vph[1, j]:
                     return False
         return True
+    
+    def new_paraval(self, m0, m1, g0, g1, ptype):
+        self.mod2para()
+        oldparaval  = self.para.paraval.copy()
+        self.para.new_paraval(ptype)
+        self.para2mod()
+        self.update()
+        i   = 0
+        while (not self.isgood(m0, m1, g0, g1)):
+            self.para.paraval[:]    = oldparaval.copy()
+            self.para.new_paraval(ptype)
+            self.para2mod()
+            if i>1000000:
+            # # # if i%1000000 == 1000000:
+                self.cvph[:,:]  = self.cvpv.copy()
+                self.cvsh[:,:]  = self.cvsv.copy()
+            self.update()
+            i   += 1
+        return
+            
     
     def copy(self):
         """

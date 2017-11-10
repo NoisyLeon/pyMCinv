@@ -85,7 +85,8 @@ def writedisptxt(outfname, outdisp, dtype='ph'):
         outArr  = np.append(outArr, outdisp.stdpvelo)
         outArr  = outArr.reshape((4, outdisp.npper))
         outArr  = outArr.T
-        np.savetxt(outfname, outArr, fmt='%g')
+        header  = 'pper pvelp pvelo stdpvelo'
+        np.savetxt(outfname, outArr, fmt='%g', header=header)
     
     elif dtype == 'gr' or dtype == 'group':
         if not outdisp.isgroup:
@@ -100,6 +101,8 @@ def writedisptxt(outfname, outdisp, dtype='ph'):
     else:
         raise ValueError('Unexpected dtype: '+dtype)
     return True
+
+
 
 def readaziamptxt(infname, indisp, dtype='ph'):
     """
@@ -271,6 +274,53 @@ def writeaziphitxt(outfname, outdisp, dtype='ph'):
         raise ValueError('Unexpected dtype: '+dtype)
     return True
     
+def writedispttitxt(outfname, outdisp, dtype='ph'):
+    """
+    Write dispersion curve to a txt file
+    ==========================================================================
+    ::: input :::
+    outfname    - output file name
+    outdisp     - disp object storing dispersion data
+    dtype       - data type (phase/group)
+    ::: output :::
+    a txt file contains predicted and observed dispersion data
+    ==========================================================================
+    """
+    if not isinstance(outdisp, disp):
+        raise ValueError('outdisp should be type of disp!')
+    if dtype == 'ph' or dtype == 'phase':
+        if not outdisp.isphase:
+            print 'phase velocity data is not stored!'
+            return False
+        outArr  = np.append(outdisp.pper, outdisp.pvelp)
+        outArr  = np.append(outArr, outdisp.pvelo)
+        outArr  = np.append(outArr, outdisp.stdpvelo)
+        # azimuthal amplitude
+        outArr  = np.append(outArr, outdisp.pampp)
+        outArr  = np.append(outArr, outdisp.pampo)
+        outArr  = np.append(outArr, outdisp.stdpampo)
+        # fast-direction azimuth
+        outArr  = np.append(outArr, outdisp.pphip)
+        outArr  = np.append(outArr, outdisp.pphio)
+        outArr  = np.append(outArr, outdisp.stdpphio)
+        outArr  = outArr.reshape((10, outdisp.npper))
+        outArr  = outArr.T
+        header  = 'pper pvelp pvelo stdpvelo pampp pampo stdpampo pphip pphio stdpphio'
+        np.savetxt(outfname, outArr, fmt='%g', header=header)
+    
+    # # # elif dtype == 'gr' or dtype == 'group':
+    # # #     if not outdisp.isgroup:
+    # # #         print 'group velocity data is not stored!'
+    # # #         return False
+    # # #     outArr  = np.append(outdisp.gper, outdisp.gvelp)
+    # # #     outArr  = np.append(outArr, outdisp.gvelo)
+    # # #     outArr  = np.append(outArr, outdisp.stdgvelo)
+    # # #     outArr  = outArr.reshape((4, outdisp.ngper))
+    # # #     outArr  = outArr.T
+    # # #     np.savetxt(outfname, outArr, fmt='%g')
+    # # # else:
+    # # #     raise ValueError('Unexpected dtype: '+dtype)
+    return True
 
 def readrftxt(infname, inrf):
     """
@@ -373,6 +423,8 @@ spec_disp = [
         # total misfit/likelihood
         ('misfit',  numba.float32),
         ('L',       numba.float32),
+        # L = exp(-0.5*S)
+        ('S',       numba.float32),
         # common period for phase/group
         ('period',  numba.float32[:]),
         ('nper',    numba.int32)
@@ -438,12 +490,11 @@ class disp(object):
         temp    = 0.
         for i in xrange(self.npper):
             temp+= (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
-        misfit  = np.sqrt(temp/self.npper)
+        self.pmisfit    = np.sqrt(temp/self.npper)
+        self.S          = temp
         if temp > 50.:
-            temp= np.sqrt(temp*50.)
-        L       = np.exp(-0.5 * temp)
-        self.pmisfit    = misfit
-        self.pL         = L
+            temp        = np.sqrt(temp*50.)
+        self.pL         = np.exp(-0.5 * temp)
         return True
     
     def get_gmisfit(self):
@@ -506,7 +557,25 @@ class disp(object):
         self.L          = np.exp(-0.5 * temp)
         return True
     
-    # def get_misfit_tti(self):
+    def get_misfit_tti(self):
+        temp1   = 0.; temp2   = 0.; temp3   = 0.
+        for i in xrange(self.npper):
+            temp1   += (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
+            temp2   += (self.pampo[i] - self.pampp[i])**2/self.stdpampo[i]**2
+            phidiff = abs(self.pphio[i] - self.pphip[i])
+            if phidiff > 90.:
+                phidiff -= 90.
+            temp3   += phidiff**2/self.stdpphio[i]**2
+        # # # temp2       *= 2.
+        # # # temp3       *= 2.
+        self.S      = temp1+temp2+temp3
+        tS          = temp1+temp2+temp3
+        self.pmisfit= np.sqrt(tS/3./self.npper)
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
+        self.pL      = np.exp(-0.5 * tS)
+        return
+        
         
     
 ####################################################
@@ -665,3 +734,16 @@ class data1d(object):
         self.misfit = wdisp*self.dispR.misfit + (1.-wdisp)*self.rfr.misfit
         self.L      = ((self.dispR.L)**wdisp)*((self.rfr.L)**(1.-wdisp))
         return
+    
+    def get_misfit_tti(self):
+        self.dispR.get_misfit_tti()
+        self.dispL.get_pmisfit()
+        self.misfit = np.sqrt((self.dispR.S + self.dispL.S)/(3.*self.dispR.npper + self.dispL.npper) )
+        tS          = 0.5*(self.dispR.S + self.dispL.S)
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
+        self.L      = np.exp(-0.5 * tS)
+        return
+        

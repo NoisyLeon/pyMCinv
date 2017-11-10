@@ -2948,6 +2948,8 @@ class model1d(object):
         self.qsArr      = self.qsArr[::-1]
         self.qpArr      = self.qpArr[::-1]
         self.rhoArr     = self.rhoArr[::-1]
+        self.dipArr     = self.dipArr[::-1]
+        self.strikeArr  = self.strikeArr[::-1]
         self.rArr       = (np.float32(6371000.) - self.zArr*np.float32(1000.))
         self.vel2love()
         self.init_etensor()
