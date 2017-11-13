@@ -27,8 +27,11 @@ class vprofile1d(object):
     An object for 1D velocity profile inversion
     =====================================================================================================================
     ::: parameters :::
-    indata      - object storing input data
-    model       - object storing 1D model
+    indata              - object storing input data
+    model               - object storing 1D model
+    eigkR, eigkL        - eigenkernel objects storing Rayleigh/Love eigenfunctions and sensitivity kernels
+    hArr                - layer array 
+    disprefR, disprefL  - flags indicating existence of sensitivity kernels for reference model
     =====================================================================================================================
     """
     def __init__(self):
@@ -129,9 +132,9 @@ class vprofile1d(object):
         ===========================================================
         """
         mtype   = mtype.lower()
-        if mtype=='iso' or mtype == 'isotropic':
+        if mtype == 'iso' or mtype == 'isotropic':
             modparam.readmodtxt(infname=infname, inmod=self.model.isomod)
-        elif mtype=='tti':
+        elif mtype == 'tti':
             modparam.readtimodtxt(infname=infname, inmod=self.model.ttimod)
         else:
             raise ValueError('Unexpected wave type: '+mtype)
@@ -154,11 +157,18 @@ class vprofile1d(object):
         return
     
     def getpara(self, mtype='iso'):
+        """
+        get parameter index indicating model parameters for perturbation
+        =====================================================================
+        ::: input :::
+        mtype       - model type (isotropic or tti)
+        =====================================================================
+        """
         mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             self.model.isomod.get_paraind()
         elif mtype=='tti':
-            self.model.ttimod.get_paraind_US()
+            self.model.ttimod.get_paraind()
         else:
             raise ValueError('Unexpected wave type: '+mtype)
         return
@@ -201,7 +211,7 @@ class vprofile1d(object):
             self.qpArr  = np.append(qp, qp[-1])
             self.qsinv  = 1./self.qsArr
         elif mtype == 'tti':
-            self.model.get_tti_vmodel() # get the model arrays and initialize elastic tensor
+            self.qsArr, self.qpArr  = self.model.get_tti_vmodel() # get the model arrays and initialize elastic tensor
             self.model.rot_dip_strike() 
             self.model.decompose()
         else:
@@ -240,12 +250,11 @@ class vprofile1d(object):
                     raise ValueError ('Unconsistent phase/group period arrays for Rayleigh wave!')
             except:
                 raise ValueError ('Unconsistent phase/group period arrays for Rayleigh wave!')
-                
             try:
                 if not np.allclose(self.indata.dispL.pper, self.indata.dispL.gper):
-                    raise ValueError ( 'Unconsistent phase/group period arrays for Love wave!')
+                    raise ValueError ('Unconsistent phase/group period arrays for Love wave!')
             except:
-                raise ValueError ( 'Unconsistent phase/group period arrays for Love wave!')
+                raise ValueError ('Unconsistent phase/group period arrays for Love wave!')
             self.TR = self.indata.dispR.pper.copy()
             self.TL = self.indata.dispL.pper.copy()
         self.surfdtype  = dtype
@@ -277,7 +286,6 @@ class vprofile1d(object):
                                     self.vpArr, self.vsArr, self.rhoArr, self.hArr, self.qsinv, per, nper)
             self.indata.dispR.pvelp     = cr0[:nper]
             self.indata.dispR.gvelp     = ur0[:nper]
-            
         elif wtype=='l' or wtype == 'love':
             ilvry               = 1
             nper                = self.TL.size
@@ -289,13 +297,18 @@ class vprofile1d(object):
             self.indata.dispL.gvelp     = ul0[:nper]
         return
     
-    def compute_tcps(self, wtype='ray', verbose=0, nmodes=1, cmin=-1., cmax=-1., egn96=True):
+    def compute_tcps(self, wtype='ray', verbose=0, nmodes=1, cmin=-1., cmax=-1., egn96=True, checkdisp=True, tol=1.):
         """
         compute surface wave dispersion of tilted TI model using tcps
-        =====================================================================
+        ====================================================================================
         ::: input :::
         wtype       - wave type (Rayleigh or Love)
-        =====================================================================
+        nmodes      - number of modes
+        cmin, cmax  - minimum/maximum value for phase velocity root searching
+        egn96       - computing eigenfunctions/kernels or not
+        checkdisp   - check the reasonability of dispersion curves with fast_surf
+        tol         - tolerence of maximum differences between tcps and fast_surf
+        ====================================================================================
         """
         wtype   = wtype.lower()
         if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
@@ -312,6 +325,7 @@ class vprofile1d(object):
                 self.eigkR.get_AA(BcArr, BsArr, GcArr, GsArr, HcArr, HsArr, CcArr, CsArr)
             else:
                 dArr, rhoArr, AArr, CArr, FArr, LArr, NArr = self.model.get_layer_model(self.hArr, 200, 1.)
+            # store reference model and ET model
             self.eigkR.get_ref_model(AArr, CArr, FArr, LArr, NArr, rhoArr)
             self.eigkR.get_ETI(AArr, CArr, FArr, LArr, NArr, rhoArr)
             iflsph_in   = 1 # spherical Earth
@@ -368,7 +382,7 @@ class vprofile1d(object):
                 # Love parameters and density in the shape of nfval, nl_in
                 self.eigkR.compute_love_kernels()
                 self.disprefR   = True
-        elif wtype=='l' or wtype == 'love':
+        elif wtype=='l' or wtype == 'love' or wtype == 'lov':
             nfval       = self.TL.size
             freq        = 1./self.TL
             self.hArr   = self.model.get_dArr()
@@ -383,7 +397,7 @@ class vprofile1d(object):
             else:
                 dArr, rhoArr, AArr, CArr, FArr, LArr, NArr = self.model.get_layer_model(self.hArr, 200, 1.)
             self.eigkL.get_ref_model(AArr, CArr, FArr, LArr, NArr, rhoArr)
-            self.eigkR.get_ETI(AArr, CArr, FArr, LArr, NArr, rhoArr)
+            self.eigkL.get_ETI(AArr, CArr, FArr, LArr, NArr, rhoArr)
             iflsph_in   = 1 # spherical Earth
             # solve for phase velocity
             c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
@@ -436,9 +450,47 @@ class vprofile1d(object):
                 # Love parameters and density in the shape of nfval, nl_in
                 self.eigkL.compute_love_kernels()
                 self.disprefL   = True
-        return
+        if checkdisp:
+            hArr        = np.append(self.hArr, 0.)
+            vs          = np.sqrt(LArr/rhoArr)
+            vs          = np.append(vs, vs[-1])
+            vp          = np.sqrt(CArr/rhoArr)
+            vp          = np.append(vp, vp[-1])
+            rho         = rhoArr
+            rho         = np.append(rho, rho[-1])
+            qsinv       = 1./(self.qsArr)
+            qsinv       = np.append(qsinv, qsinv[-1])
+            
+            if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+                ilvry               = 2
+                nper                = self.TR.size
+                per                 = np.zeros(200, dtype=np.float32)
+                per[:nper]          = self.TR[:]
+                (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(vs.size, ilvry, \
+                                        vp, vs, rho, hArr, qsinv, per, nper)
+                pvelp               = cr0[:nper]
+                gvelp               = ur0[:nper]
+                if (abs(pvelp - self.indata.dispR.pvelref)).max() > tol:
+                    print 'WARNING: reference dispersion curves may be erroneous!'
+                    return False
+            elif wtype=='l' or wtype == 'love':
+                ilvry               = 1
+                nper                = self.TL.size
+                per                 = np.zeros(200, dtype=np.float32)
+                per[:nper]          = self.TL[:]
+                (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(vs.size, ilvry, \
+                                       vp, vs, rho, hArr, qsinv, per, nper)
+                pvelp               = cl0[:nper]
+                gvelp               = ul0[:nper]
+                if (abs(pvelp - self.indata.dispL.pvelref)).max() > tol:
+                    print 'WARNING: reference dispersion curves may be erroneous!'
+                    return False
+        return True
     
     def perturb_from_kernel(self, wtype='ray'):
+        """
+        
+        """
         wtype   = wtype.lower()
         if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
             if not self.disprefR:
@@ -460,7 +512,7 @@ class vprofile1d(object):
                 amp, phi                = self.eigkR.aa_perturb()
                 self.indata.dispR.pampp = amp
                 self.indata.dispR.pphip = phi
-        elif wtype=='l' or wtype == 'love':
+        elif wtype=='lov' or wtype=='love' or wtype=='l':
             if not self.disprefL:
                 raise ValueError('refence dispersion and kernels not computed!')
             nl_in       = self.hArr.size
@@ -760,7 +812,7 @@ class vprofile1d(object):
         while ( run ):
             inew+= 1
             # print 'run step = ',inew
-            if ( inew > 100000 or iacc > 2000 or time.time()-start > 3600.):
+            if ( inew > 100000 or iacc > 200000 or time.time()-start > 7200.):
                 run   = False
             if (np.fmod(inew, 5000) == 0):
                 print 'step =',inew, 'elasped time =', time.time()-start, ' sec'

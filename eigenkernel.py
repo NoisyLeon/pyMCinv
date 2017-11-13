@@ -4,6 +4,10 @@ Module for handling output eigenfunction and sensitivity kernels of surface wave
 
 Numba is used for speeding up of the code.
 
+references
+    Montagner, J.P. and Nataf, H.C., 1986. A simple method for inverting the azimuthal anisotropy of surface waves.
+            Journal of Geophysical Research: Solid Earth, 91(B1), pp.511-520.
+
 :Copyright:
     Author: Lili Feng
     Graduate Research Assistant
@@ -82,12 +86,26 @@ class eigkernel(object):
     An object for handling parameter perturbations
     =====================================================================================================================
     ::: parameters :::
-    :   eigenfunctions  :
-
-    :   velocity kernels  :
-    
-    :   Love kernels  :
-    
+    :   values  :
+    nlay        - number of layers
+    ilvry       - indicator for Love or Rayleigh waves (1 - Love, 2 - Rayleigh)
+    :   model   :
+    A, C, F, L, N, rho                          - layerized model
+    If the model is a tilted hexagonal symmetric model:
+    BcArr, BsArr, GcArr, GsArr, HcArr, HsArr    - 2-theta azimuthal terms 
+    CcArr, CsArr                                - 4-theta azimuthal terms
+    : eigenfunctions :
+    uz, ur      - vertical/radial displacement functions
+    tuz, tur    - vertical/radial stress functions
+    duzdz, durdz- derivatives of vertical/radial displacement functions
+    : velocity/density sensitivity kernels :
+    dcdah/dcdav - vph/vpv kernel
+    dcdbh/dcdbv - vsh/vsv kernel
+    dcdn        - eta kernel
+    dcdr        - density kernel
+    : Love parameters/density sensitivity kernels, derived from the kernels above using chain rule :
+    dcdA, dcdC, dcdF, dcdL, dcdN    - Love parameter kernels
+    dcdrl                           - density kernel
     =====================================================================================================================
     """
     def __init__(self):
@@ -97,72 +115,81 @@ class eigkernel(object):
         return
     
     def init_arr(self, nfreq, nlay, ilvry):
+        """
+        initialize arrays
+        """
         if ilvry != 1 and ilvry != 2:
             raise ValueError('Unexpected ilvry value!')
-        self.nfreq  = nfreq
-        self.nlay   = nlay
-        self.ilvry  = ilvry
+        self.nfreq      = nfreq
+        self.nlay       = nlay
+        self.ilvry      = ilvry
         # reference Love parameters and density
-        self.A      = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.C      = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.F      = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.L      = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.N      = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.rho    = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.A          = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.C          = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.F          = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.L          = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.N          = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.rho        = np.zeros(np.int64(nlay), dtype=np.float32)
         # ETI Love parameters and density
-        self.Aeti   = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.Ceti   = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.Feti   = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.Leti   = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.Neti   = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.rhoeti = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.Aeti       = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.Ceti       = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.Feti       = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.Leti       = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.Neti       = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.rhoeti     = np.zeros(np.int64(nlay), dtype=np.float32)
         # azimuthal anisotropic terms
-        self.BcArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.BsArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.GcArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.GsArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.HcArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.HsArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.CcArr  = np.zeros(np.int64(nlay), dtype=np.float32)
-        self.CsArr  = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.BcArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.BsArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.GcArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.GsArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.HcArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.HsArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.CcArr      = np.zeros(np.int64(nlay), dtype=np.float32)
+        self.CsArr      = np.zeros(np.int64(nlay), dtype=np.float32)
         # eigenfunctions
         if ilvry == 1:
-            self.ut = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-            self.tut= np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+            self.ut     = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+            self.tut    = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
         else:
-            self.uz = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-            self.tuz= np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-            self.ur = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-            self.tur= np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+            self.uz     = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+            self.tuz    = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+            self.ur     = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+            self.tur    = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
         # velocity kernels
         if ilvry == 2:
             self.dcdah  = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
             self.dcdav  = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
             self.dcdn   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-        self.dcdbh  = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-        self.dcdbv  = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-        self.dcdr   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+        self.dcdbh      = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+        self.dcdbv      = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+        self.dcdr       = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
         # Love kernels
         if ilvry == 2:
             self.dcdA   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
             self.dcdC   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
             self.dcdF   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-        self.dcdL   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
-        self.dcdN   = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+        self.dcdL       = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+        self.dcdN       = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
         # density kernel for Love parameter group
-        self.dcdrl  = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
+        self.dcdrl      = np.zeros((np.int64(nfreq), np.int64(nlay)), dtype=np.float32)
         return
     
     def get_ref_model(self, A, C, F, L, N, rho):
-        self.A[:]   = A
-        self.C[:]   = C
-        self.F[:]   = F
-        self.L[:]   = L
-        self.N[:]   = N
-        self.rho[:] = rho
+        """
+        get the Love parameter arrays for the reference model
+        """
+        self.A[:]       = A
+        self.C[:]       = C
+        self.F[:]       = F
+        self.L[:]       = L
+        self.N[:]       = N
+        self.rho[:]     = rho
         return
     
     def get_ETI(self, Aeti, Ceti, Feti, Leti, Neti, rhoeti):
+        """
+        get the ETI(effective TI) Love parameter arrays, as perturbation
+        """
         self.Aeti[:]    = Aeti
         self.Ceti[:]    = Ceti
         self.Feti[:]    = Feti
@@ -172,6 +199,9 @@ class eigkernel(object):
         return
     
     def get_AA(self, BcArr, BsArr, GcArr, GsArr, HcArr, HsArr, CcArr, CsArr):
+        """
+        get the AA(azimuthally anisotropic) term arrays, as perturbation
+        """
         self.BcArr[:]  = BcArr
         self.BsArr[:]  = BsArr
         self.GcArr[:]  = GcArr
@@ -183,6 +213,9 @@ class eigkernel(object):
         return
     
     def get_eigen_psv(self, uz, tuz, ur, tur):
+        """
+        get the P-SV motion eigenfunctions
+        """
         self.uz[:,:]    = uz
         self.tuz[:,:]   = tuz
         self.ur[:,:]    = ur
@@ -190,6 +223,9 @@ class eigkernel(object):
         return
     
     def get_eigen_sh(self, ut, tut):
+        """
+        get the SH motion eigenfunctions
+        """
         self.ut = ut
         self.tut= tut
         return
@@ -203,6 +239,9 @@ class eigkernel(object):
     # #     return
     
     def get_vkernel_psv(self, dcdah, dcdav, dcdbh, dcdbv, dcdn, dcdr):
+        """
+        get the velocity kernels for P-SV motion
+        """
         self.dcdah[:,:]     = dcdah
         self.dcdav[:,:]     = dcdav
         self.dcdbh[:,:]     = dcdbh
@@ -212,6 +251,9 @@ class eigkernel(object):
         return
     
     def get_vkernel_sh(self, dcdbh, dcdbv, dcdr):
+        """
+        get the velocity kernels for SH motion
+        """
         self.dcdbh[:,:]     = dcdbh
         self.dcdbv[:,:]     = dcdbv
         self.dcdr[:,:]      = dcdr
@@ -229,22 +271,22 @@ class eigkernel(object):
                     self.dcdF[i, j] = 1./(self.A[j]-2.*self.L[j])*self.dcdn[i,j]
                     self.dcdL[i, j] = 0.5/np.sqrt(self.L[j]*self.rho[j])*self.dcdbv[i,j] + 2.*self.F[j]/((self.A[j]-2.*self.L[j])**2)*self.dcdn[i, j]
                     ### self.dcdN[i, j] = 0.5/np.sqrt(self.N[j]*self.rho[j])*self.dcdbh[i,j]
-                    self.dcdrl[i, j]= -0.5*self.dcdah[i, j]*np.sqrt(self.A[j]/(self.rho[j]**3)) -\
-                            0.5*self.dcdav[i,j]*np.sqrt(self.C[j]/(self.rho[j]**3)) -0.5*self.dcdbh[i,j]*np.sqrt(self.N[j]/(self.rho[j]**3)) \
-                                -0.5*self.dcdbv[i,j]*np.sqrt(self.L[j]/(self.rho[j]**3)) + self.dcdr[i,j]
+                    self.dcdrl[i, j]= -0.5*self.dcdah[i, j]*np.sqrt(self.A[j]/(self.rho[j]**3)) - 0.5*self.dcdav[i, j]*np.sqrt(self.C[j]/(self.rho[j]**3))\
+                                        -0.5*self.dcdbh[i, j]*np.sqrt(self.N[j]/(self.rho[j]**3)) -0.5*self.dcdbv[i, j]*np.sqrt(self.L[j]/(self.rho[j]**3))\
+                                            + self.dcdr[i, j]
         else:
             for i in xrange(self.nfreq):
                 for j in xrange(self.nlay):
                     self.dcdL[i, j] = 0.5/np.sqrt(self.L[j]*self.rho[j])*self.dcdbv[i,j] 
                     self.dcdN[i, j] = 0.5/np.sqrt(self.N[j]*self.rho[j])*self.dcdbh[i,j]
                     self.dcdrl[i, j]= -0.5*self.dcdbh[i,j]*np.sqrt(self.N[j]/(self.rho[j]**3)) \
-                                    -0.5*self.dcdbv[i,j]*np.sqrt(self.L[j]/(self.rho[j]**3)) + self.dcdr[i,j]
+                                        -0.5*self.dcdbv[i,j]*np.sqrt(self.L[j]/(self.rho[j]**3)) + self.dcdr[i,j]
         return
     
     def eti_perturb(self):
-        ###
-        # benchmark
-        ###
+        """
+        Compute the phase velocity perturbation from reference to ETI model
+        """
         dA      = self.Aeti - self.A
         dC      = self.Ceti - self.C
         dF      = self.Feti - self.F
@@ -263,11 +305,10 @@ class eigkernel(object):
                     dpvel[i]    = dpvel[i] + self.dcdL[i, j] * dL[j] + self.dcdN[i, j] * dN[j] # + self.dcdrl[i, j] * dr[j]
         return dpvel
         
-        
     def aa_perturb(self):
-        ###
-        # benchmark
-        ###
+        """
+        Compute the phase velocity perturbation from ETI to AA(azimuthally anisotropic) model
+        """
         az          = np.zeros(360, dtype = np.float32)
         for i in xrange(360):
             az[i]   = np.float32(i+1)
@@ -290,16 +331,5 @@ class eigkernel(object):
             if phi[i] >= 180.:
                 phi[i]  = phi[i] - 180.
         return amp, phi
-            
-        
-       
-            # for i in xrange(self.nfreq):
-            #     for j in xrange(self.nlay):
-            #         dpvel[i]    = dpvel[i] + self.dcdL[i, j] * dL[j] + self.dcdN[i, j] * dN[j] # + self.dcdrl[i, j] * dr[j]
-    
-    
-    
-    
-    
-            
+
     

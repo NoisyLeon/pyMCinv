@@ -131,7 +131,6 @@ def readtimodtxt(infname, inmod):
         if nmodp !=5 and nmodp !=7  and nmodp !=1:
             print "wrong input, nmodp=", nmodp
             return False
-        
         cvph        = []
         cvpv        = []
         cvsh        = []
@@ -267,13 +266,9 @@ spec_para1d = [
         ('npara',       numba.int32),
         ('maxind',      numba.int32),
         ('paraindex',   numba.float32[:,:]),
-        # # # ('numbind',     numba.int32[:]),
         ('paraval',     numba.float32[:]),
         ('isspace',     numba.boolean),
-        ('space',       numba.float32[:,:]),
-        # total misfit/likelihood
-        ('misfit',      numba.float32),
-        ('L',           numba.float32)
+        ('space',       numba.float32[:,:])
         ]
 @numba.jitclass(spec_para1d)
 class para1d(object):
@@ -283,20 +278,16 @@ class para1d(object):
     ::: parameters :::
     :   values  :
     npara       - number of parameters for perturbations
-    misfit      - misfit
-    L           - likelihood
     maxind      - maximum number of index for each parameters
     isspace     - if space array is computed or not
     :   arrays  :
-    numbind     - number of index for each parameters (currently deprecated, may be reused later...)
     paraval     - parameter array for perturbation
     paraindex   - index array indicating numerical setup for each parameter
                 1.  isomod
                     paraindex[0, :] - type of parameters
                                         0   - velocity coefficient for splines
                                         1   - thickness
-                                        -1  - vp/vs ratio
-                                        others to be added for tilted TI model
+                                       -1   - vp/vs ratio
                     paraindex[1, :] - index for type of amplitude for parameter perturbation
                                         1   - absolute
                                         else- relative
@@ -314,10 +305,10 @@ class para1d(object):
                                         5   - dip
                                         6   - strike
                                         
+                                        below are currently not used yet
                                         7   - rho coefficient for splines
                                         8   - thickness
                                         -1  - vp/vs ratio
-                                        
                     paraindex[1, :] - index for type of amplitude for parameter perturbation
                                         1   - absolute
                                         else- relative
@@ -333,15 +324,15 @@ class para1d(object):
     """
     def __init__(self):
         self.npara          = 0
-        self.misfit         = -1.
-        self.L              = 1.
         self.maxind         = 6
         self.isspace        = False
         return
     
     def init_arr(self, npara):
+        """
+        initialize the arrays
+        """
         self.npara          = npara
-        # # # self.numbind        = np.zeros(np.int64(self.npara), dtype=np.int32)
         self.paraval        = np.zeros(np.int64(self.npara), dtype=np.float32)
         self.paraindex      = np.zeros((np.int64(self.maxind), np.int64(self.npara)), dtype = np.float32)
         self.space          = np.zeros((3, np.int64(self.npara)), dtype = np.float32)
@@ -376,7 +367,6 @@ class para1d(object):
         #                 run = False
         #             j   +=1
         #         paralst.append(newval)
-        
         for i in xrange(self.npara):
             if ptype  == 1 and self.space[2, i] > 0.:
                 oldval 	= self.paraval[i]
@@ -401,12 +391,9 @@ class para1d(object):
         outpara             = para1d()
         outpara.init_arr(self.npara)
         outpara.paraindex   = self.paraindex.copy()
-        # # # outpara.numbind     = self.numbind.copy()
         outpara.paraval     = self.paraval.copy()
         outpara.isspace     = self.isspace
         outpara.space       = self.space.copy()
-        outpara.misfit      = self.misfit
-        outpara.L           = self.L
         return outpara
 
 # define type of disp object
@@ -775,6 +762,11 @@ class isomod(object):
     def isgood(self, m0, m1, g0, g1):
         """
         check the model is good or not
+        ==========================================================================
+        ::: input   :::
+        m0, m1  - index of group for monotonic change checking
+        g0, g1  - index of group for gradient change checking
+        ==========================================================================
         """
         # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
         for i in xrange (self.nmod-1):
@@ -862,11 +854,12 @@ spec_ttimod = [
         ('maxtilt',     numba.int32),
         #
         ('dipjump',     numba.float32),
-        
         ('hArr',        numba.float32[:, :]),
         ('t',           numba.float32[:, :]),
         # para1d object
-        ('para',        para1d_type)
+        ('para',        para1d_type),
+        # indicator of initialization rho array
+        ('isrho',       numba.boolean)
         ]
 
 @numba.jitclass(spec_ttimod)
@@ -879,6 +872,9 @@ class ttimod(object):
     nmod        - number of model groups
     maxlay      - maximum layers for each group (default - 100)
     maxspl      - maximum spline coefficients for each group (default - 20)
+    maxtilt     - maximum groups of tilt angles
+    dipjump     - value indicating depth allowing dip angle jump (in terms of ratio of crustal thickness)
+    isrho       - initialization of density array
     :   1D arrays   :
     numbp       - number of control points/basis (1D int array with length nmod)
     mtype       - model parameterization types (1D int array with length nmod)
@@ -899,13 +895,25 @@ class ttimod(object):
                     ONLY used for mtype == 2
     ratio       - array for the ratio of each layer (2D array - [:self.nlay[i], i]; i indicating group id)
                     ONLY used for mtype == 1
-    cvel        - velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+    cvph        - vph velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+    cvpv        - vpv velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+    cvsh        - vsh velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+    cvsv        - vsv velocity coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+    ceta        - eta coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
+    crho        - density coefficients (2D array - [:self.numbp[i], i]; i indicating group id)
                     layer mod   - input velocities for each layer
                     spline mod  - coefficients for B spline
                     gradient mod- top/bottom layer velocity
+    cdip,cstrike- dip/strike coefficients                
     :   model arrays        :
-    vs          - vs velocity arrays (2D array - [:self.nlay[i], i]; i indicating group id)
-    hArr        - layer arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    vph         - vph array         (2D array - [:self.nlay[i], i]; i indicating group id)
+    vpv         - vpv array         (2D array - [:self.nlay[i], i]; i indicating group id)
+    vsh         - vsh array         (2D array - [:self.nlay[i], i]; i indicating group id)
+    vsv         - vsv array         (2D array - [:self.nlay[i], i]; i indicating group id)
+    eta         - eta array         (2D array - [:self.nlay[i], i]; i indicating group id)
+    rho         - rho array         (2D array - [:self.nlay[i], i]; i indicating group id)
+    dip,strike  - dip/strike arrays (2D array - [:self.nlay[i], i]; i indicating group id)
+    hArr        - layer arrays      (2D array - [:self.nlay[i], i]; i indicating group id)
     :   para1d  :
     para        - object storing parameters for perturbation
     =====================================================================================================================
@@ -919,6 +927,7 @@ class ttimod(object):
         self.para       = para1d()
         self.maxtilt    = 5
         self.dipjump    = -1.
+        self.isrho      = False
         return
     
     def init_arr(self, nmod):
@@ -930,33 +939,33 @@ class ttimod(object):
         self.numbp      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         self.mtype      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         self.thickness  = np.zeros(np.int64(self.nmod), dtype=np.float32)
-        self.nlay       = np.ones(np.int64(self.nmod), dtype=np.int32)*np.int32(20) 
-        self.vpvs       = np.ones(np.int64(self.nmod), dtype=np.float32)*np.float32(1.75)
+        self.nlay       = np.ones(np.int64(self.nmod),  dtype=np.int32)*np.int32(20) 
+        self.vpvs       = np.ones(np.int64(self.nmod),  dtype=np.float32)*np.float32(1.75)
         self.isspl      = np.zeros(np.int64(self.nmod), dtype=np.int32)
         # arrays of size maxspl, nmod
-        self.cvph       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        self.cvpv       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        self.cvsh       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        self.cvsv       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        self.ceta       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        self.crho       = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
-        self.t          = np.zeros((np.int64(self.maxspl), np.int64(self.nmod)), dtype = np.float32)
+        self.cvph       = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
+        self.cvpv       = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
+        self.cvsh       = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
+        self.cvsv       = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
+        self.ceta       = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
+        self.crho       = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
+        self.t          = np.zeros((np.int64(self.maxspl),  np.int64(self.nmod)), dtype = np.float32)
         # tilt angles
         self.cdip       = np.zeros((np.int64(self.maxtilt), np.int64(self.nmod)), dtype = np.float32)
         self.cstrike    = np.zeros((np.int64(self.maxtilt), np.int64(self.nmod)), dtype = np.float32)
         # arrays of size maxlay, nmod
-        self.ratio      = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.vph        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.vpv        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.vsh        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.vsv        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.eta        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.rho        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.dip        = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.strike     = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
-        self.hArr       = np.zeros((np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        self.ratio      = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.vph        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.vpv        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.vsh        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.vsv        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.eta        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.rho        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.dip        = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.strike     = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
+        self.hArr       = np.zeros((np.int64(self.maxlay),  np.int64(self.nmod)), dtype = np.float32)
         # arrays of size maxspl, maxlay, nmod
-        self.spl        = np.zeros((np.int64(self.maxspl), np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
+        self.spl        = np.zeros((np.int64(self.maxspl),  np.int64(self.maxlay), np.int64(self.nmod)), dtype = np.float32)
         return
     
     def bspline(self, i):
@@ -1009,7 +1018,8 @@ class ttimod(object):
 
     def update(self):
         """
-        Update model (vs and hArr arrays)
+        update model (velocities, density, tilt angles and hArr arrays)
+        Currently, density array is updated only for layered model
         """
         for i in xrange(self.nmod):
             if self.nlay[i] > self.maxlay:
@@ -1024,19 +1034,18 @@ class ttimod(object):
                 self.vsv[:self.nlay[i], i]  = self.cvsv[:self.nlay[i], i]
                 self.eta[:self.nlay[i], i]  = self.ceta[:self.nlay[i], i]
                 self.rho[:self.nlay[i], i]  = self.crho[:self.nlay[i], i]
-                tnlay           = self.nlay[i]
+                tnlay                       = self.nlay[i]
                 #------------------------------------
                 # orientation angles
                 #------------------------------------
                 if self.dipjump < 0.:
-                    self.dip[:tnlay, i]      = np.ones(tnlay, dtype = np.float32) * self.cdip[0, i]
+                    self.dip[:tnlay, i]     = np.ones(tnlay, dtype = np.float32) * self.cdip[0, i]
                 else:
                     ratiosum                = self.ratio.cumsum()
                     ind                     = int(np.where(ratiosum <= self.dipjump)[0][-1])
                     self.dip[:ind, i]       = np.ones(ind, dtype = np.float32) * self.cdip[0, i]
                     self.dip[ind:tnlay, i]  = np.ones(tnlay-ind, dtype = np.float32) * self.cdip[1, i]
                 self.strike[:tnlay, i]      = np.ones(tnlay, dtype = np.float32) * self.cstrike[0, i]
-            
             # B spline model
             elif self.mtype[i] == 2:
                 # self.isspl[i]   = 0
@@ -1107,7 +1116,7 @@ class ttimod(object):
                 self.vsh[:nlay, i]  = vsh
                 self.vsv[:nlay, i]  = vsv
                 # # # self.rho[:nlay, i]  = rho
-                
+                # eta should not be gradient changing
                 self.eta[:nlay, i]  = np.ones(nlay, dtype=np.float32)*self.ceta[0, i]
                 self.hArr[:nlay, i] = hArr
                 self.nlay[i]        = nlay
@@ -1133,12 +1142,16 @@ class ttimod(object):
                 self.rho[0, i]      = 1.02
                 self.dip[0, i]      = 0.
                 self.strike[0, i]   = 0.
-                
                 self.hArr[0, i]     = self.thickness[i]
                 self.nlay[i]        = 1
+        if not self.isrho:
+            self.get_rho()
         return
     
     def get_rho(self):
+        """
+        get density array
+        """
         for i in xrange(self.nmod):
             if self.mtype[i] == 5:
                 self.rho[0, i]          = 1.02
@@ -1146,6 +1159,7 @@ class ttimod(object):
             ind                         = self.vsv[:, i]*self.vpvs[i] > 7.5
             self.rho[:self.nlay[i], i]  = 0.541 + 0.3601*self.vsv[:self.nlay[i], i]*self.vpvs[i]
             self.rho[ind, i]            = 3.35
+        self.isrho  = True
         return
 
     def get_vmodel(self):
@@ -1165,6 +1179,8 @@ class ttimod(object):
         dip     = []
         strike  = []
         hArr    = []
+        qs      = []
+        qp      = []
         depth   = 0.
         for i in xrange(self.nmod):
             for j in xrange(self.nlay[i]):
@@ -1178,28 +1194,52 @@ class ttimod(object):
                 rho.append(self.rho[j, i])
                 dip.append(self.dip[j, i])
                 strike.append(self.strike[j, i])
-                
+                if self.mtype[i] == 5:
+                    qs.append(10000.)
+                    qp.append(57822.)
+                elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
+                    qs.append(80.)
+                    qp.append(160.)
+                else:
+                    qs.append(600.)
+                    qp.append(1400.)
         vph     = np.array(vph, dtype=np.float32)
         vpv     = np.array(vpv, dtype=np.float32)
         vsh     = np.array(vsh, dtype=np.float32)
         vsv     = np.array(vsv, dtype=np.float32)
         eta     = np.array(eta, dtype=np.float32)
         rho     = np.array(rho, dtype=np.float32)
-        
         dip     = np.array(dip, dtype=np.float32)
         strike  = np.array(strike, dtype=np.float32)
         hArr    = np.array(hArr, dtype=np.float32)
-        return hArr, vph, vpv, vsh, vsv, eta, rho, dip, strike
+        qs      = np.array(qs, dtype=np.float32)
+        qp      = np.array(qp, dtype=np.float32)
+        return hArr, vph, vpv, vsh, vsv, eta, rho, dip, strike, qs, qp
     
-    def get_paraind_US(self):
+    def get_paraind(self):
         """
         get parameter index arrays for para
-
-        
+        =============================================================================================================================
+        paraindex[0, :] - type of parameters
+                            0   - vph coefficient for splines
+                            1   - vpv coefficient for splines
+                            2   - vsh coefficient for splines
+                            3   - vsv coefficient for splines
+                            4   - eta coefficient for splines
+                            5   - dip
+                            6   - strike
+        paraindex[1, :] - index for type of amplitude for parameter perturbation
+                            1   - absolute
+                            else- relative
+        paraindex[2, :] - amplitude for parameter perturbation (absolute/relative)
+        paraindex[3, :] - step for parameter space 
+        paraindex[4, :] - index for the parameter in the model group   
+        paraindex[5, :] - index for spline basis/grid point, ONLY works when paraindex[0, :] == 0
         references:
         Xie, J., M.H. Ritzwoller, S. Brownlee, and B. Hacker,
             Inferring the oriented elastic tensor from surface wave observations: Preliminary application across the Western US,
                 Geophys. J. Int., 201, 996-1021, 2015.
+        =============================================================================================================================
         """
         npara   = (self.numbp[1:]).sum()*5 + 4
         self.para.init_arr(npara)
@@ -1235,7 +1275,7 @@ class ttimod(object):
                 # vsv
                 self.para.paraindex[0, ipara]   = 3
                 self.para.paraindex[1, ipara]   = -1
-                self.para.paraindex[2, ipara]   = 5. # +- 15 %
+                self.para.paraindex[2, ipara]   = 5. # +- 5 % for vsv
                 self.para.paraindex[3, ipara]   = 0.05
                 self.para.paraindex[4, ipara]   = i
                 self.para.paraindex[5, ipara]   = j
@@ -1255,14 +1295,14 @@ class ttimod(object):
         self.para.paraindex[0, ipara]   = 5
         self.para.paraindex[1, ipara]   = 1
         self.para.paraindex[2, ipara]   = 100.
-        self.para.paraindex[3, ipara]   = 1.
+        self.para.paraindex[3, ipara]   = -1.
         self.para.paraindex[4, ipara]   = 1
         self.para.paraindex[5, ipara]   = 0
         ipara   += 1
         self.para.paraindex[0, ipara]   = 6
         self.para.paraindex[1, ipara]   = 1
         self.para.paraindex[2, ipara]   = 100.
-        self.para.paraindex[3, ipara]   = 1.
+        self.para.paraindex[3, ipara]   = -1.
         self.para.paraindex[4, ipara]   = 1
         self.para.paraindex[5, ipara]   = 0
         ipara   += 1
@@ -1270,20 +1310,19 @@ class ttimod(object):
         self.para.paraindex[0, ipara]   = 5
         self.para.paraindex[1, ipara]   = 1
         self.para.paraindex[2, ipara]   = 100.
-        self.para.paraindex[3, ipara]   = 1.
+        self.para.paraindex[3, ipara]   = -1.
         self.para.paraindex[4, ipara]   = 2
         self.para.paraindex[5, ipara]   = 0
         ipara   += 1
         self.para.paraindex[0, ipara]   = 6
         self.para.paraindex[1, ipara]   = 1
         self.para.paraindex[2, ipara]   = 100.
-        self.para.paraindex[3, ipara]   = 1.
+        self.para.paraindex[3, ipara]   = -1.
         self.para.paraindex[4, ipara]   = 2
         self.para.paraindex[5, ipara]   = 0
         ipara   += 1
         if ipara != npara:
             raise ValueError('Inconsistent number of parameters for perturbation!')
-        # 
         # if self.nmod >= 3:
         #     # sediment thickness
         #     self.para.paraindex[0, ipara]   = 1
@@ -1311,40 +1350,28 @@ class ttimod(object):
         paralst     = [] 
         for i in xrange(self.para.npara):
             ig      = int(self.para.paraindex[4, i])
+            ip      = int(self.para.paraindex[5, i])
             # vph coefficient 
             if int(self.para.paraindex[0, i]) == 0:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.cvph[ip , ig]
             # vpv coefficient 
             elif int(self.para.paraindex[0, i]) == 1:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.cvpv[ip , ig]
             # vsh coefficient 
             elif int(self.para.paraindex[0, i]) == 2:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.cvsh[ip , ig]
             # vsv coefficient 
             elif int(self.para.paraindex[0, i]) == 3:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.cvsv[ip , ig]
             # eta coefficient 
             elif int(self.para.paraindex[0, i]) == 4:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.ceta[ip , ig]
             # dip
             elif int(self.para.paraindex[0, i]) == 5:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.cdip[ip , ig]
             # strike
             elif int(self.para.paraindex[0, i]) == 6:
-                ip  = int(self.para.paraindex[5, i])
                 val = self.cstrike[ip , ig]
-            
-            # # vph coefficient 
-            # elif int(self.para.paraindex[0, i]) == 5:
-            #     ip  = int(self.para.paraindex[5, i])
-            #     val = self.cvph[ip , ig]
-
             # # total thickness of the group
             # elif int(self.para.paraindex[0, i]) == 1:
             #     val = self.thickness[ig]
@@ -1367,19 +1394,23 @@ class ttimod(object):
                     valmax  = val + val*self.para.paraindex[2, i]/100.
                 valmin  = max (0.,valmin)
                 valmax  = max (valmin + 0.0001, valmax)
-                # if (self.para.paraindex[0, i] == 0 and i == 0 and self.para.paraindex[5, i] == 0): # if it is the upper sedi:
-                #     valmin  = max (0.2, valmin)
-                #     valmax  = max (0.5, valmax)
-                # eta
                 if int(self.para.paraindex[0, i]) == 4:
                     if int(self.para.paraindex[4, i]) == 1:
                         valmin  = 0.6
                         valmax  = 1.1
-                        step    = 0.01
+                        step    = 0.05
                     else:
                         valmin  = 0.85
                         valmax  = 1.1
-                        step    = 0.01
+                        step    = 0.05
+                    # if int(self.para.paraindex[4, i]) == 1:
+                    #     valmin  = 1.0
+                    #     valmax  = 1.0
+                    #     step    = -0.3
+                    # else:
+                    #     valmin  = 1.
+                    #     valmax  = 1.0
+                    #     step    = -0.2
                 # dip
                 if int(self.para.paraindex[0, i]) == 5:
                     valmin      = 0.
@@ -1398,38 +1429,32 @@ class ttimod(object):
     
     def para2mod(self):
         """
-        Convert paratemers (for perturbation) to model parameters
+        convert paratemers (for perturbation) to model parameters
         """
         for i in xrange(self.para.npara):
             val     = self.para.paraval[i]
             ig      = int(self.para.paraindex[4, i])
+            ip      = int(self.para.paraindex[5, i])
             # vph coefficient 
             if int(self.para.paraindex[0, i]) == 0:
-                ip                  = int(self.para.paraindex[5, i])
                 self.cvph[ip , ig]  = val
             # vpv coefficient 
             elif int(self.para.paraindex[0, i]) == 1:
-                ip                  = int(self.para.paraindex[5, i])
                 self.cvpv[ip , ig]  = val
             # vsh coefficient 
             elif int(self.para.paraindex[0, i]) == 2:
-                ip                  = int(self.para.paraindex[5, i])
                 self.cvsh[ip , ig]  = val
             # vsv coefficient 
             elif int(self.para.paraindex[0, i]) == 3:
-                ip                  = int(self.para.paraindex[5, i])
                 self.cvsv[ip , ig]  = val
             # eta coefficient 
             elif int(self.para.paraindex[0, i]) == 4:
-                ip                  = int(self.para.paraindex[5, i])
                 self.ceta[ip , ig]  = val
             # dip
             elif int(self.para.paraindex[0, i]) == 5:
-                ip                  = int(self.para.paraindex[5, i])
                 self.cdip[ip , ig]  = val
             # strike
             elif int(self.para.paraindex[0, i]) == 6:
-                ip                  = int(self.para.paraindex[5, i])
                 self.cstrike[ip,ig] = val
             else:
                 raise ValueError('Unexpected value in paraindex!')
@@ -1438,6 +1463,11 @@ class ttimod(object):
     def isgood(self, m0, m1, g0, g1):
         """
         check the model is good or not
+        ==========================================================================
+        ::: input   :::
+        m0, m1  - index of group for monotonic change checking
+        g0, g1  - index of group for gradient change checking
+        ==========================================================================
         """
         # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
         for i in xrange (self.nmod-1):
@@ -1449,7 +1479,7 @@ class ttimod(object):
                 return False
             if self.vph[0, i+1] < self.vph[-1, i]:
                 return False
-        
+        # various constraints
         for j in xrange(self.nmod):
             if j == 0: # do not check sediments
                 continue
@@ -1459,11 +1489,15 @@ class ttimod(object):
                     return False
                 if self.vph[i, j] < self.vpv[i,j]:
                     return False
+                # upper limit of inherent anisotropy (20 %)
+                if self.vsh[i, j] > 1.2*self.vsv[i,j]:
+                    return False
+                if self.vph[i, j] > 1.2*self.vpv[i,j]:
+                    return False
                 # vp/vs ratio must be within [1.65, 1.85], need modification for water layer !!
                 vpvs    = (self.vph[i, j] + self.vpv[i, j])/(self.vsh[i, j]+self.vsv[i, j]) 
                 if vpvs < 1.65 or vpvs > 1.85:
                     return False
-
         if m1 >= self.nmod:
             m1  = self.nmod -1
         if m0 < 0:
@@ -1472,7 +1506,7 @@ class ttimod(object):
             g1  = self.nmod -1
         if g0 < 0:
             g0  = 0
-        # monotonic change
+        # monotonic change contraint
         # velocity constrast, contraint (3) and (4) in 4.2 of Shen et al., 2012
         if m0 <= m1:
             for j in range(m0, m1+1):
@@ -1485,7 +1519,6 @@ class ttimod(object):
                         return False
                     if self.vph[i, j] > self.vph[i+1, j]:
                         return False
-         
         # gradient check
         if g0<=g1:
             for j in range(g0, g1+1):
@@ -1500,6 +1533,17 @@ class ttimod(object):
         return True
     
     def new_paraval(self, m0, m1, g0, g1, ptype):
+        """
+        perturb parameters in paraval array
+        ================================================================================
+        ::: input   :::
+        m0, m1  - index of group for monotonic change checking
+        g0, g1  - index of group for gradient change checking
+        ptype   - perturbation type
+                    0   - uniform random value generated from parameter space
+                    1   - Gauss random number generator given mu = oldval, sigma=step
+        ================================================================================
+        """
         self.mod2para()
         oldparaval  = self.para.paraval.copy()
         self.para.new_paraval(ptype)
@@ -1510,15 +1554,53 @@ class ttimod(object):
             self.para.paraval[:]    = oldparaval.copy()
             self.para.new_paraval(ptype)
             self.para2mod()
-            if i>1000000:
-            # # # if i%1000000 == 1000000:
+            if i > 100000:
+                self.perturb_vel()
+            # # if i>100000:
+            # # # # # if i>100000000:
+            if i > 100500:
                 self.cvph[:,:]  = self.cvpv.copy()
                 self.cvsh[:,:]  = self.cvsv.copy()
             self.update()
             i   += 1
         return
-            
     
+    def perturb_vel(self):
+        """
+        perturb velocity coefficient alone, in order to pass the isgood check
+        """
+        maxaniso    = 0.2
+        for i in xrange(self.nmod):
+            if i == 0:
+                continue # sediment, no perturbation
+            for j in xrange(self.numbp[i]):
+                anisomag        = np.random.uniform(0, maxaniso)
+                self.cvph[j, i] = (1. + anisomag) * self.cvpv[j, i]
+                self.cvsh[j, i] = (1. + anisomag) * self.cvsv[j, i]
+        for i in xrange(self.para.npara):
+            ig      = int(self.para.paraindex[4, i])
+            ip      = int(self.para.paraindex[5, i])
+            valmin  = self.para.space[0, i]
+            valmax  = self.para.space[1, i]
+            # vph coefficient 
+            if int(self.para.paraindex[0, i]) == 0:
+                self.cvph[ip , ig]  = min(valmax, self.cvph[ip , ig])
+                self.cvph[ip , ig]  = max(valmin, self.cvph[ip , ig])
+            # vpv coefficient 
+            elif int(self.para.paraindex[0, i]) == 1:
+                self.cvpv[ip , ig]  = min(valmax, self.cvpv[ip , ig])
+                self.cvpv[ip , ig]  = max(valmin, self.cvpv[ip , ig])
+            # vsh coefficient 
+            elif int(self.para.paraindex[0, i]) == 2:
+                self.cvsh[ip , ig]  = min(valmax, self.cvsh[ip , ig])
+                self.cvsh[ip , ig]  = max(valmin, self.cvsh[ip , ig])
+            # vsv coefficient 
+            elif int(self.para.paraindex[0, i]) == 3:
+                self.cvsv[ip , ig]  = min(valmax, self.cvsv[ip , ig])
+                self.cvsv[ip , ig]  = max(valmin, self.cvsv[ip , ig])
+        return
+                
+                
     def copy(self):
         """
         return a copy of the object
@@ -1533,7 +1615,7 @@ class ttimod(object):
         outmod.isspl    = self.isspl.copy()
         outmod.spl      = self.spl.copy()
         outmod.ratio    = self.ratio.copy()
-        
+        # model coefficients 
         outmod.cvph     = self.cvph.copy()
         outmod.cvpv     = self.cvpv.copy()
         outmod.cvsh     = self.cvsh.copy()
@@ -1542,7 +1624,6 @@ class ttimod(object):
         outmod.crho     = self.crho.copy()
         outmod.cdip     = self.cdip.copy()
         outmod.cstrike  = self.cstrike.copy()
-        
         outmod.dipjump  = self.dipjump
         
         outmod.vph      = self.vph.copy()
@@ -1554,9 +1635,9 @@ class ttimod(object):
         outmod.dip      = self.dip.copy()
         outmod.strike   = self.strike.copy()
         
-        
         outmod.hArr     = self.hArr.copy()
         outmod.t        = self.t.copy()
         outmod.para     = self.para.copy()
+        outmod.isrho    = self.isrho
         return outmod
     

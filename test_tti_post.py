@@ -16,6 +16,12 @@ vpr.readdisp(infname='./disp_-112.0_36.0_lov.txt', wtype = 'l')
 vpr.readdisp(infname='./disp_-112.0_36.0_ray.txt', wtype = 'r')
 vpr.readaziamp(infname='./aziamp_-112.0_36.0.txt', wtype = 'r')
 vpr.readaziphi(infname='./aziphi_-112.0_36.0.txt', wtype = 'r')
+
+# vpr.readdisp(infname='./synthetic_inv/disp_lov.txt', wtype = 'l')
+# vpr.readdisp(infname='./synthetic_inv/disp_ray.txt', wtype = 'r')
+# vpr.readaziamp(infname='./synthetic_inv/aziamp.ray.txt', wtype = 'r')
+# vpr.readaziphi(infname='./synthetic_inv/aziphi.ray.txt', wtype = 'r')
+
 vpr.readmod(infname='mod_-112.0.36.0.mod', mtype='tti')
 
 
@@ -24,6 +30,8 @@ vpr.getpara(mtype='tti')
 vpr.update_mod(mtype='tti')
 vpr.model.ttimod.get_rho()
 vpr.read_tti_inv(indir='workingdir_tti')
+
+# vpr.read_tti_inv(indir='synthetic_inv_result')
 
 minmisfit = vpr.misfit.min()
 ind = (vpr.isacc == 1)*(vpr.misfit < 2.0*minmisfit)

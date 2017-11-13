@@ -174,7 +174,6 @@ def writeaziamptxt(outfname, outdisp, dtype='ph'):
         outArr  = outArr.reshape((4, outdisp.npper))
         outArr  = outArr.T
         np.savetxt(outfname, outArr, fmt='%g')
-    
     # # # elif dtype == 'gr' or dtype == 'group':
     # # #     if not outdisp.isgroup:
     # # #         print 'group velocity data is not stored!'
@@ -403,6 +402,8 @@ spec_disp = [
         ('isphase', numba.boolean),
         ('pmisfit', numba.float32),
         ('pL',      numba.float32),
+        # L = exp(-0.5*S)
+        ('pS',      numba.float32),
         #########################
         # group velocities
         #########################
@@ -420,11 +421,11 @@ spec_disp = [
         ('isgroup', numba.boolean),
         ('gmisfit', numba.float32),
         ('gL',      numba.float32),
+        # L = exp(-0.5*S)
+        ('gS',      numba.float32),
         # total misfit/likelihood
         ('misfit',  numba.float32),
         ('L',       numba.float32),
-        # L = exp(-0.5*S)
-        ('S',       numba.float32),
         # common period for phase/group
         ('period',  numba.float32[:]),
         ('nper',    numba.int32)
@@ -447,12 +448,15 @@ class disp(object):
     :   anisotropic :
     pphio   - observed phase velocity fast direction angle
     pampo   - observed phase velocity azimuthal anisotropic amplitude
+    stdpphio- uncertainties for fast direction angle
+    stdpampo- uncertainties for azimuthal anisotropic amplitude
     pphip   - predicted phase velocity fast direction angle
     pampp   - predicted phase velocity azimuthal anisotropic amplitude
     :   others  :
     isphase - phase dispersion data is stored or not
     pmisfit - phase dispersion misfit
-    pL      - phase dispersion likelihood 
+    pL      - phase dispersion likelihood
+    pS      - S function, L = exp(-0.5*S)
     --------------------------------------------------------------------------
     ::  group   ::
     ngper   - number of group period
@@ -491,7 +495,7 @@ class disp(object):
         for i in xrange(self.npper):
             temp+= (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
         self.pmisfit    = np.sqrt(temp/self.npper)
-        self.S          = temp
+        self.pS         = temp
         if temp > 50.:
             temp        = np.sqrt(temp*50.)
         self.pL         = np.exp(-0.5 * temp)
@@ -507,12 +511,11 @@ class disp(object):
         temp    = 0.
         for i in xrange(self.npper):
             temp+= (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
-        misfit  = np.sqrt(temp/self.ngper)
+        self.gmisfit    = np.sqrt(temp/self.ngper)
+        self.gS         = temp
         if temp > 50.:
             temp= np.sqrt(temp*50.)
-        L       = np.exp(-0.5 * temp)
-        self.gmisfit    = misfit
-        self.gL         = L
+        self.gL         = np.exp(-0.5 * temp)
         return True
     
     def get_misfit(self):
@@ -525,6 +528,7 @@ class disp(object):
             for i in xrange(self.npper):
                 temp1   += (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
             tS          = temp1
+            self.pS     = tS
             misfit      = np.sqrt(temp1/self.npper)
             if tS > 50.:
                 tS      = np.sqrt(tS*50.)
@@ -536,6 +540,7 @@ class disp(object):
             for i in xrange(self.ngper):
                 temp2   += (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
             tS          = temp2
+            self.gS     = tS
             misfit      = np.sqrt(temp2/self.ngper)
             if tS > 50.:
                 tS      = np.sqrt(tS*50.)
@@ -558,6 +563,9 @@ class disp(object):
         return True
     
     def get_misfit_tti(self):
+        """
+        compute misfit for inversion of tilted TI models, only applies to phase velocity dispersion
+        """
         temp1   = 0.; temp2   = 0.; temp3   = 0.
         for i in xrange(self.npper):
             temp1   += (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
@@ -568,12 +576,12 @@ class disp(object):
             temp3   += phidiff**2/self.stdpphio[i]**2
         # # # temp2       *= 2.
         # # # temp3       *= 2.
-        self.S      = temp1+temp2+temp3
+        self.pS     = temp1+temp2+temp3
         tS          = temp1+temp2+temp3
         self.pmisfit= np.sqrt(tS/3./self.npper)
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
-        self.pL      = np.exp(-0.5 * tS)
+        self.pL     = np.exp(-0.5 * tS)
         return
         
         
@@ -736,10 +744,15 @@ class data1d(object):
         return
     
     def get_misfit_tti(self):
+        """
+        compute misfit for inversion of tilted TI models, only applies to phase velocity dispersion
+        """
         self.dispR.get_misfit_tti()
         self.dispL.get_pmisfit()
-        self.misfit = np.sqrt((self.dispR.S + self.dispL.S)/(3.*self.dispR.npper + self.dispL.npper) )
-        tS          = 0.5*(self.dispR.S + self.dispL.S)
+        self.misfit = np.sqrt((self.dispR.pS + self.dispL.pS)/(3.*self.dispR.npper + self.dispL.npper) )
+        tS          = 0.5*(self.dispR.pS + self.dispL.pS)
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
         if tS > 50.:

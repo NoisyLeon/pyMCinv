@@ -2902,7 +2902,7 @@ class model1d(object):
         """
         get the tilted TI model from ttimod
         """
-        hArr, vph, vpv, vsh, vsv, eta, rho, dip, strike = self.ttimod.get_vmodel()
+        hArr, vph, vpv, vsh, vsv, eta, rho, dip, strike, qs, qp = self.ttimod.get_vmodel()
         zArr            = hArr.cumsum()
         N               = zArr.size
         self.zArr       = np.zeros(2*N, dtype=np.float32)
@@ -2913,6 +2913,8 @@ class model1d(object):
         self.etaArr     = np.zeros(2*N, dtype=np.float32)
         self.rhoArr     = np.zeros(2*N, dtype=np.float32)
         self.rArr       = np.zeros(2*N, dtype=np.float32)
+        self.qsArr      = np.zeros(2*N, dtype=np.float32)
+        self.qpArr      = np.zeros(2*N, dtype=np.float32)
         if not self.tilt:
             self.init_dip_strike()
         
@@ -2926,6 +2928,8 @@ class model1d(object):
                 self.rhoArr[i]      = rho[i]*1000.
                 self.dipArr[i]      = dip[i]
                 self.strikeArr[i]   = strike[i]
+                self.qsArr[i]       = qs[i]
+                self.qpArr[i]       = qp[i]
                 continue
             j   = int(i/2)
             k   = i%2
@@ -2938,13 +2942,22 @@ class model1d(object):
             self.rhoArr[i]      = rho[j]*1000.
             self.dipArr[i]      = dip[j]
             self.strikeArr[i]   = strike[j]
+            self.qsArr[i]       = qs[j]
+            self.qpArr[i]       = qp[j]
             
         self.zArr       = self.zArr[::-1]
         self.VsvArr     = self.VsvArr[::-1]
         self.VshArr     = self.VshArr[::-1]
         self.VpvArr     = self.VpvArr[::-1]
         self.VphArr     = self.VphArr[::-1]
-        self.etaArr     = np.ones(2*N, dtype=np.float32)
+        # # # self.etaArr     = np.ones(2*N, dtype=np.float32)
+        self.etaArr     = self.etaArr[::-1]
+        #-----------------------------------------------------------------------------
+        # eta at the rmax must be 1., this can get around the bug in tcps. 
+        #-----------------------------------------------------------------------------
+        self.etaArr[0]  = 1.
+        self.etaArr[1]  = 1.
+        
         self.qsArr      = self.qsArr[::-1]
         self.qpArr      = self.qpArr[::-1]
         self.rhoArr     = self.rhoArr[::-1]
@@ -2953,7 +2966,7 @@ class model1d(object):
         self.rArr       = (np.float32(6371000.) - self.zArr*np.float32(1000.))
         self.vel2love()
         self.init_etensor()
-        return 
+        return qs, qp
         
     
     
