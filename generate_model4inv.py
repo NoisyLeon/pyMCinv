@@ -1,16 +1,10 @@
 import vprofile
 import modparam
 import vmodel
+
+outdir = './synthetic_inv'
+
 vpr = vprofile.vprofile1d()
-
-
-# vpr.readdisp(infname='./disp_-112.2_36.4_lov.txt', wtype = 'l')
-# vpr.readdisp(infname='./disp_-112.2_36.4_ray.txt', wtype = 'r')
-# vpr.readaziamp(infname='./aziamp_-112.2_36.4.txt', wtype = 'r')
-# vpr.readaziphi(infname='./aziphi_-112.2_36.4.txt', wtype = 'r')
-# vpr.readmod(infname='mod_-112.2.36.4.mod', mtype='tti')
-
-
 vpr.readdisp(infname='./disp_-112.0_36.0_lov.txt', wtype = 'l')
 vpr.readdisp(infname='./disp_-112.0_36.0_ray.txt', wtype = 'r')
 vpr.readaziamp(infname='./aziamp_-112.0_36.0.txt', wtype = 'r')
@@ -18,11 +12,13 @@ vpr.readaziphi(infname='./aziphi_-112.0_36.0.txt', wtype = 'r')
 vpr.readmod(infname='mod_-112.0.36.0.mod', mtype='tti')
 vpr.getpara(mtype='tti')
 vpr.update_mod(mtype='tti')
-vpr.model.ttimod.get_rho()
 vpr.get_vmodel(mtype='tti')
 vpr.model.ttimod.new_paraval(0, 1, 1, 0, 1)
 vpr.get_vmodel(mtype='tti')
 
+outfname = outdir+'/paraval.txt'
+vpr.model.ttimod.mod2para()
+modparam.write_paraval_txt(outfname, vpr.model.ttimod.para)
 
 import tcps
 import numpy as np
@@ -41,9 +37,10 @@ tcpsL.dArr = vpr.model.get_dArr()
 tcpsL.solve_SH()
 
 # write model
-vmodel.write_model(model=vpr.model, outfname='./synthetic_inv/001.mod', isotropic=False)
+outfname = outdir+'/synthetic.mod'
+vmodel.write_model(model=vpr.model, outfname=outfname, isotropic=False)
 
-outdir = './synthetic_inv'
+
 outfname = outdir+'/disp_ray.txt'
 outArr  = np.append(tcpsR.T, tcpsR.C)
 outArr  = np.append(outArr, np.ones(tcpsR.T.size)*0.002)

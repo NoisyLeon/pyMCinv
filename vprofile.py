@@ -18,6 +18,7 @@ import os
 import time
 import random
 import eigenkernel
+# import fastmc
 import matplotlib.pyplot as plt
 
 
@@ -489,12 +490,16 @@ class vprofile1d(object):
     
     def perturb_from_kernel(self, wtype='ray'):
         """
-        
+        compute perturbation in dispersion from reference model using sensitivity kernels
+        ====================================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        ====================================================================================
         """
         wtype   = wtype.lower()
         if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
             if not self.disprefR:
-                raise ValueError('refence dispersion and kernels for Rayleigh wave not computed!')
+                raise ValueError('referennce dispersion and kernels for Rayleigh wave not computed!')
             nl_in       = self.hArr.size
             if nl_in == 0:
                 raise ValueError('No layer arrays stored!')
@@ -514,7 +519,7 @@ class vprofile1d(object):
                 self.indata.dispR.pphip = phi
         elif wtype=='lov' or wtype=='love' or wtype=='l':
             if not self.disprefL:
-                raise ValueError('refence dispersion and kernels not computed!')
+                raise ValueError('referennce dispersion and kernels not computed!')
             nl_in       = self.hArr.size
             if nl_in == 0:
                 raise ValueError('No layer arrays stored!')
@@ -528,7 +533,8 @@ class vprofile1d(object):
             self.eigkL.get_ETI(AArr, CArr, FArr, LArr, NArr, rhoArr)
             dpvel                       = self.eigkL.eti_perturb()
             self.indata.dispL.pvelp     = self.indata.dispL.pvelref + dpvel
-
+        else:
+            raise ValueError('Unexpected wave type: '+mtype)
         return
     
     def compute_rftheo(self, dtype='r', slowness = 0.06, din=None):
@@ -646,7 +652,7 @@ class vprofile1d(object):
         # fidoutb     = open(outbinfname, "wb")
         while ( run ):
             inew+= 1
-            print 'run step = ',inew
+            # print 'run step = ',inew
             if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
                 run   = False
             if (np.fmod(inew, 500) == 0):
@@ -779,8 +785,10 @@ class vprofile1d(object):
         self.model.ttimod.get_rho()
         self.get_vmodel(mtype = 'tti')
         # initial run
-        self.compute_tcps(wtype='ray')
-        self.compute_tcps(wtype='love')
+        if not self.compute_tcps(wtype='ray'):
+            raise ValueError('Error in computing reference Rayleigh dispersion for initial model!')
+        if not self.compute_tcps(wtype='love'):
+            raise ValueError('Error in computing reference Love dispersion for initial model!')
         self.perturb_from_kernel(wtype='ray')
         self.perturb_from_kernel(wtype='love')
         self.get_misfit_tti()
@@ -820,18 +828,21 @@ class vprofile1d(object):
             # every 2500 step, perform a random walk with uniform random value in the paramerter space
             #------------------------------------------------------------------------------------------
             if ( np.fmod(inew, 15001) == 15000 ):
-                self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
-                self.get_vmodel(mtype='tti')
-                # forward computation
-                # # # self.compute_tcps(wtype='ray')
-                # # # self.compute_tcps(wtype='love')
-                self.perturb_from_kernel(wtype='ray')
-                self.perturb_from_kernel(wtype='love')
-                self.get_misfit_tti()
-                oldL                = self.indata.L
-                oldmisfit           = self.indata.misfit
-                iacc                += 1
-                print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
+                self.read_paraval('./synthetic_inv/paraval.txt')
+            
+            # if ( np.fmod(inew, 15001) == 15000 ):
+            #     self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
+            #     self.get_vmodel(mtype='tti')
+            #     # forward computation
+            #     # # # self.compute_tcps(wtype='ray')
+            #     # # # self.compute_tcps(wtype='love')
+            #     self.perturb_from_kernel(wtype='ray')
+            #     self.perturb_from_kernel(wtype='love')
+            #     self.get_misfit_tti()
+            #     oldL                = self.indata.L
+            #     oldmisfit           = self.indata.misfit
+            #     iacc                += 1
+            #     print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
             #-------------------------------
             # inversion part
             #-------------------------------
@@ -874,7 +885,8 @@ class vprofile1d(object):
             fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
                     self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
             print "Accept a model", inew, iacc, oldL, newL, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
-                            self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start
+                            self.indata.dispL.pL, self.indata.dispL.pmisfit, \
+                            self.indata.L, self.indata.misfit, time.time()-start
             # write accepted model
             outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
             vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
@@ -909,6 +921,46 @@ class vprofile1d(object):
         fidout.close()
         return
     
+    # def mc_inv_tti_fast(self, outdir='./workingdir_tti', monoc=True, pfx='MC'):
+    #     if not os.path.isdir(outdir):
+    #         os.makedirs(outdir)
+    #     # initializations
+    #     self.get_period(dtype = 'ph')
+    #     self.update_mod(mtype = 'tti')
+    #     self.model.ttimod.get_rho()
+    #     self.get_vmodel(mtype = 'tti')
+    #     # initial run
+    #     if not self.compute_tcps(wtype='ray'):
+    #         raise ValueError('Error in computing reference Rayleigh dispersion for initial model!')
+    #     if not self.compute_tcps(wtype='love'):
+    #         raise ValueError('Error in computing reference Love dispersion for initial model!')
+    #     self.perturb_from_kernel(wtype='ray')
+    #     self.perturb_from_kernel(wtype='love')
+    #     self.get_misfit_tti()
+    #     # write initial model
+    #     outmod  = outdir+'/'+pfx+'.mod'
+    #     vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+    #     # write initial predicted data
+    #     outdisp = outdir+'/'+pfx+'.ph.ray.disp'
+    #     data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+    #     outdisp = outdir+'/'+pfx+'.ph.lov.disp'
+    #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+    #     
+    #     # conver initial model to para
+    #     self.model.ttimod.mod2para()
+    #     # likelihood/misfit
+    #     oldL        = self.indata.L
+    #     oldmisfit   = self.indata.misfit
+    #     print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
+    #     self.ttisolver          = fastmc.ttisolver()
+    #     self.ttisolver.hArr     = self.hArr
+    #     self.ttisolver.indata   = self.indata
+    #     self.ttisolver.model    = self.model
+    #     self.ttisolver.eigkR    = self.eigkR
+    #     self.ttisolver.eigkL    = self.eigkL
+    #     # self.ttisolver.mc_inv(True)
+        
+        
     # def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=.714, rffactor=40., monoc=True, pfx='MC'):
     
     #-------------------------------------------------
@@ -974,6 +1026,8 @@ class vprofile1d(object):
         self.get_vmodel(mtype='iso')
         return
     
+    
+    
     #-------------------------------------------------------
     # post-processing functions for tilted TI inversion
     #-------------------------------------------------------
@@ -1011,8 +1065,10 @@ class vprofile1d(object):
         if ind!=None:
             self.get_ind_tti_mod(ind=ind)
         self.get_period()
-        self.compute_tcps(wtype='ray')
-        self.compute_tcps(wtype='love')
+        if not self.disprefR:
+            self.compute_tcps(wtype='ray')
+        if not self.disprefL:
+            self.compute_tcps(wtype='love')
         self.perturb_from_kernel(wtype='ray')
         self.perturb_from_kernel(wtype='love')
         self.get_misfit_tti()
@@ -1060,30 +1116,43 @@ class vprofile1d(object):
     def plot_min_fitting_curve(self, mintype=0):
         self.get_min_tti_mod(mintype=mintype)
         self.plot_ind_fitting_curve()
-        
+        return
     
-        
+    def get_avg_tti_mod(self, threshhold=2.0, mtype='rel'):
+        minmisfit                       = self.misfit.min()
+        if threshhold < 1.:
+            raise ValueError('Relative threshhold should be larger than 1!')
+        if minmisfit  >= 0.5:
+            tmisfit = threshhold*minmisfit
+        else:
+            tmisfit = minmisfit + 0.5
+        ind                             = (self.misfit <= tmisfit)
+        self.model.ttimod.para.paraval  = np.mean(self.paraval[ind, :], axis = 0, dtype=np.float32)
+        self.model.ttimod.para2mod()
+        self.model.ttimod.update()
+        self.get_vmodel(mtype='tti')
+        return
     
-    # def get_avg_iso_mod(self, threshhold=2.0, mtype='rel'):
-    #     minmisfit                       = self.misfit.min()
-    #     if threshhold < 1.:
-    #         raise ValueError('Relative threshhold should be larger than 1!')
-    #     if tmisfit  >= 0.5:
-    #         tmisfit = threshhold*minmisfit
-    #     else:
-    #         tmisfit = minmisfit + 0.5
-    #     ind                             = (self.misfit <= tmisfit)
-    #     self.model.isomod.para.paraval  = np.mean(self.paraval[ind, :], axis = 0, dtype=np.float32)
-    #     self.model.isomod.para2mod()
-    #     self.model.isomod.update()
-    #     self.get_vmodel(mtype='iso')
-    #     return
+    def read_paraval(self, infname, mtype='iso'):
+        """
+        read paraval array
+        """
+        mtype   = mtype.lower()
+        if mtype == 'iso' or mtype == 'isotropic':
+            modparam.read_paraval_txt(infname=infname, inpara=self.model.isomod.para)
+            self.model.isomod.para2mod()
+            self.get_period(dtype = 'ph')
+            self.update_mod(mtype = mtype)
+            self.get_vmodel(mtype = mtype)
+        elif mtype == 'tti':
+            modparam.read_paraval_txt(infname=infname, inpara=self.model.ttimod.para)
+            self.model.ttimod.para2mod()
+            self.get_period(dtype = 'ph')
+            self.update_mod(mtype = 'tti')
+            self.model.ttimod.get_rho()
+            self.get_vmodel(mtype = 'tti')
+        return
         
-        
-        
-        
-    
-    # def init_fwrd_compute(self, mtype='iso'):
         
         
             

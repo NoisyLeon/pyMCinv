@@ -207,6 +207,14 @@ def readparatxt(infname, inpara):
     # print "read para over!"
     return
     
+    
+def write_paraval_txt(outfname, outpara):
+    np.savetxt(outfname, outpara.paraval, fmt='%g')
+    return
+
+def read_paraval_txt(infname, inpara):
+    inpara.paraval  = np.loadtxt(infname, dtype=np.float32)
+    return
 ####################################################
 # auxiliary functions
 ####################################################
@@ -1071,6 +1079,11 @@ class ttimod(object):
                     self.vsv[ilay, i]   = tvsv
                     self.eta[ilay, i]   = teta
                     self.hArr[ilay, i]  = self.thickness[i]/self.nlay[i]
+                    #-----------------------------------
+                    # Tibet
+                    #-----------------------------------
+                    self.vph[ilay, i]   = 1.77*tvsh
+                    self.vpv[ilay, i]   = 1.77*tvsv
                 #------------------------------------
                 # orientation angles
                 #------------------------------------
@@ -1396,7 +1409,7 @@ class ttimod(object):
                 valmax  = max (valmin + 0.0001, valmax)
                 if int(self.para.paraindex[0, i]) == 4:
                     if int(self.para.paraindex[4, i]) == 1:
-                        valmin  = 0.6
+                        valmin  = 0.8
                         valmax  = 1.1
                         step    = 0.05
                     else:

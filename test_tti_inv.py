@@ -11,20 +11,20 @@ vpr = vprofile.vprofile1d()
 # vpr.readmod(infname='mod_-112.2.36.4.mod', mtype='tti')
 
 
-vpr.readdisp(infname='./disp_-112.0_36.0_lov.txt', wtype = 'l')
-vpr.readdisp(infname='./disp_-112.0_36.0_ray.txt', wtype = 'r')
-vpr.readaziamp(infname='./aziamp_-112.0_36.0.txt', wtype = 'r')
-vpr.readaziphi(infname='./aziphi_-112.0_36.0.txt', wtype = 'r')
+# vpr.readdisp(infname='./disp_-112.0_36.0_lov.txt', wtype = 'l')
+# vpr.readdisp(infname='./disp_-112.0_36.0_ray.txt', wtype = 'r')
+# vpr.readaziamp(infname='./aziamp_-112.0_36.0.txt', wtype = 'r')
+# vpr.readaziphi(infname='./aziphi_-112.0_36.0.txt', wtype = 'r')
 
-# vpr.readdisp(infname='./synthetic_inv/disp_lov.txt', wtype = 'l')
-# vpr.readdisp(infname='./synthetic_inv/disp_ray.txt', wtype = 'r')
-# vpr.readaziamp(infname='./synthetic_inv/aziamp.ray.txt', wtype = 'r')
-# vpr.readaziphi(infname='./synthetic_inv/aziphi.ray.txt', wtype = 'r')
+vpr.readdisp(infname='./synthetic_inv/disp_lov.txt', wtype = 'l')
+vpr.readdisp(infname='./synthetic_inv/disp_ray.txt', wtype = 'r')
+vpr.readaziamp(infname='./synthetic_inv/aziamp.ray.txt', wtype = 'r')
+vpr.readaziphi(infname='./synthetic_inv/aziphi.ray.txt', wtype = 'r')
 
 vpr.readmod(infname='mod_-112.0.36.0.mod', mtype='tti')
 vpr.getpara(mtype='tti')
-# vpr.mc_inv_tti(outdir='./synthetic_inv_result')
-vpr.mc_inv_tti()
+vpr.mc_inv_tti(outdir='./synthetic_inv_result')
+# vpr.mc_inv_tti()
 
 
 

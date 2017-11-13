@@ -705,7 +705,7 @@ spec_data=[# Rayleigh/Love dispersion data
             ('misfit',  numba.float32),
             ('L',       numba.float32)
         ]
-
+import time
 @numba.jitclass(spec_data)
 class data1d(object):
     """
@@ -755,8 +755,16 @@ class data1d(object):
             tS      = np.sqrt(tS*50.)
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
-        if tS > 50.:
-            tS      = np.sqrt(tS*50.)
+        # if tS > 50.:
+        #     tS      = np.sqrt(tS*50.)
+        # if tS > 50.:
+        #     tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
         return
+
+    def printtest(self):
+        i=np.int32(3)
+        print 'accept a model', (i, self.L)
+
+
         
