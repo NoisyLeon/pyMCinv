@@ -18,10 +18,22 @@ import os
 import time
 import random
 import eigenkernel
-# import fastmc
+import fastmc
 import matplotlib.pyplot as plt
+import matplotlib
+import multiprocessing
+from functools import partial
 
+def to_percent(y, position):
+    # Ignore the passed in position. This has the effect of scaling the default
+    # tick locations.
+    s = str(100. * y)
 
+    # The percent symbol needs escaping in latex
+    if matplotlib.rcParams['text.usetex'] is True:
+        return s + r'$\%$'
+    else:
+        return s + '%'
 
 class vprofile1d(object):
     """
@@ -472,7 +484,7 @@ class vprofile1d(object):
                 pvelp               = cr0[:nper]
                 gvelp               = ur0[:nper]
                 if (abs(pvelp - self.indata.dispR.pvelref)).max() > tol:
-                    print 'WARNING: reference dispersion curves may be erroneous!'
+                    print('WARNING: reference dispersion curves may be erroneous!')
                     return False
             elif wtype=='l' or wtype == 'love':
                 ilvry               = 1
@@ -484,7 +496,7 @@ class vprofile1d(object):
                 pvelp               = cl0[:nper]
                 gvelp               = ul0[:nper]
                 if (abs(pvelp - self.indata.dispL.pvelref)).max() > tol:
-                    print 'WARNING: reference dispersion curves may be erroneous!'
+                    print('WARNING: reference dispersion curves may be erroneous!')
                     return False
         return True
     
@@ -604,8 +616,12 @@ class vprofile1d(object):
         """
         self.indata.get_misfit_tti()
         return
-        
-    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=.714, rffactor=40., monoc=True, pfx='MC'):
+    
+    #-------------------------------------------------
+    # functions for inversions
+    #-------------------------------------------------
+    
+    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC'):
         """
         
         """
@@ -634,7 +650,7 @@ class vprofile1d(object):
             data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
         outrf   = outdir+'/'+pfx+'.rf'
         data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
-        # conver initial model to para
+        # convert initial model to para
         self.model.isomod.mod2para()
         # likelihood/misfit
         oldL        = self.indata.L
@@ -653,14 +669,15 @@ class vprofile1d(object):
         while ( run ):
             inew+= 1
             # print 'run step = ',inew
-            if ( inew > 10000 or iacc > 2000 or time.time()-start > 3600.):
+            # # # if ( inew > 100000 or iacc > 20000000 or time.time()-start > 7200.):
+            if ( inew > 500000 or iacc > 20000000):
                 run   = False
             if (np.fmod(inew, 500) == 0):
                 print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
             #------------------------------------------------------------------------------------------
             # every 2500 step, perform a random walk with uniform random value in the paramerter space
             #------------------------------------------------------------------------------------------
-            if ( np.fmod(inew, 2501) == 2500 ):
+            if ( np.fmod(inew, 20001) == 20000 ):
                 newmod  = self.model.isomod.copy()
                 newmod.para.new_paraval(0)
                 newmod.para2mod()
@@ -820,29 +837,29 @@ class vprofile1d(object):
         while ( run ):
             inew+= 1
             # print 'run step = ',inew
-            if ( inew > 100000 or iacc > 200000 or time.time()-start > 7200.):
+            if ( inew > 1000000 or iacc > 200000000 ):
                 run   = False
             if (np.fmod(inew, 5000) == 0):
                 print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
             #------------------------------------------------------------------------------------------
             # every 2500 step, perform a random walk with uniform random value in the paramerter space
             #------------------------------------------------------------------------------------------
-            if ( np.fmod(inew, 15001) == 15000 ):
-                self.read_paraval('./synthetic_inv/paraval.txt')
-            
             # if ( np.fmod(inew, 15001) == 15000 ):
-            #     self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
-            #     self.get_vmodel(mtype='tti')
-            #     # forward computation
-            #     # # # self.compute_tcps(wtype='ray')
-            #     # # # self.compute_tcps(wtype='love')
-            #     self.perturb_from_kernel(wtype='ray')
-            #     self.perturb_from_kernel(wtype='love')
-            #     self.get_misfit_tti()
-            #     oldL                = self.indata.L
-            #     oldmisfit           = self.indata.misfit
-            #     iacc                += 1
-            #     print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
+            #     self.read_paraval('./synthetic_inv/paraval.txt')
+            
+            if ( np.fmod(inew, 15001) == 15000 ):
+                self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
+                self.get_vmodel(mtype='tti')
+                # forward computation
+                # # # self.compute_tcps(wtype='ray')
+                # # # self.compute_tcps(wtype='love')
+                self.perturb_from_kernel(wtype='ray')
+                self.perturb_from_kernel(wtype='love')
+                self.get_misfit_tti()
+                oldL                = self.indata.L
+                oldmisfit           = self.indata.misfit
+                iacc                += 1
+                print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
             #-------------------------------
             # inversion part
             #-------------------------------
@@ -895,6 +912,10 @@ class vprofile1d(object):
             data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
             outdisp     = outdir+'/'+pfx+'.ph.lov.%d.disp' % iacc
             data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+            outaziamp   = outdir+'/'+pfx+'.ph.ray.%d.aziamp' % iacc
+            data.writeaziamptxt(outfname=outaziamp, outdisp=self.indata.dispR)
+            outaziphi   = outdir+'/'+pfx+'.ph.ray.%d.aziphi' % iacc
+            data.writeaziphitxt(outfname=outaziphi, outdisp=self.indata.dispR)
             # assign likelihood/misfit
             oldL        = newL
             oldmisfit   = newmisfit
@@ -921,47 +942,354 @@ class vprofile1d(object):
         fidout.close()
         return
     
-    # def mc_inv_tti_fast(self, outdir='./workingdir_tti', monoc=True, pfx='MC'):
-    #     if not os.path.isdir(outdir):
-    #         os.makedirs(outdir)
-    #     # initializations
-    #     self.get_period(dtype = 'ph')
-    #     self.update_mod(mtype = 'tti')
-    #     self.model.ttimod.get_rho()
-    #     self.get_vmodel(mtype = 'tti')
-    #     # initial run
-    #     if not self.compute_tcps(wtype='ray'):
-    #         raise ValueError('Error in computing reference Rayleigh dispersion for initial model!')
-    #     if not self.compute_tcps(wtype='love'):
-    #         raise ValueError('Error in computing reference Love dispersion for initial model!')
-    #     self.perturb_from_kernel(wtype='ray')
-    #     self.perturb_from_kernel(wtype='love')
-    #     self.get_misfit_tti()
-    #     # write initial model
-    #     outmod  = outdir+'/'+pfx+'.mod'
-    #     vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
-    #     # write initial predicted data
-    #     outdisp = outdir+'/'+pfx+'.ph.ray.disp'
-    #     data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
-    #     outdisp = outdir+'/'+pfx+'.ph.lov.disp'
-    #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
-    #     
-    #     # conver initial model to para
-    #     self.model.ttimod.mod2para()
-    #     # likelihood/misfit
-    #     oldL        = self.indata.L
-    #     oldmisfit   = self.indata.misfit
-    #     print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
-    #     self.ttisolver          = fastmc.ttisolver()
-    #     self.ttisolver.hArr     = self.hArr
-    #     self.ttisolver.indata   = self.indata
-    #     self.ttisolver.model    = self.model
-    #     self.ttisolver.eigkR    = self.eigkR
-    #     self.ttisolver.eigkL    = self.eigkL
-    #     # self.ttisolver.mc_inv(True)
+    
+    def mc_inv_tti_mp(self, outdir='./workingdir_tti', monoc=True, pfx='MC'):
+        """
+        
+        """
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        # initializations
+        self.get_period(dtype = 'ph')
+        self.update_mod(mtype = 'tti')
+        self.model.ttimod.get_rho()
+        self.get_vmodel(mtype = 'tti')
+        # initial run
+        if not self.compute_tcps(wtype='ray'):
+            raise ValueError('Error in computing reference Rayleigh dispersion for initial model!')
+        if not self.compute_tcps(wtype='love'):
+            raise ValueError('Error in computing reference Love dispersion for initial model!')
+        self.perturb_from_kernel(wtype='ray')
+        self.perturb_from_kernel(wtype='love')
+        self.get_misfit_tti()
+        # write initial model
+        outmod  = outdir+'/'+pfx+'.mod'
+        vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+        # write initial predicted data
+        outdisp = outdir+'/'+pfx+'.ph.ray.disp'
+        data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+        outdisp = outdir+'/'+pfx+'.ph.lov.disp'
+        data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+        
+        # conver initial model to para
+        self.model.ttimod.mod2para()
+        # likelihood/misfit
+        oldL        = self.indata.L
+        oldmisfit   = self.indata.misfit
+        print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
+        # paraval_mp  = multiprocessing.Array('f', np.zeros(self.model.ttimod.para.npara))
+        # inew        = multiprocessing.Value('d', 0)     # count step (or new paras)
+        # iacc        = multiprocessing.Value('d', 1)     # count acceptance model
+        
+        # procs       = []
+        # for i in xrange(10000):
+        #     p = multiprocessing.Process(target=mp4mc_tti_inv, args=(paraval_mp, inew, iacc, self, monoc, time.time()))
+        #     procs.append(p)
+        #     p.start()
+        # for p in procs:
+        #     p.join()
         
         
-    # def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=.714, rffactor=40., monoc=True, pfx='MC'):
+        iArr    = (np.arange(10)+1.)
+        MCINV   = partial(mp4mc_tti_inv, outdir=outdir, vpr=self, monoc=monoc, stime=time.time())
+        pool    = multiprocessing.Pool(processes=5)
+        pool.map(MCINV, iArr.tolist()) #make our results with a map call
+        pool.close() #we are not adding any more processes
+        pool.join() #tell it to wait until all threads are done before going on
+               
+        # 
+        # 
+        # run     = True     # the key that controls the sampling
+        # inew    = 0     # count step (or new paras)
+        # iacc    = 1     # count acceptance model
+        # start   = time.time()
+        # # output log files
+        # outtxtfname = outdir+'/'+pfx+'.out'
+        # outbinfname = outdir+'/MC.bin'
+        # fidout      = open(outtxtfname, "w")
+        # # fidoutb     = open(outbinfname, "wb")
+        # while ( run ):
+        #     inew+= 1
+        #     # print 'run step = ',inew
+        #     if ( inew > 1000000 or iacc > 200000000 ):
+        #         run   = False
+        #     if (np.fmod(inew, 5000) == 0):
+        #         print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
+        #     #------------------------------------------------------------------------------------------
+        #     # every 2500 step, perform a random walk with uniform random value in the paramerter space
+        #     #------------------------------------------------------------------------------------------
+        #     # if ( np.fmod(inew, 15001) == 15000 ):
+        #     #     self.read_paraval('./synthetic_inv/paraval.txt')
+        #     
+        #     if ( np.fmod(inew, 15001) == 15000 ):
+        #         self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
+        #         self.get_vmodel(mtype='tti')
+        #         # forward computation
+        #         # # # self.compute_tcps(wtype='ray')
+        #         # # # self.compute_tcps(wtype='love')
+        #         self.perturb_from_kernel(wtype='ray')
+        #         self.perturb_from_kernel(wtype='love')
+        #         self.get_misfit_tti()
+        #         oldL                = self.indata.L
+        #         oldmisfit           = self.indata.misfit
+        #         iacc                += 1
+        #         print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
+        #     #-------------------------------
+        #     # inversion part
+        #     #-------------------------------
+        #     # sample the posterior distribution ##########################################
+        #     # assign new model to old ones
+        #     oldmod      = self.model.ttimod.copy()
+        #     if monoc:
+        #         # loop to find the "good" model,
+        #         # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+        #         self.model.ttimod.new_paraval(0, 1, 1, 0, 1)
+        #     else:
+        #         self.model.ttimod.new_paraval(1, 0, 1, 0, 1)
+        #     newmod  = self.model.ttimod
+        #     self.get_vmodel(mtype   = 'tti')
+        #     # forward computation
+        #     self.perturb_from_kernel(wtype='ray')
+        #     self.perturb_from_kernel(wtype='love')
+        #     self.get_misfit_tti()
+        #     newL                = self.indata.L
+        #     newmisfit           = self.indata.misfit
+        #     # 
+        #     if newL < oldL:
+        #         prob    = (oldL-newL)/oldL
+        #         rnumb   = random.random()
+        #         # reject the model
+        #         if rnumb < prob:
+        #             fidout.write("-1 %d %d " % (inew,iacc))
+        #             for i in xrange(newmod.para.npara):
+        #                 fidout.write("%g " % newmod.para.paraval[i])
+        #             fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+        #                     self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
+        #             ### ttmodel.writeb (para1, ffb,[-1,i,ii])
+        #             # return to oldmod
+        #             self.model.ttimod   = oldmod
+        #             continue
+        #     # accept the new model
+        #     fidout.write("1 %d %d " % (inew,iacc))
+        #     for i in xrange(newmod.para.npara):
+        #         fidout.write("%g " % newmod.para.paraval[i])
+        #     fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+        #             self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
+        #     print "Accept a model", inew, iacc, oldL, newL, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+        #                     self.indata.dispL.pL, self.indata.dispL.pmisfit, \
+        #                     self.indata.L, self.indata.misfit, time.time()-start
+        #     # write accepted model
+        #     outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
+        #     vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+        #     # write corresponding data
+        #     outdisp     = outdir+'/'+pfx+'.ph.ray.%d.disp' % iacc
+        #     data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+        #     outdisp     = outdir+'/'+pfx+'.ph.lov.%d.disp' % iacc
+        #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+        #     outaziamp   = outdir+'/'+pfx+'.ph.ray.%d.aziamp' % iacc
+        #     data.writeaziamptxt(outfname=outaziamp, outdisp=self.indata.dispR)
+        #     outaziphi   = outdir+'/'+pfx+'.ph.ray.%d.aziphi' % iacc
+        #     data.writeaziphitxt(outfname=outaziphi, outdisp=self.indata.dispR)
+        #     # assign likelihood/misfit
+        #     oldL        = newL
+        #     oldmisfit   = newmisfit
+        #     iacc        += 1
+        #     continue
+        #     
+        #     else:
+        #         if monoc:
+        #             newmod  = self.model.ttimod.copy()
+        #             newmod.para.new_paraval(1)
+        #             newmod.para2mod()
+        #             newmod.update()
+        #             if not newmod.isgood(0, 1, 1, 0):
+        #                 continue
+        #         else:
+        #             newmod  = self.model.ttimod.copy()
+        #             newmod.para.new_paraval(0)
+        #         fidout.write("-2 %d 0 " % inew)
+        #         for i in xrange(newmod.para.npara):
+        #             fidout.write("%g " % newmod.para.paraval[i])
+        #         fidout.write("\n")
+        #         self.model.ttimod   = newmod
+        #         continue
+        # fidout.close()
+        return
+    
+    def mc_inv_tti_fast(self, outdir='./workingdir_tti', monoc=True, pfx='MC'):
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        # initializations
+        self.get_period(dtype = 'ph')
+        self.update_mod(mtype = 'tti')
+        self.model.ttimod.get_rho()
+        self.get_vmodel(mtype = 'tti')
+        # initial run
+        if not self.compute_tcps(wtype='ray'):
+            raise ValueError('Error in computing reference Rayleigh dispersion for initial model!')
+        if not self.compute_tcps(wtype='love'):
+            raise ValueError('Error in computing reference Love dispersion for initial model!')
+        self.perturb_from_kernel(wtype='ray')
+        self.perturb_from_kernel(wtype='love')
+        self.get_misfit_tti()
+        # write initial model
+        outmod  = outdir+'/'+pfx+'.mod'
+        vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+        # write initial predicted data
+        outdisp = outdir+'/'+pfx+'.ph.ray.disp'
+        data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+        outdisp = outdir+'/'+pfx+'.ph.lov.disp'
+        data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+        
+        # conver initial model to para
+        self.model.ttimod.mod2para()
+        # likelihood/misfit
+        oldL        = self.indata.L
+        oldmisfit   = self.indata.misfit
+        print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
+        self.ttisolver          = fastmc.ttisolver()
+        self.ttisolver.hArr     = self.hArr
+        self.ttisolver.indata   = self.indata
+        self.ttisolver.model    = self.model
+        self.ttisolver.eigkR    = self.eigkR
+        self.ttisolver.eigkL    = self.eigkL
+        # self.ttisolver.mc_inv(True)
+        
+    def compute_tti_jacobian(self):
+        oldmod              = self.model.ttimod.copy()
+        r1, r2, r3, r4      = self.indata.get_res_tti()
+        # res0                = np.append(r1, r2)
+        # res0                = np.append(res0, r3)
+        # res0                = np.append(res0, r4)
+        
+        res0                = np.append(r1, r4)
+        self.res            = res0
+        self.jacobian       = np.zeros((res0.size, self.model.ttimod.para.npara-3))
+        for i in xrange(self.model.ttimod.para.npara-3):
+            self.model.ttimod   = oldmod.copy()
+            if self.model.ttimod.para.space[2, i] < 0.:
+                para1               = self.model.ttimod.para.paraval[i] + 1.
+                para2               = self.model.ttimod.para.paraval[i] - 1.
+                dpara               = 2.
+            else:
+                para1               = self.model.ttimod.para.paraval[i] + self.model.ttimod.para.space[2, i]
+                para2               = self.model.ttimod.para.paraval[i] - self.model.ttimod.para.space[2, i]
+                dpara               = 2*self.model.ttimod.para.space[2, i]
+            self.model.ttimod.para.paraval[i] = para1
+            self.model.ttimod.para2mod()
+            self.model.ttimod.update()
+            self.get_vmodel(mtype   = 'tti')
+            self.perturb_from_kernel(wtype='ray')
+            self.perturb_from_kernel(wtype='love')
+            r1, r2, r3, r4      = self.indata.get_res_tti()
+            res1                = np.append(r1, r2)
+            # res1                = np.append(res1, r3)
+            # res1                = np.append(res1, r4)
+            res1                = np.append(r1, r4)
+            # del_res1            = res1 - res0
+            
+            self.model.ttimod.para.paraval[i] = para2
+            self.model.ttimod.para2mod()
+            self.model.ttimod.update()
+            self.get_vmodel(mtype   = 'tti')
+            self.perturb_from_kernel(wtype='ray')
+            self.perturb_from_kernel(wtype='love')
+            r1, r2, r3, r4      = self.indata.get_res_tti()
+            res2                = np.append(r1, r2)
+            # res2                = np.append(res2, r3)
+            # res2                = np.append(res2, r4)
+            res2                = np.append(r1, r4)
+            # del_res2            = res2 - res0
+            
+            self.jacobian[:, i] = (res1-res2)/dpara
+        self.model.ttimod   = oldmod
+        return
+            
+    def gauss_newton_tti_inv(self, outdir='./workingdir_tti_gn', pfx='GN'):
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        # initializations
+        self.get_period(dtype = 'ph')
+        self.update_mod(mtype = 'tti')
+        self.model.ttimod.get_rho()
+        self.get_vmodel(mtype = 'tti')
+        # initial run
+        if not self.compute_tcps(wtype='ray'):
+            raise ValueError('Error in computing reference Rayleigh dispersion for initial model!')
+        if not self.compute_tcps(wtype='love'):
+            raise ValueError('Error in computing reference Love dispersion for initial model!')
+        self.perturb_from_kernel(wtype='ray')
+        self.perturb_from_kernel(wtype='love')
+        self.get_misfit_tti()
+        # write initial model
+        outmod  = outdir+'/'+pfx+'.mod'
+        vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+        # write initial predicted data
+        outdisp = outdir+'/'+pfx+'.ph.ray.disp'
+        data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+        outdisp = outdir+'/'+pfx+'.ph.lov.disp'
+        data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+        
+        
+        # conver initial model to para
+        self.model.ttimod.mod2para()
+        # likelihood/misfit
+        oldL        = self.indata.L
+        oldmisfit   = self.indata.misfit
+        print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
+        
+        run     = True     # the key that controls the sampling
+        inew    = 0     # count step (or new paras)
+        start   = time.time()
+        # output log files
+        outtxtfname = outdir+'/'+pfx+'.out'
+        outbinfname = outdir+'/MC.bin'
+        # fidout      = open(outtxtfname, "w")
+        # fidoutb     = open(outbinfname, "wb")
+        oldmisfitR  = 1e9
+        oldmisfitL  = 1e9
+        while ( run ):
+            if ( inew > 100  or time.time()-start > 7200.):
+                run   = False
+            inew += 1
+            print inew, self.indata.dispR.pmisfit, self.indata.dispL.pmisfit
+            paraArr     = self.model.ttimod.para.paraval.copy()
+            newparaArr  = paraArr.copy()
+            self.compute_tti_jacobian()
+            jinv            = np.linalg.pinv(np.dot(self.jacobian.T, self.jacobian))
+            newparaArr[:-3] = paraArr[:-3] - np.dot( np.dot(jinv, self.jacobian.T), self.res )
+            self.model.ttimod.para.paraval[:]  = np.float32(newparaArr.copy())
+            self.model.ttimod.para2mod()
+            self.model.ttimod.update()
+            self.get_vmodel(mtype   = 'tti')
+            self.perturb_from_kernel(wtype='ray')
+            self.perturb_from_kernel(wtype='love')
+            self.indata.dispR.get_pmisfit()
+            self.indata.dispL.get_pmisfit()
+            if (oldmisfitR < self.indata.dispR.pmisfit or oldmisfitL < self.indata.dispL.pmisfit) and inew > 50:
+                imin    = 10
+                for i in xrange(10):
+                    newparaArr[:-3] = paraArr[:-3] - (1.-i/10.-0.1)*np.dot( np.dot(jinv, self.jacobian.T), self.res )
+                    self.model.ttimod.para.paraval[:]  = np.float32(newparaArr.copy())
+                    self.model.ttimod.para2mod()
+                    self.model.ttimod.update()
+                    self.get_vmodel(mtype  = 'tti')
+                    self.perturb_from_kernel(wtype='ray')
+                    self.perturb_from_kernel(wtype='love')
+                    self.indata.dispR.get_pmisfit()
+                    self.indata.dispL.get_pmisfit()
+                    if oldmisfitR > self.indata.dispR.pmisfit or oldmisfitL > self.indata.dispL.pmisfit:
+                        imin    = i
+                        oldmisfitR  = self.indata.dispR.pmisfit
+                        oldmisfitL  = self.indata.dispL.pmisfit
+                if imin == 9:
+                    break
+            else:
+                oldmisfitR  = self.indata.dispR.pmisfit
+                oldmisfitL  = self.indata.dispL.pmisfit
+        return paraArr
+            
+            
     
     #-------------------------------------------------
     # post-processing functions for isotropic inversion
@@ -988,7 +1316,20 @@ class vprofile1d(object):
         self.npara      = npara
         return
     
-    def get_min_iso_mod(self):
+    def get_iso_acc_ind(self, threshhold=2.0):
+        minmisfit                       = self.misfit.min()
+        if minmisfit  >= 0.5:
+            print   'minimum misfit is larger than 0.5'
+            tmisfit = threshhold*minmisfit
+        else:
+            print   'minimum misfit is smaller than 0.5'
+            tmisfit = minmisfit + threshhold
+        self.indacc = (self.isacc==1.)*(self.misfit <= tmisfit)
+        self.accid  = self.iacc[self.indacc]
+        print 'Number of finally accepted models =',self.accid.size
+        return
+    
+    def get_iso_min_mod(self):
         ind                             = self.misfit.argmin()
         self.model.isomod.para.paraval  = np.float32(self.paraval[ind, :])
         self.model.isomod.para2mod()
@@ -996,12 +1337,19 @@ class vprofile1d(object):
         self.get_vmodel(mtype='iso')
         return
     
-    def get_avg_iso_mod(self, threshhold=2.0, mtype='rel'):
+    def get_iso_ind_mod(self, ind):
+        self.model.isomod.para.paraval  = np.float32(self.paraval[ind, :])
+        self.model.isomod.para2mod()
+        self.model.isomod.update()
+        self.get_vmodel(mtype='iso')
+        return
+    
+    def get_iso_avg_mod(self, threshhold=2.0, mtype='rel'):
         minmisfit                       = self.misfit.min()
         if threshhold < 1.:
             raise ValueError('Relative threshhold should be larger than 1!')
         if tmisfit  >= 0.5:
-            tmisfit = threshhold*minmisfit
+            minmisfit = threshhold*minmisfit
         else:
             tmisfit = minmisfit + 0.5
         ind                             = (self.misfit <= tmisfit)
@@ -1011,7 +1359,7 @@ class vprofile1d(object):
         self.get_vmodel(mtype='iso')
         return
     
-    def get_avg_iso_mod_2(self, threshhold=2.0, mtype='rel'):
+    def get_iso_avg_mod_2(self, threshhold=2.0, mtype='rel'):
         minmisfit                       = self.misfit.min()
         if mtype == 'rel':
             if threshhold < 1.:
@@ -1026,7 +1374,140 @@ class vprofile1d(object):
         self.get_vmodel(mtype='iso')
         return
     
+    def plot_iso_hist(self, pindex, bins=50, title='', xlabel='', showfig=True, paraval0=np.array([])):
+        from matplotlib.ticker import FuncFormatter
+        ax  = plt.subplot()
+        weights = np.ones_like(self.paraval[self.indacc, pindex])/float(self.paraval[self.indacc, pindex].size)
+        plt.hist(self.paraval[self.indacc, pindex], bins=bins, weights=weights, alpha=0.5, color='g')
+        formatter = FuncFormatter(to_percent)
+        # Set the formatter
+        plt.gca().yaxis.set_major_formatter(formatter)
+        plt.xlabel(xlabel, fontsize=30)
+        plt.ylabel('Percentage', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.title(title, fontsize=35)
+        plt.axvline(x=self.model.isomod.para.paraval[pindex], c='k', label='real value')
+        plt.axvline(x=self.paraval[self.misfit.argmin(), pindex], c='r', linestyle='-.', label='min misfit value')
+        plt.axvline(x=np.mean(self.paraval[self.indacc, pindex], axis = 0, dtype=np.float32), c='b', label='avg misfit value')
+        if paraval0.size == self.model.isomod.para.paraval.size:
+            plt.axvline(x=paraval0[pindex], c='y', label='initial value')
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
     
+    def read_iso_disp(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.pvelp      = np.zeros((self.indata.dispR.npper, N))
+        i               = 0
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.ph.%d.disp' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.pvelp[:, i]        = inArr[:, 1]
+            i                       += 1
+        inminfname              = indir+'/'+pfx+'.ph.%d.disp' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.pvelpmin           = inArr[:, 1]
+        return
+    
+    def plot_iso_disp(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.indata.dispR.pper, self.pvelp[:, i], '-', color='grey', alpha=0.5)
+        plt.plot(self.indata.dispR.pper, self.pvelp[:, i+1], '-', color='grey', alpha=0.5, label='accepted')
+        ax.errorbar(self.indata.dispR.pper, self.indata.dispR.pvelo, yerr=self.indata.dispR.stdpvelo, fmt='bo',ms=10, label='observed')
+        plt.plot(self.indata.dispR.pper, self.pvelpmin, 'r-', lw=3, label='min misfit')
+        
+        self.read_paraval('synthetic_iso_inv/paraval_ref.txt')
+        self.compute_fsurf()
+        
+        plt.plot(self.indata.dispR.pper, self.indata.dispR.pvelp, 'g-',lw=3, label='initial')
+        plt.ylabel('phase velocity (km/sec)', fontsize=30)
+        plt.xlabel('period (sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def read_iso_rf(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.rfp        = np.zeros((401, N))
+        i               = 0
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.%d.rf' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.rfp[:, i]          = inArr[:, 1]
+            i                       += 1
+        inminfname              = indir+'/'+pfx+'.%d.rf' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.rfpmin             = inArr[:, 1]
+        return
+    
+    def plot_iso_rf(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.indata.rfr.to[:401], self.rfp[:, i], '-', color='grey', alpha=0.5)
+        plt.plot(self.indata.rfr.to[:401], self.rfp[:, i+1], '-', color='grey', alpha=0.5, label='accepted')
+        # ax.errorbar(self.indata.rfr.to[:401], self.indata.rfr.rfo[:401], yerr=self.indata.rfr.stdrfo[:401], fmt='bo',label='observed', alpha=0.6)
+        
+        plt.plot(self.indata.rfr.to[:401], self.indata.rfr.rfo[:401]+self.indata.rfr.stdrfo[:401], 'k-',label='observed')
+        plt.plot(self.indata.rfr.to[:401], self.indata.rfr.rfo[:401]-self.indata.rfr.stdrfo[:401], 'k-')
+        plt.plot(self.indata.rfr.to[:401], self.rfpmin, 'r-', lw=3, label='min misfit')
+        
+        
+        self.read_paraval('synthetic_iso_inv/paraval_ref.txt')
+        self.compute_rftheo()
+        plt.plot(self.indata.rfr.to[:401], self.indata.rfr.rfp[:401], 'g-', lw=3, label='initial')
+        
+        # plt.ylabel('phase velocity (km/sec)', fontsize=30)
+        plt.xlabel('time (sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def read_iso_mod(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.vs         = []
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.%d.mod' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.vs.append(inArr[:, :2])
+        inminfname              = indir+'/'+pfx+'.%d.mod' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.vsmin              = inArr[:, :2]
+        return
+    
+    def plot_iso_mod(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.vs[i][:, 1], self.vs[i][:, 0], '-', color='grey', alpha=0.5)
+        plt.plot(self.vs[i+1][:, 1], self.vs[i+1][:, 0], '-', color='grey', alpha=0.5, label='accepted model')
+        
+        self.read_paraval('synthetic_iso_inv/paraval.txt')
+        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'b-', alpha=1., label='real model')
+        self.read_paraval('synthetic_iso_inv/paraval_ref.txt')
+        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'g-', alpha=1., label='intitial model')
+        self.get_iso_min_mod()
+        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'r-.', alpha=1., label='min misfit model')
+        
+        plt.ylabel('depth (km)', fontsize=30)
+        plt.xlabel('vs (km/sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.ylim([0.,200.])
+        plt.gca().invert_yaxis()
+        plt.legend(loc=0, fontsize=15)
+        plt.xlim([2.,5.5])
+        
+        if showfig:
+            plt.show()
+        return
     
     #-------------------------------------------------------
     # post-processing functions for tilted TI inversion
@@ -1053,17 +1534,292 @@ class vprofile1d(object):
         self.npara      = npara
         return
     
+    def get_tti_acc_ind(self, threshhold=2.0):
+        minmisfit                       = self.misfit.min()
+        if minmisfit  >= 0.5:
+            print   'minimum misfit is larger than 0.5'
+            tmisfit = threshhold*minmisfit
+        else:
+            print   'minimum misfit is smaller than 0.5'
+            tmisfit = minmisfit + threshhold
+        self.indacc = (self.isacc==1.)*(self.misfit <= tmisfit)
+        self.accid  = self.iacc[self.indacc]
+        print 'Number of finally accepted models =',self.accid.size
+        return
     
-    def get_ind_tti_mod(self, ind):
+    def get_tti_ind_mod(self, ind):
         self.model.ttimod.para.paraval  = np.float32(self.paraval[ind, :])
         self.model.ttimod.para2mod()
         self.model.ttimod.update()
         self.get_vmodel(mtype='tti')
         return
     
+    def get_tti_min_mod(self, mintype=0):
+        if mintype == 0:
+            ind                             = self.misfit.argmin()
+        elif mintype == 1:
+            ind                             = self.raymisfit.argmin()
+        elif mintype == 2:
+            ind                             = self.lovemisfit.argmin()
+        else:
+            raise ValueError('unexpected mintype')
+        self.get_tti_ind_mod(ind=ind)
+        return
+    
+    def get_tti_avg_mod(self, threshhold=2.0):
+        minmisfit                       = self.misfit.min()
+        if minmisfit  >= 0.5:
+            print   'minimum misfit is larger than 0.5'
+            tmisfit = threshhold*minmisfit
+        else:
+            print   'minimum misfit is smaller than 0.5'
+            tmisfit = minmisfit + 0.5
+        ind                             = (self.misfit <= tmisfit)
+        self.model.ttimod.para.paraval  = np.mean(self.paraval[ind, :], axis = 0, dtype=np.float32)
+        self.model.ttimod.para2mod()
+        self.model.ttimod.update()
+        self.get_vmodel(mtype='tti')
+        return
+    
+    def plot_tti_hist(self, pindex, bins=50, title='', xlabel='', showfig=True, paraval0=np.array([])):
+        from matplotlib.ticker import FuncFormatter
+        ax  = plt.subplot()
+        weights = np.ones_like(self.paraval[self.indacc, pindex])/float(self.paraval[self.indacc, pindex].size)
+        plt.hist(self.paraval[self.indacc, pindex], bins=bins, weights=weights, alpha=0.5, color='g')
+        formatter = FuncFormatter(to_percent)
+        # Set the formatter
+        plt.gca().yaxis.set_major_formatter(formatter)
+        plt.xlabel(xlabel, fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.title(title, fontsize=35)
+        # self.read_paraval('synthetic_tti_inv/paraval.txt', 'tti')
+        # plt.axvline(x=self.model.ttimod.para.paraval[pindex], c='k', label='real value')
+        plt.axvline(x=self.paraval[self.misfit.argmin(), pindex], c='r', label='min misfit value')
+        plt.axvline(x=np.mean(self.paraval[self.indacc, pindex], axis = 0, dtype=np.float32), c='b', label='avg misfit value')
+        
+        # val     = self.paraval[self.indacc, pindex]
+        # val[val < 90.] += 180.
+        # meanval = np.mean(val, axis = 0, dtype=np.float32)
+        # if meanval > 180.:
+        #     meanval -= 180.
+        # plt.axvline(x=np.mean(val, axis = 0, dtype=np.float32), c='b', label='avg misfit value')
+        
+        if paraval0.size == self.model.ttimod.para.paraval.size:
+            plt.axvline(x=paraval0[pindex], c='y', label='initial value')
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def read_tti_dispR(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.pvelpR     = np.zeros((self.indata.dispR.npper, N))
+        i               = 0
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.ph.ray.%d.disp' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.pvelpR[:, i]       = inArr[:, 1]
+            i                       += 1
+        inminfname              = indir+'/'+pfx+'.ph.ray.%d.disp' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.pvelpRmin          = inArr[:, 1]
+        return
+    
+    
+    def plot_tti_dispR(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.indata.dispR.pper, self.pvelpR[:, i], '-', color='grey', alpha=0.5)
+        plt.plot(self.indata.dispR.pper, self.pvelpR[:, i+1], '-', color='grey', alpha=0.5, label='accepted')
+        ax.errorbar(self.indata.dispR.pper, self.indata.dispR.pvelo, yerr=self.indata.dispR.stdpvelo, fmt='bo',ms=10, label='observed')
+        plt.plot(self.indata.dispR.pper, self.pvelpRmin, 'r-', label='min misfit')
+        
+        # self.read_paraval('synthetic_tti_inv/paraval_ref.txt', 'tti')
+        # self.model.ttimod.get_rho()
+        # self.compute_tcps()
+        
+        plt.plot(self.indata.dispR.pper, self.indata.dispR.pvelp, 'g-', label='initial')
+        plt.ylabel('phase velocity (km/sec)', fontsize=30)
+        plt.xlabel('period (sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def read_tti_dispL(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.pvelpL     = np.zeros((self.indata.dispL.npper, N))
+        i               = 0
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.ph.lov.%d.disp' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.pvelpL[:, i]       = inArr[:, 1]
+            i                       += 1
+        inminfname              = indir+'/'+pfx+'.ph.lov.%d.disp' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.pvelpLmin          = inArr[:, 1]
+        return
+    
+    def plot_tti_dispL(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.indata.dispL.pper, self.pvelpL[:, i], '-', color='grey', alpha=0.5)
+        plt.plot(self.indata.dispL.pper, self.pvelpL[:, i+1], '-', color='grey', alpha=0.5, label='accepted')
+        ax.errorbar(self.indata.dispL.pper, self.indata.dispL.pvelo, yerr=self.indata.dispL.stdpvelo, fmt='bo',ms=10, label='observed')
+        plt.plot(self.indata.dispL.pper, self.pvelpLmin, 'r-', label='min misfit')
+        
+        # self.read_paraval('synthetic_tti_inv/paraval_ref.txt', 'tti')
+        # self.model.ttimod.get_rho()
+        # self.compute_tcps(wtype='love')
+        
+        plt.plot(self.indata.dispL.pper, self.indata.dispL.pvelp, 'g-', label='initial')
+        plt.ylabel('phase velocity (km/sec)', fontsize=30)
+        plt.xlabel('period (sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def read_aziamp(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.aziamp     = np.zeros((self.indata.dispR.npper, N))
+        i               = 0
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.ph.ray.%d.aziamp' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.aziamp[:, i]       = inArr[:, 1]
+            i                       += 1
+        inminfname              = indir+'/'+pfx+'.ph.ray.%d.aziamp' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.aziampmin          = inArr[:, 1].copy()
+        return
+    
+    
+    def plot_aziamp(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.indata.dispR.pper, self.aziamp[:, i], '-', color='grey', alpha=0.5)
+        plt.plot(self.indata.dispR.pper, self.aziamp[:, i+1], '-', color='grey', alpha=0.5, label='accepted')
+        
+
+        ax.errorbar(self.indata.dispR.pper, self.indata.dispR.pampo, yerr=self.indata.dispR.stdpampo, fmt='bo',ms=10, label='observed')
+        plt.plot(self.indata.dispR.pper, self.aziampmin, 'r-', label='min misfit')
+        
+        # # self.read_paraval('synthetic_tti_inv/paraval_ref.txt', 'tti')
+        # # self.perturb_from_kernel()
+        # # plt.plot(self.indata.dispR.pper, self.indata.dispR.pampp, 'g-', label='initial')
+        plt.ylabel('azimuthal amplitude (km/sec)', fontsize=30)
+        plt.xlabel('period (sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def read_aziphi(self, indir, pfx='MC'):
+        N               = self.accid.size
+        self.aziphi     = np.zeros((self.indata.dispR.npper, N))
+        i               = 0
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.ph.ray.%d.aziphi' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.aziphi[:, i]       = inArr[:, 1]
+            i                       += 1
+        inminfname              = indir+'/'+pfx+'.ph.ray.%d.aziphi' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.aziphimin          = inArr[:, 1]
+        return
+    
+    
+    def plot_aziphi(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.indata.dispR.pper, self.aziphi[:, i], '-', color='grey', alpha=0.5)
+        plt.plot(self.indata.dispR.pper, self.aziphi[:, i+1], '-', color='grey', alpha=0.5, label='accepted')
+        ax.errorbar(self.indata.dispR.pper, self.indata.dispR.pphio, yerr=self.indata.dispR.stdpphio, fmt='bo',ms=10, label='observed')
+        plt.plot(self.indata.dispR.pper, self.aziphimin, 'r-', label='min misfit')
+        
+        # self.read_paraval('synthetic_iso_inv/paraval_ref.txt', 'tti')
+        # self.model.ttimod.get_rho()
+        # self.compute_tcps()
+        self.perturb_from_kernel()
+        
+        plt.plot(self.indata.dispR.pper, self.indata.dispR.pphip, 'g-', label='initial')
+        plt.ylabel('fast direction (deg)', fontsize=30)
+        plt.xlabel('period (sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    
+    def read_tti_mod(self, indir, pfx='MC', vtype='vsv'):
+        if vtype == 'vsv':
+            ind     = 1
+        elif vtype == 'vsh':
+            ind     = 2
+        elif vtype == 'vpv':
+            ind     = 3
+        elif vtype == 'vph':
+            ind     = 4
+        elif vtype == 'eta':
+            ind     = 5
+        elif vtype == 'dip':
+            ind     = 6
+        elif vtype == 'strike':
+            ind     = 7
+        N           = self.accid.size
+        self.val    = []
+        self.z      = []
+        for iacc in self.accid:
+            infname                 = indir+'/'+pfx+'.%d.mod' % iacc
+            inArr                   = np.loadtxt(infname)
+            self.val.append(inArr[:, ind])
+            self.z.append(inArr[:, 0])
+        inminfname              = indir+'/'+pfx+'.%d.mod' %self.iacc[self.misfit.argmin()]
+        inArr                   = np.loadtxt(inminfname)
+        self.valmin             = inArr[:, ind]
+        self.zmin               = inArr[:, 0]
+        return
+    
+    def plot_tti_mod(self, showfig=True):
+        ax=plt.subplot()
+        for i in xrange(self.accid.size-1):
+            plt.plot(self.z[i], self.val, '-', color='grey', alpha=0.5)
+        plt.plot(self.z[i+1], self.val[i+1], '-', color='grey', alpha=0.5, label='accepted model')
+        
+        self.read_paraval('synthetic_tti_inv/paraval.txt', 'tti')
+        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'b-', alpha=1., label='real model')
+        self.read_paraval('synthetic_tti_inv/paraval_ref.txt', 'tti')
+        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'g-', alpha=1., label='intitial model')
+        self.get_tti_min_mod()
+        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'r-.', alpha=1., label='min misfit model')
+        
+        plt.ylabel('depth (km)', fontsize=30)
+        plt.xlabel('vs (km/sec)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.ylim([0.,200.])
+        plt.gca().invert_yaxis()
+        plt.legend(loc=0, fontsize=15)
+        plt.xlim([2.,5.5])
+        
+        if showfig:
+            plt.show()
+        return
+
+    
     def plot_ind_fitting_curve(self, ind=None):
         if ind!=None:
-            self.get_ind_tti_mod(ind=ind)
+            self.get_tti_ind_mod(ind=ind)
         self.get_period()
         if not self.disprefR:
             self.compute_tcps(wtype='ray')
@@ -1100,38 +1856,15 @@ class vprofile1d(object):
         
         plt.show()
     
-    def get_min_tti_mod(self, mintype=0):
-        if mintype == 0:
-            ind                             = self.misfit.argmin()
-        elif mintype == 1:
-            ind                             = self.raymisfit.argmin()
-        elif mintype == 2:
-            ind                             = self.lovemisfit.argmin()
-        else:
-            raise ValueError('unexpected mintype')
-        self.get_ind_tti_mod(ind=ind)
-        return 
+
         
         
     def plot_min_fitting_curve(self, mintype=0):
-        self.get_min_tti_mod(mintype=mintype)
+        self.get_tti_min_mod(mintype=mintype)
         self.plot_ind_fitting_curve()
         return
     
-    def get_avg_tti_mod(self, threshhold=2.0, mtype='rel'):
-        minmisfit                       = self.misfit.min()
-        if threshhold < 1.:
-            raise ValueError('Relative threshhold should be larger than 1!')
-        if minmisfit  >= 0.5:
-            tmisfit = threshhold*minmisfit
-        else:
-            tmisfit = minmisfit + 0.5
-        ind                             = (self.misfit <= tmisfit)
-        self.model.ttimod.para.paraval  = np.mean(self.paraval[ind, :], axis = 0, dtype=np.float32)
-        self.model.ttimod.para2mod()
-        self.model.ttimod.update()
-        self.get_vmodel(mtype='tti')
-        return
+
     
     def read_paraval(self, infname, mtype='iso'):
         """
@@ -1153,8 +1886,141 @@ class vprofile1d(object):
             self.get_vmodel(mtype = 'tti')
         return
         
-        
-        
+
+# def mp4mc_tti_inv(outdir, paraval, inew, iacc, vpr, monoc, stime, iprocess):
+#     os.makedirs(outdir+'/prcess_'+str(iprocess))
+#     outdir  = outdir+'/prcess_'+str(iprocess)
+#     while (inew.value < 1000):
+#         inew.value+= 1
+#         print 'run step = ',inew.value
+#         if ( inew.value > 1000000 or iacc.value > 200000000 ):
+#             run   = False
+#         if (np.fmod(inew.value, 5000) == 0):
+#             print 'step =',inew.value, 'elasped time =', time.time()-stime, ' sec'
+
+# def mp4mc_tti_inv(outdir, vpr, monoc, stime, iprocess):
+#     os.makedirs(outdir+'/prcess_'+str(iprocess))
+#     outdir  = outdir+'/prcess_'+str(iprocess)
+#     run     = True     # the key that controls the sampling
+#     inew    = 0     # count step (or new paras)
+#     iacc    = 1     # count acceptance model
+#     while (run):
+#         inew    += 1
+#         print 'run step = ',inew
+#         if ( inew > 10000 or iacc > 200000000 ):
+#             run   = False
+def mp4mc_tti_inv(outdir, monoc, stime, vpr):
+    os.makedirs(outdir+'/prcess_'+str(iprocess))
+    outdir  = outdir+'/prcess_'+str(iprocess)
+    run     = True     # the key that controls the sampling
+    inew    = 0     # count step (or new paras)
+    iacc    = 1     # count acceptance model
+    while (run):
+        inew    += 1
+        print 'run step = ',inew
+        if ( inew > 10000 or iacc > 200000000 ):
+            run   = False
+        # if (np.fmod(inew, 5000) == 0):
+        #     print 'step =',inew, 'elasped time =', time.time()-stime, ' sec'
+        #------------------------------------------------------------------------------------------
+        # every 2500 step, perform a random walk with uniform random value in the paramerter space
+        #------------------------------------------------------------------------------------------
+        # if ( np.fmod(inew, 15001) == 15000 ):
+        #     self.read_paraval('./synthetic_inv/paraval.txt')
+    #     
+    #     if ( np.fmod(inew, 15001) == 15000 ):
+    #         self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
+    #         self.get_vmodel(mtype='tti')
+    #         # forward computation
+    #         # # # self.compute_tcps(wtype='ray')
+    #         # # # self.compute_tcps(wtype='love')
+    #         self.perturb_from_kernel(wtype='ray')
+    #         self.perturb_from_kernel(wtype='love')
+    #         self.get_misfit_tti()
+    #         oldL                = self.indata.L
+    #         oldmisfit           = self.indata.misfit
+    #         iacc                += 1
+    #         print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
+    #-------------------------------
+    # inversion part
+    #-------------------------------
+    # sample the posterior distribution ##########################################
+    # assign new model to old ones
+        oldmod      = vpr.model.ttimod.copy()
+        if monoc:
+            # loop to find the "good" model,
+            # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+            vpr.model.ttimod.new_paraval(0, 1, 1, 0, 1)
+        else:
+            vpr.model.ttimod.new_paraval(1, 0, 1, 0, 1)
+        newmod  = vpr.model.ttimod
+        vpr.get_vmodel(mtype   = 'tti')
+        # forward computation
+        vpr.perturb_from_kernel(wtype='ray')
+        vpr.perturb_from_kernel(wtype='love')
+        vpr.get_misfit_tti()
+        newL                = vpr.indata.L
+        newmisfit           = vpr.indata.misfit
+#     # 
+#     if newL < oldL:
+#         prob    = (oldL-newL)/oldL
+#         rnumb   = random.random()
+#         # reject the model
+#         if rnumb < prob:
+#             fidout.write("-1 %d %d " % (inew,iacc))
+#             for i in xrange(newmod.para.npara):
+#                 fidout.write("%g " % newmod.para.paraval[i])
+#             fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+#                     self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
+#             ### ttmodel.writeb (para1, ffb,[-1,i,ii])
+#             # return to oldmod
+#             self.model.ttimod   = oldmod
+#             continue
+#     # accept the new model
+#     fidout.write("1 %d %d " % (inew,iacc))
+#     for i in xrange(newmod.para.npara):
+#         fidout.write("%g " % newmod.para.paraval[i])
+#     fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+#             self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
+#     print "Accept a model", inew, iacc, oldL, newL, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+#                     self.indata.dispL.pL, self.indata.dispL.pmisfit, \
+#                     self.indata.L, self.indata.misfit, time.time()-start
+#     # write accepted model
+#     outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
+#     vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+#     # write corresponding data
+#     outdisp     = outdir+'/'+pfx+'.ph.ray.%d.disp' % iacc
+#     data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+#     outdisp     = outdir+'/'+pfx+'.ph.lov.%d.disp' % iacc
+#     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+#     outaziamp   = outdir+'/'+pfx+'.ph.ray.%d.aziamp' % iacc
+#     data.writeaziamptxt(outfname=outaziamp, outdisp=self.indata.dispR)
+#     outaziphi   = outdir+'/'+pfx+'.ph.ray.%d.aziphi' % iacc
+#     data.writeaziphitxt(outfname=outaziphi, outdisp=self.indata.dispR)
+#     # assign likelihood/misfit
+#     oldL        = newL
+#     oldmisfit   = newmisfit
+#     iacc        += 1
+#     continue
+#     
+#     else:
+#         if monoc:
+#             newmod  = self.model.ttimod.copy()
+#             newmod.para.new_paraval(1)
+#             newmod.para2mod()
+#             newmod.update()
+#             if not newmod.isgood(0, 1, 1, 0):
+#                 continue
+#         else:
+#             newmod  = self.model.ttimod.copy()
+#             newmod.para.new_paraval(0)
+#         fidout.write("-2 %d 0 " % inew)
+#         for i in xrange(newmod.para.npara):
+#             fidout.write("%g " % newmod.para.paraval[i])
+#         fidout.write("\n")
+#         self.model.ttimod   = newmod
+#         continue
+# fidout.close()
             
     
     

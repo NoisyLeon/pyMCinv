@@ -1,7 +1,7 @@
 import vprofile
 import modparam
 import vmodel
-
+import numpy as np
 outdir = './synthetic_iso_inv'
 
 vpr = vprofile.vprofile1d()
@@ -14,6 +14,10 @@ vpr.get_period()
 
 vpr.get_rf_param()
 vpr.model.isomod.mod2para()
+outfname = outdir+'/paraval_ref.txt'
+modparam.write_paraval_txt(outfname, vpr.model.isomod.para)
+
+
 vpr.model.isomod.para.new_paraval(0)
 vpr.model.isomod.para2mod()
 vpr.model.isomod.update()

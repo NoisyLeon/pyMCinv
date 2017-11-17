@@ -104,8 +104,104 @@ class ttisolver(object):
         else:
             raise ValueError('Unexpected wave type!')
         return
-    # 
+    #
+    
     def mc_inv(self, monoc):
+        """
+        
+        """
+        # likelihood/misfit
+        oldL        = self.indata.L
+        oldmisfit   = self.indata.misfit
+        # print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
+        
+        run         = True     # the key that controls the sampling
+        inew        = 0     # count step (or new paras)
+        iacc        = 1     # count acceptance model
+
+        for inew in numba.prange(100000):
+            # print 'run step = ',inew
+            # if ( inew > 100000 or iacc > 200000 ):
+            #     run   = False
+            # if (np.fmod(inew, 5000) == 0):
+            #     print 'step =',inew
+            # #------------------------------------------------------------------------------------------
+            # # every 2500 step, perform a random walk with uniform random value in the paramerter space
+            # #------------------------------------------------------------------------------------------
+            # # if ( np.fmod(inew, 15001) == 15000 ):
+            # #     vpr.read_paraval('./synthetic_inv/paraval.txt')
+            # 
+            # # if ( np.fmod(inew, 15001) == 15000 ):
+            # #     self.model.ttimod.new_paraval(0, 1, 1, 0, 0)
+            # #     self.get_vmodel(mtype='tti')
+            # #     # forward computation
+            # #     # # # self.compute_tcps(wtype='ray')
+            # #     # # # self.compute_tcps(wtype='love')
+            # #     self.perturb_from_kernel(wtype='ray')
+            # #     self.perturb_from_kernel(wtype='love')
+            # #     self.get_misfit_tti()
+            # #     oldL                = self.indata.L
+            # #     oldmisfit           = self.indata.misfit
+            # #     iacc                += 1
+            # #     print 'Uniform random walk: likelihood =', self.indata.L, 'misfit =',self.indata.misfit
+            # #-------------------------------
+            # # inversion part
+            # #-------------------------------
+            # # sample the posterior distribution ##########################################
+            # # assign new model to old ones
+            # oldmod      = self.model.ttimod.copy()
+            # if monoc:
+            #     # loop to find the "good" model,
+            #     # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+            #     self.model.ttimod.new_paraval(0, 1, 1, 0, 1)
+            # else:
+            #     self.model.ttimod.new_paraval(1, 0, 1, 0, 1)
+            # newmod  = self.model.ttimod
+            # self.get_vmodel()
+            # # forward computation
+            # self.perturb_from_kernel(1)
+            # self.perturb_from_kernel(2)
+            # self.indata.get_misfit_tti()
+            # newL                = self.indata.L
+            # newmisfit           = self.indata.misfit
+            # # 
+            # if newL < oldL:
+            #     prob    = (oldL-newL)/oldL
+            #     rnumb   = random.random()
+            #     # reject the model
+            #     if rnumb < prob:
+            #         fidout.write("-1 %d %d " % (inew,iacc))
+            #         for i in xrange(newmod.para.npara):
+            #             fidout.write("%g " % newmod.para.paraval[i])
+            #         fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+            #                 self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
+            #         # return to oldmod
+            #         self.model.ttimod   = oldmod
+            #         continue
+            # # accept the new model
+            # fidout.write("1 %d %d " % (inew,iacc))
+            # for i in xrange(newmod.para.npara):
+            #     fidout.write("%g " % newmod.para.paraval[i])
+            # fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+            #         self.indata.dispL.pL, self.indata.dispL.pmisfit, time.time()-start))        
+            # print "Accept a model", inew, iacc, oldL, newL, self.indata.dispR.pL, self.indata.dispR.pmisfit,\
+            #                 self.indata.dispL.pL, self.indata.dispL.pmisfit, \
+            #                 self.indata.L, self.indata.misfit, time.time()-start
+            # # write accepted model
+            # outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
+            # vmodel.write_model(model=self.model, outfname=outmod, isotropic=False)
+            # # write corresponding data
+            # outdisp     = outdir+'/'+pfx+'.ph.ray.%d.disp' % iacc
+            # data.writedispttitxt(outfname=outdisp, outdisp=self.indata.dispR)
+            # outdisp     = outdir+'/'+pfx+'.ph.lov.%d.disp' % iacc
+            # data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispL)
+            # # assign likelihood/misfit
+            # oldL        = newL
+            # oldmisfit   = newmisfit
+            # iacc        += 1
+            print 'hh'
+            
+    def mc_inv_bk(self, monoc):
         """
         
         """

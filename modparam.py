@@ -1073,6 +1073,150 @@ class ttimod(object):
                         tvsv= tvsv + self.spl[ibs, ilay, i] * self.cvsv[ibs, i]
                         teta= teta + self.spl[ibs, ilay, i] * self.ceta[ibs, i]
                     
+                    self.vsh[ilay, i]   = tvsh
+                    self.vsv[ilay, i]   = tvsv
+                    self.eta[ilay, i]   = teta
+                    self.hArr[ilay, i]  = self.thickness[i]/self.nlay[i]
+                    #-----------------------------------
+                    # debug
+                    #-----------------------------------
+                    self.vph[ilay, i]   = tvph
+                    self.vpv[ilay, i]   = tvpv
+                    
+                #------------------------------------
+                # orientation angles
+                #------------------------------------
+                tnlay                       = self.nlay[i]
+                if self.dipjump < 0.:
+                    # # # ######################################
+                    while( self.cdip[0, i] < 0.):
+                        self.cdip[0, i] = self.cdip[0, i] + np.float32(90.)
+                    while( self.cdip[0, i] > 90.):
+                        self.cdip[0, i] = self.cdip[0, i] - np.float32(90.)
+                    # # # #########################################
+                    self.dip[:tnlay, i]     = np.ones(tnlay, dtype = np.float32) * self.cdip[0, i]
+                else:
+                    ind                     = int(tnlay*self.dipjump)
+                    self.dip[:ind, i]       = np.ones(ind, dtype = np.float32) * self.cdip[0, i]
+                    self.dip[ind:tnlay, i]  = np.ones(tnlay-ind, dtype = np.float32) * self.cdip[1, i]
+                self.strike[:tnlay, i]      = np.ones(tnlay, dtype = np.float32) * self.cstrike[0, i]
+            # gradient layer
+            elif self.mtype[i] == 4:
+                nlay 	    = 4
+                if self.thickness[i] >= 20.:
+                    nlay    = 20
+                if self.thickness[i] > 10. and self.thickness[i] < 20.:
+                    nlay    = int(self.thickness[i]/1.)
+                if self.thickness[i] > 2. and self.thickness[i] <= 10.:
+                    nlay    = int(self.thickness[i]/0.5)
+                if self.thickness[i] < 0.5:
+                    nlay    = 2
+                dh 	        = self.thickness[i]/float(nlay)
+                dcvph 		= (self.cvph[1, i] - self.cvph[0, i])/(nlay - 1.)
+                dcvpv 		= (self.cvpv[1, i] - self.cvpv[0, i])/(nlay - 1.)
+                dcvsh 		= (self.cvsh[1, i] - self.cvsh[0, i])/(nlay - 1.)
+                dcvsv 		= (self.cvsv[1, i] - self.cvsv[0, i])/(nlay - 1.)
+                dcrho       = (self.crho[1, i] - self.crho[0, i])/(nlay - 1.)
+                vph         = np.zeros(np.int64(nlay), dtype=np.float32)
+                vpv         = np.zeros(np.int64(nlay), dtype=np.float32)
+                vsh         = np.zeros(np.int64(nlay), dtype=np.float32)
+                vsv         = np.zeros(np.int64(nlay), dtype=np.float32)
+                rho         = np.zeros(np.int64(nlay), dtype=np.float32)
+                for ilay in xrange(nlay):
+                    vph[ilay]       = self.cvph[0, i] + dcvph*np.float32(ilay)
+                    vpv[ilay]       = self.cvpv[0, i] + dcvpv*np.float32(ilay)
+                    vsh[ilay]       = self.cvsh[0, i] + dcvsh*np.float32(ilay)
+                    vsv[ilay]       = self.cvsv[0, i] + dcvsv*np.float32(ilay)
+                    # # # rho[ilay]       = self.crho[0, i] + dcrho*np.float32(ilay)
+                hArr 	            = np.ones(nlay, dtype=np.float32)*np.float32(dh)
+                self.vph[:nlay, i]  = vph
+                self.vpv[:nlay, i]  = vpv
+                self.vsh[:nlay, i]  = vsh
+                self.vsv[:nlay, i]  = vsv
+                # # # self.rho[:nlay, i]  = rho
+                # eta should not be gradient changing
+                self.eta[:nlay, i]  = np.ones(nlay, dtype=np.float32)*self.ceta[0, i]
+                self.hArr[:nlay, i] = hArr
+                self.nlay[i]        = nlay
+                #------------------------------------
+                # orientation angles
+                #------------------------------------
+                tnlay                       = nlay
+                if self.dipjump < 0.:
+                    self.dip[:tnlay, i]     = np.ones(tnlay, dtype = np.float32) * self.cdip[0, i]
+                else:
+                    ind                     = int(tnlay*self.dipjump)
+                    self.dip[:ind, i]       = np.ones(ind, dtype = np.float32) * self.cdip[0, i]
+                    self.dip[ind:tnlay, i]  = np.ones(tnlay-ind, dtype = np.float32) * self.cdip[1, i]
+                self.strike[:tnlay, i]      = np.ones(tnlay, dtype = np.float32) * self.cstrike[0, i]
+            # water layer
+            elif self.mtype[i] == 5:
+                raise ValueError('wrong type!')
+                nlay                = 1
+                self.vph[0, i]      = self.cvph[0, i]
+                self.vph[0, i]      = self.cvpv[0, i]
+                self.vsh[0, i]      = 0.
+                self.vsv[0, i]      = 0.
+                self.eta[0, i]      = 1.
+                self.rho[0, i]      = 1.02
+                self.dip[0, i]      = 0.
+                self.strike[0, i]   = 0.
+                self.hArr[0, i]     = self.thickness[i]
+                self.nlay[i]        = 1
+        if not self.isrho:
+            self.get_rho()
+        return
+    
+    
+    def update_bk(self):
+        """
+        update model (velocities, density, tilt angles and hArr arrays)
+        Currently, density array is updated only for layered model
+        """
+        for i in xrange(self.nmod):
+            if self.nlay[i] > self.maxlay:
+                raise ValueError('number of layers is too large, need change default maxlay!')
+            # layered model
+            if self.mtype[i] == 1:
+                self.nlay[i]                = self.numbp[i]
+                self.hArr[:, i]             = self.ratio[:, i] * self.thickness[i]
+                self.vph[:self.nlay[i], i]  = self.cvph[:self.nlay[i], i]
+                self.vpv[:self.nlay[i], i]  = self.cvpv[:self.nlay[i], i]
+                self.vsh[:self.nlay[i], i]  = self.cvsh[:self.nlay[i], i]
+                self.vsv[:self.nlay[i], i]  = self.cvsv[:self.nlay[i], i]
+                self.eta[:self.nlay[i], i]  = self.ceta[:self.nlay[i], i]
+                self.rho[:self.nlay[i], i]  = self.crho[:self.nlay[i], i]
+                tnlay                       = self.nlay[i]
+                #------------------------------------
+                # orientation angles
+                #------------------------------------
+                if self.dipjump < 0.:
+                    self.dip[:tnlay, i]     = np.ones(tnlay, dtype = np.float32) * self.cdip[0, i]
+                else:
+                    ratiosum                = self.ratio.cumsum()
+                    ind                     = int(np.where(ratiosum <= self.dipjump)[0][-1])
+                    self.dip[:ind, i]       = np.ones(ind, dtype = np.float32) * self.cdip[0, i]
+                    self.dip[ind:tnlay, i]  = np.ones(tnlay-ind, dtype = np.float32) * self.cdip[1, i]
+                self.strike[:tnlay, i]      = np.ones(tnlay, dtype = np.float32) * self.cstrike[0, i]
+            # B spline model
+            elif self.mtype[i] == 2:
+                # self.isspl[i]   = 0
+                # self.bspline(i)
+                if self.isspl[i] != 1:
+                    self.bspline(i)
+                for ilay in xrange(self.nlay[i]):
+                    tvph    = 0.
+                    tvpv    = 0.
+                    tvsh    = 0.
+                    tvsv    = 0.
+                    teta    = 0.
+                    for ibs in xrange(self.numbp[i]):
+                        tvph= tvph + self.spl[ibs, ilay, i] * self.cvph[ibs, i]
+                        tvpv= tvpv + self.spl[ibs, ilay, i] * self.cvpv[ibs, i]
+                        tvsh= tvsh + self.spl[ibs, ilay, i] * self.cvsh[ibs, i]
+                        tvsv= tvsv + self.spl[ibs, ilay, i] * self.cvsv[ibs, i]
+                        teta= teta + self.spl[ibs, ilay, i] * self.ceta[ibs, i]
+                    
                     self.vph[ilay, i]   = tvph
                     self.vpv[ilay, i]   = tvpv
                     self.vsh[ilay, i]   = tvsh
@@ -1409,7 +1553,7 @@ class ttimod(object):
                 valmax  = max (valmin + 0.0001, valmax)
                 if int(self.para.paraindex[0, i]) == 4:
                     if int(self.para.paraindex[4, i]) == 1:
-                        valmin  = 0.8
+                        valmin  = 0.6
                         valmax  = 1.1
                         step    = 0.05
                     else:
@@ -1428,7 +1572,8 @@ class ttimod(object):
                 if int(self.para.paraindex[0, i]) == 5:
                     valmin      = 0.
                     valmax      = 90.
-                    step        = -1.
+                    # # # step        = -1.
+                    step        = 5.
                 # strike
                 if int(self.para.paraindex[0, i]) == 6:
                     valmin      = 0.

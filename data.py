@@ -572,10 +572,12 @@ class disp(object):
             temp2   += (self.pampo[i] - self.pampp[i])**2/self.stdpampo[i]**2
             phidiff = abs(self.pphio[i] - self.pphip[i])
             if phidiff > 90.:
-                phidiff -= 90.
+                # # # phidiff -= 90.
+                phidiff = 180. - phidiff
             temp3   += phidiff**2/self.stdpphio[i]**2
         # # # temp2       *= 2.
         # # # temp3       *= 2.
+        # # temp3       = 0. # debug !!!
         self.pS     = temp1+temp2+temp3
         tS          = temp1+temp2+temp3
         self.pmisfit= np.sqrt(tS/3./self.npper)
@@ -583,8 +585,27 @@ class disp(object):
             tS      = np.sqrt(tS*50.)
         self.pL     = np.exp(-0.5 * tS)
         return
-        
-        
+    
+    def get_res_tti(self):
+        r1  = []; r2 = []; r3 = []
+        for i in xrange(self.npper):
+            r1.append((self.pvelo[i] - self.pvelp[i])/self.stdpvelo[i])
+            r2.append((self.pampo[i] - self.pampp[i])/self.stdpampo[i])
+            phidiff = abs(self.pphio[i] - self.pphip[i])
+            if phidiff > 90.:
+                phidiff = 180. - phidiff
+            r3.append(phidiff/self.stdpphio[i])
+        r1  = np.array(r1, dtype = np.float32)
+        r2  = np.array(r2, dtype = np.float32)
+        r3  = np.array(r3, dtype = np.float32)
+        return r1, r2, r3
+    
+    def get_res_pvel(self):
+        r  = []
+        for i in xrange(self.npper):
+            r.append((self.pvelo[i] - self.pvelp[i])/self.stdpvelo[i])
+        r   = np.array(r, dtype = np.float32)
+        return r
     
 ####################################################
 # Predefine the parameters for the rf object
@@ -755,8 +776,8 @@ class data1d(object):
             tS      = np.sqrt(tS*50.)
         if tS > 50.:
             tS      = np.sqrt(tS*50.)
-        # if tS > 50.:
-        #     tS      = np.sqrt(tS*50.)
+        if tS > 50.:
+            tS      = np.sqrt(tS*50.)
         # if tS > 50.:
         #     tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
@@ -765,6 +786,9 @@ class data1d(object):
     def printtest(self):
         i=np.int32(3)
         print 'accept a model', (i, self.L)
-
-
+    
+    def get_res_tti(self):
+        r1, r2, r3  = self.dispR.get_res_tti()
+        r4          = self.dispL.get_res_pvel()
+        return r1, r2, r3, r4
         

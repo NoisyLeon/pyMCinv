@@ -2967,6 +2967,8 @@ class model1d(object):
         self.vel2love()
         self.init_etensor()
         return qs, qp
+    
+        
         
     
     

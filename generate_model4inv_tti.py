@@ -2,7 +2,7 @@ import vprofile
 import modparam
 import vmodel
 
-outdir = './synthetic_inv'
+outdir = './synthetic_tti_inv'
 
 vpr = vprofile.vprofile1d()
 vpr.readdisp(infname='./disp_-112.0_36.0_lov.txt', wtype = 'l')
@@ -13,7 +13,14 @@ vpr.readmod(infname='mod_-112.0.36.0.mod', mtype='tti')
 vpr.getpara(mtype='tti')
 vpr.update_mod(mtype='tti')
 vpr.get_vmodel(mtype='tti')
-vpr.model.ttimod.new_paraval(0, 1, 1, 0, 1)
+vpr.model.ttimod.mod2para()
+outfname = 'synthetic_tti_inv/paraval_ref.txt'
+modparam.write_paraval_txt(outfname, vpr.model.ttimod.para)
+outfname = outdir+'/synthetic_ref.mod'
+vmodel.write_model(model=vpr.model, outfname=outfname, isotropic=False)
+
+
+vpr.model.ttimod.new_paraval(0, 1, 1, 0, 0)
 vpr.get_vmodel(mtype='tti')
 
 outfname = outdir+'/paraval.txt'
