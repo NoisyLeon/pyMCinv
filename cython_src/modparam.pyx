@@ -188,10 +188,11 @@ cdef class para1d:
         infname - input file name
         ==========================================================================
         """
-        cdef int npara  = 0
-        cdef int i      = 0
+        cdef int npara      = 0
+        cdef Py_ssize_t i   = 0
+        cdef Py_ssize_t j
+        cdef int ne
         cdef np.ndarray temp
-        cdef int ne, j
         for l1 in open(infname,"r"):
             npara   += 1
         print "Number of parameters for perturbation: %d " % npara
@@ -227,7 +228,7 @@ cdef class para1d:
                     1   - Gauss random number generator given mu = oldval, sigma=step
         ===============================================================================
         """
-        cdef int i, j
+        cdef Py_ssize_t i, j
         cdef float oldval, newval, step
         cdef bool run
         if not self.isspace:
@@ -266,7 +267,8 @@ cdef class para1d:
     
 @cython.boundscheck(False)
 cdef FloatMatrix bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts) nogil:
-    cdef int m, i, j, n_temp, pp
+    cdef int m, n_temp
+    cdef Py_ssize_t i, j, pp
     cdef FloatMatrix nbasis, obasis
     cdef vector[float] t, depth
     cdef float step
@@ -413,7 +415,7 @@ cdef class isomod:
         ==========================================================================
         """
         cdef int nmod   = 0
-        cdef int iid, flag, tnp, nr, i
+        cdef Py_ssize_t iid, flag, tnp, nr, i
         cdef float thickness
         
         for l1 in open(infname,"r"):
@@ -461,7 +463,7 @@ cdef class isomod:
         return True
     
     @cython.boundscheck(False)
-    cdef public bool bspline(self, int i) nogil:
+    cdef public bool bspline(self, Py_ssize_t i) nogil:
         """
         Compute B-spline basis
         The actual degree is k = degBs - 1
@@ -471,7 +473,8 @@ cdef class isomod:
                         [:nBs, :] B spline basis for nBs control points
                         [nBs:,:] can be ignored
         """
-        cdef int nBs, degBs, npts, m, ibs, ilay
+        cdef int nBs, degBs, npts, m
+        cdef Py_ssize_t ibs, ilay
         cdef float zmin_Bs, zmax_Bs, disfacBs
         
         if self.thickness[i] >= 150.:
@@ -519,7 +522,8 @@ cdef class isomod:
         """
         Update model (vs and hArr arrays)
         """
-        cdef int i, ilay, ibs, nlay
+        cdef Py_ssize_t i, ilay, ibs
+        cdef int nlay
         cdef float tvalue, dh, dcvel
         
         for i in range(self.nmod):
@@ -584,7 +588,8 @@ cdef class isomod:
             Joint inversion of surface wave dispersion and receiver functions: a Bayesian Monte-Carlo approach.
                 Geophysical Journal International, 192(2), pp.807-836.
         """
-        cdef int npara, ipara, i, j, numbp_sum
+        cdef int npara, numbp_sum
+        cdef Py_ssize_t ipara, i, j
         numbp_sum = 0
         for i in range(self.nmod):
             numbp_sum += self.numbp[i]
@@ -636,7 +641,7 @@ cdef class isomod:
         """
         convert model to parameter arrays for perturbation
         """
-        cdef int i, j, ig, ip
+        cdef Py_ssize_t i, j, ig, ip
         cdef float val, step, valmin, valmax
  
         for i in range(self.para.npara):
@@ -682,7 +687,7 @@ cdef class isomod:
         """
         Convert paratemers (for perturbation) to model parameters
         """
-        cdef int i, ig, ip
+        cdef Py_ssize_t i, ig, ip
         cdef float val 
         for i in range(self.para.npara):
             val = self.para.paraval[i]
@@ -711,7 +716,7 @@ cdef class isomod:
         g0, g1  - index of group for gradient change checking
         ==========================================================================
         """
-        cdef int i
+        cdef Py_ssize_t i
         # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
         for i in range (self.nmod-1):
             if self.vs[0, i+1] < self.vs[-1, i]:
@@ -750,7 +755,7 @@ cdef class isomod:
         """
 #        cdef vector[float] vs, vp, rho, qs, qp, hArr
         cdef float depth   = 0.
-        cdef int i, j
+        cdef Py_ssize_t i, j
         for i in range(self.nmod):
             for j in range(self.nlay[i]):
                 hArr.push_back(self.hArr[j][i])

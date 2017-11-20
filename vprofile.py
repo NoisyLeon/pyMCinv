@@ -1485,16 +1485,16 @@ class vprofile1d(object):
     
     def plot_iso_mod(self, showfig=True):
         ax=plt.subplot()
-        for i in xrange(self.accid.size-1):
-            plt.plot(self.vs[i][:, 1], self.vs[i][:, 0], '-', color='grey', alpha=0.5)
-        plt.plot(self.vs[i+1][:, 1], self.vs[i+1][:, 0], '-', color='grey', alpha=0.5, label='accepted model')
+        # for i in xrange(self.accid.size-1):
+        #     plt.plot(self.vs[i][:, 1], self.vs[i][:, 0], '-', color='grey', alpha=0.5)
+        # plt.plot(self.vs[i+1][:, 1], self.vs[i+1][:, 0], '-', color='grey', alpha=0.5, label='accepted model')
         
         self.read_paraval('synthetic_iso_inv/paraval.txt')
         plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'b-', alpha=1., label='real model')
         self.read_paraval('synthetic_iso_inv/paraval_ref.txt')
         plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'g-', alpha=1., label='intitial model')
-        self.get_iso_min_mod()
-        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'r-.', alpha=1., label='min misfit model')
+        # self.get_iso_min_mod()
+        # plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'r-.', alpha=1., label='min misfit model')
         
         plt.ylabel('depth (km)', fontsize=30)
         plt.xlabel('vs (km/sec)', fontsize=30)
@@ -1792,25 +1792,30 @@ class vprofile1d(object):
     
     def plot_tti_mod(self, showfig=True):
         ax=plt.subplot()
-        for i in xrange(self.accid.size-1):
-            plt.plot(self.z[i], self.val, '-', color='grey', alpha=0.5)
-        plt.plot(self.z[i+1], self.val[i+1], '-', color='grey', alpha=0.5, label='accepted model')
-        
+        # for i in xrange(self.accid.size-1):
+        #     plt.plot(self.z[i], self.val, '-', color='grey', alpha=0.5)
+        # plt.plot(self.z[i+1], self.val[i+1], '-', color='grey', alpha=0.5, label='accepted model')
+        # 
         self.read_paraval('synthetic_tti_inv/paraval.txt', 'tti')
-        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'b-', alpha=1., label='real model')
+        plt.plot(self.model.strikeArr[::-1], self.model.zArr[::-1], 'b-', alpha=1., label='real model')
+        # plt.plot(self.model.etaArr[::-1]/1000., self.model.zArr[::-1], 'b-', alpha=1., label='real model')
         self.read_paraval('synthetic_tti_inv/paraval_ref.txt', 'tti')
-        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'g-', alpha=1., label='intitial model')
-        self.get_tti_min_mod()
-        plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'r-.', alpha=1., label='min misfit model')
+        # plt.plot(self.model.etaArr[::-1]/1000., self.model.zArr[::-1], 'g-', alpha=1., label='intitial model')
+        plt.plot(self.model.strikeArr[::-1], self.model.zArr[::-1], 'g-', alpha=1., label='intitial model')
+        # self.get_tti_min_mod()
+        # plt.plot(self.model.VsvArr[::-1]/1000., self.model.zArr[::-1], 'r-.', alpha=1., label='min misfit model')
         
         plt.ylabel('depth (km)', fontsize=30)
-        plt.xlabel('vs (km/sec)', fontsize=30)
+        # plt.xlabel(r'$\eta$'+' (km/sec)', fontsize=30)
+        # plt.xlabel(r'$\eta$'+' (km/sec)', fontsize=30)
+        plt.xlabel('strike (deg)', fontsize=30)
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.ylim([0.,200.])
         plt.gca().invert_yaxis()
         plt.legend(loc=0, fontsize=15)
-        plt.xlim([2.,5.5])
+        # plt.xlim([2.,5.5])
+        # plt.xlim([2.,5.5])
         
         if showfig:
             plt.show()

@@ -58,7 +58,6 @@ cdef class rf:
         ==========================================================================
         """
         cdef np.ndarray inArr  
-        cdef int i
         if self.npts > 0:
             print 'receiver function data is already stored!'
             return False
@@ -113,7 +112,7 @@ cdef class rf:
         """
         cdef float temp = 0.
         cdef int k      = 0
-        cdef int i, j
+        cdef Py_ssize_t i, j
         cdef float tS
         if self.npts == 0:
             self.misfit = 0.
@@ -143,8 +142,8 @@ cdef class rf:
         ==============================================================================
         """
         cdef float temp = 0.
-        cdef int k      = 0
-        cdef int i
+        cdef Py_ssize_t k      = 0
+        cdef Py_ssize_t i
         cdef float tS
         if self.npts == 0:
             self.misfit = 0.
@@ -159,7 +158,7 @@ cdef class rf:
                 k       += 1
             if self.to[i] > 10:
                 break
-        self.misfit = sqrt(temp/k)
+        self.misfit = sqrt(temp/(<float>k))
         tS          = temp/rffactor
         if tS > 50.:
             tS      = sqrt(tS*50.)
@@ -475,7 +474,7 @@ cdef class disp:
         Compute the misfit for phase velocities
         """
         cdef float temp = 0.
-        cdef int i
+        cdef Py_ssize_t i
         if not self.isphase :
             printf('No phase velocity data stored')
             return False
@@ -494,7 +493,7 @@ cdef class disp:
         Compute the misfit for group velocities
         """
         cdef float temp = 0.
-        cdef int i
+        cdef Py_ssize_t i
         if not self.isgroup:
             printf('No group velocity data stored')
             return False
@@ -515,7 +514,7 @@ cdef class disp:
         cdef float temp1    = 0. 
         cdef float temp2    = 0.
         cdef float tS, L, misfit, temp
-        cdef int i
+        cdef Py_ssize_t i
         # misfit for phase velocities
         if self.isphase:
             for i in range(self.npper):
@@ -564,7 +563,7 @@ cdef class disp:
         cdef float temp1   = 0.
         cdef float temp2   = 0.
         cdef float temp3   = 0.
-        cdef int i
+        cdef Py_ssize_t i
         cdef float phidiff, tS
         for i in range(self.npper):
             temp1   += (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
@@ -586,7 +585,7 @@ cdef class disp:
 #    
     def get_res_tti(self):
         cdef float[:] r1, r2, r3    
-        cdef int i
+        cdef Py_ssize_t i
         cdef float phidiff
         
         r1   = np.zeros(self.npper, dtype=np.float32)
@@ -606,7 +605,7 @@ cdef class disp:
     
     def get_res_pvel(self):
         cdef float[:] r  
-        cdef int i
+        cdef Py_ssize_t i
         
         r           = np.zeros(self.npper, dtype=np.float32)
         for i in range(self.npper):
