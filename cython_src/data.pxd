@@ -3,9 +3,10 @@
 from libcpp cimport bool
 
 cdef class rf:
-    cdef public float fs, L, misfit
-    cdef public int npts
-    cdef public float[:] to, rfo, stdrfo, tp, rfp
+    cdef public:
+        float fs, L, misfit
+        int npts
+        float[:] to, rfo, stdrfo, tp, rfp
     
     #----------------------------------------------------
     # I/O functions
@@ -19,14 +20,15 @@ cdef class rf:
     cdef bool get_misfit(self, float rffactor=*) nogil
 
 cdef class disp:
-    cdef public int npper, ngper, nper
-    cdef public bool isphase, isgroup
-    cdef public float pmisfit, pS, pL
-    cdef public float[:] pper, pvelo, stdpvelo, pvelp
-    cdef public float[:] pampo, stdpampo, pampp, pphio, stdpphio, pphip
-    cdef public float gmisfit, gS, gL
-    cdef public float[:] gper, gvelo, stdgvelo, gvelp
-    cdef public float misfit, S, L
+    cdef public:
+        int npper, ngper, nper
+        bool isphase, isgroup
+        float pmisfit, pS, pL
+        float[:] pper, pvelo, stdpvelo, pvelp
+        float[:] pampo, stdpampo, pampp, pphio, stdpphio, pphip
+        float gmisfit, gS, gL
+        float[:] gper, gvelo, stdgvelo, gvelp
+        float misfit, S, L
     #----------------------------------------------------
     # I/O functions
     #----------------------------------------------------

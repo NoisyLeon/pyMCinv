@@ -1060,8 +1060,8 @@ typedef npy_cdouble __pyx_t_5numpy_complex_t;
  * cdef float random_uniform(float a, float b) nogil
  * 
  * cdef class para1d:             # <<<<<<<<<<<<<<
- *     cdef public int npara, maxind
- *     cdef public bool isspace
+ *     cdef public:
+ *         int npara, maxind
  */
 struct __pyx_obj_8modparam_para1d {
   PyObject_HEAD
@@ -1075,7 +1075,7 @@ struct __pyx_obj_8modparam_para1d {
 };
 
 
-/* "modparam.pxd":63
+/* "modparam.pxd":64
  * cdef FloatMatrix bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts) nogil
  * 
  * cdef class isomod:             # <<<<<<<<<<<<<<
@@ -1199,8 +1199,8 @@ struct __pyx_memoryviewslice_obj {
  * cdef float random_uniform(float a, float b) nogil
  * 
  * cdef class para1d:             # <<<<<<<<<<<<<<
- *     cdef public int npara, maxind
- *     cdef public bool isspace
+ *     cdef public:
+ *         int npara, maxind
  */
 
 struct __pyx_vtabstruct_8modparam_para1d {
@@ -1211,7 +1211,7 @@ struct __pyx_vtabstruct_8modparam_para1d {
 static struct __pyx_vtabstruct_8modparam_para1d *__pyx_vtabptr_8modparam_para1d;
 
 
-/* "modparam.pxd":63
+/* "modparam.pxd":64
  * cdef FloatMatrix bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts) nogil
  * 
  * cdef class isomod:             # <<<<<<<<<<<<<<
@@ -17794,8 +17794,8 @@ PyMODINIT_FUNC PyInit_vmodel(void)
   /*--- Type import code ---*/
   __pyx_ptype_8modparam_para1d = __Pyx_ImportType("modparam", "para1d", sizeof(struct __pyx_obj_8modparam_para1d), 1); if (unlikely(!__pyx_ptype_8modparam_para1d)) __PYX_ERR(3, 51, __pyx_L1_error)
   __pyx_vtabptr_8modparam_para1d = (struct __pyx_vtabstruct_8modparam_para1d*)__Pyx_GetVtable(__pyx_ptype_8modparam_para1d->tp_dict); if (unlikely(!__pyx_vtabptr_8modparam_para1d)) __PYX_ERR(3, 51, __pyx_L1_error)
-  __pyx_ptype_8modparam_isomod = __Pyx_ImportType("modparam", "isomod", sizeof(struct __pyx_obj_8modparam_isomod), 1); if (unlikely(!__pyx_ptype_8modparam_isomod)) __PYX_ERR(3, 63, __pyx_L1_error)
-  __pyx_vtabptr_8modparam_isomod = (struct __pyx_vtabstruct_8modparam_isomod*)__Pyx_GetVtable(__pyx_ptype_8modparam_isomod->tp_dict); if (unlikely(!__pyx_vtabptr_8modparam_isomod)) __PYX_ERR(3, 63, __pyx_L1_error)
+  __pyx_ptype_8modparam_isomod = __Pyx_ImportType("modparam", "isomod", sizeof(struct __pyx_obj_8modparam_isomod), 1); if (unlikely(!__pyx_ptype_8modparam_isomod)) __PYX_ERR(3, 64, __pyx_L1_error)
+  __pyx_vtabptr_8modparam_isomod = (struct __pyx_vtabstruct_8modparam_isomod*)__Pyx_GetVtable(__pyx_ptype_8modparam_isomod->tp_dict); if (unlikely(!__pyx_vtabptr_8modparam_isomod)) __PYX_ERR(3, 64, __pyx_L1_error)
   __pyx_ptype_7cpython_4type_type = __Pyx_ImportType(__Pyx_BUILTIN_MODULE_NAME, "type", 
   #if CYTHON_COMPILING_IN_PYPY
   sizeof(PyTypeObject),

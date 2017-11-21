@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 """
 Module for handling parameterization of the model
 
@@ -49,10 +49,11 @@ cdef float random_gauss(float mu, float sigma) nogil
 cdef float random_uniform(float a, float b) nogil
 
 cdef class para1d:
-    cdef public int npara, maxind
-    cdef public bool isspace
-    cdef public float[:, :] paraindex, space
-    cdef public float[:] paraval
+    cdef public:
+        int npara, maxind
+        bool isspace
+        float[:, :] paraindex, space
+        float[:] paraval
     
     cpdef init_arr(self, int npara)
     cdef bool new_paraval(self, int ptype) nogil
@@ -61,13 +62,14 @@ cdef class para1d:
 cdef FloatMatrix bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts) nogil
 
 cdef class isomod:
-    cdef public int nmod
     cdef int maxlay, maxspl
-    cdef public para1d para
-    cdef public int[:] numbp, mtype, nlay, isspl
-    cdef public float[:] thickness, vpvs
-    cdef public float[:, :] cvel, ratio, vs, hArr
-    cdef public float[:, :, :] spl
+    cdef public:
+        int nmod
+        para1d para
+        int[:] numbp, mtype, nlay, isspl
+        float[:] thickness, vpvs
+        float[:, :] cvel, ratio, vs, hArr
+        float[:, :, :] spl
     
     cpdef init_arr(self, nmod)
     cdef bool bspline(self, Py_ssize_t i) nogil
