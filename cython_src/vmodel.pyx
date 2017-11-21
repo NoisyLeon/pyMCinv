@@ -9,14 +9,14 @@ Module for handling 1D velocity model objects.
     email: lili.feng@colorado.edu
 """
 
-#from __future__ import division
+from __future__ import division
 
 from libcpp cimport bool
 from libc.math cimport sqrt, exp, log, pow, fmax, fmin
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport printf
 cimport cython
-#cimport modparam
+cimport modparam
 #from cython.view cimport array as cvarray
 
 import numpy as np
@@ -48,13 +48,13 @@ cdef class model1d:
     CijAA           - azimuthally anisotropic elastic tensor (unit - Pa)
     =====================================================================================================================
     """
-    cdef bool flat
-    
     def __init__(self):
         self.flat   = True
-#        self.isomod = modparam.isomod()
+        self.isomod = modparam.isomod()
 #        self.ttimod = modparam.ttimod()
         return
+    
+    
     
         
         

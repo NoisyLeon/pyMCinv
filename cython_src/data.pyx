@@ -19,9 +19,12 @@ cimport cython
 #from cython.view cimport array as cvarray
 #from cython.parallel import parallel, prange, threadid
 #cimport openmp
+#cimport data.pxd
 
 
-   
+        
+
+
 cdef class rf:
     """
     An object for handling receiver function data and computing misfit
@@ -38,10 +41,7 @@ cdef class rf:
     L       - likelihood value
     ==========================================================================
     """
-    cdef public float fs, L, misfit
-    cdef public int npts
-    cdef public float[:] to, rfo, stdrfo, tp, rfp
-    
+
     def __init__(self):
         self.npts   = 0
         self.fs     = 0.
@@ -71,7 +71,7 @@ cdef class rf:
             self.stdrfo = np.ones(self.npts, dtype=np.float32)*0.1
         self.fs     = 1./(self.to[1] - self.to[0])
         return True
-    
+#    
     def writerftxt(self, str outfname, float tf=10.):
         """
         Write receiver function data to a txt file
@@ -131,9 +131,9 @@ cdef class rf:
             tS      = sqrt(tS*50.)
         self.L      = exp(-0.5 * tS)
         return True
-    
+#    
     @cython.boundscheck(False)
-    cdef public bool get_misfit(self, float rffactor) nogil:
+    cdef bool get_misfit(self, float rffactor=40.) nogil:
         """
         Compute misfit for receiver function
         ==============================================================================
@@ -209,14 +209,7 @@ cdef class disp:
     nper    - common number of periods
     ==========================================================================
     """
-    cdef public int npper, ngper, nper
-    cdef public bool isphase, isgroup
-    cdef public float pmisfit, pS, pL
-    cdef public float[:] pper, pvelo, stdpvelo, pvelp
-    cdef public float[:] pampo, stdpampo, pampp, pphio, stdpphio, pphip
-    cdef public float gmisfit, gS, gL
-    cdef public float[:] gper, gvelo, stdgvelo, gvelp
-    cdef public float misfit, S, L
+
     
     def __init__(self):
         self.npper  = 0
@@ -583,7 +576,7 @@ cdef class disp:
         self.pL     = exp(-0.5 * tS)
         return
 #    
-    def get_res_tti(self):
+    cpdef get_res_tti(self):
         cdef float[:] r1, r2, r3    
         cdef Py_ssize_t i
         cdef float phidiff
@@ -603,7 +596,7 @@ cdef class disp:
             print r3[i]
         return r1, r2, r3
     
-    def get_res_pvel(self):
+    cpdef get_res_pvel(self):
         cdef float[:] r  
         cdef Py_ssize_t i
         
@@ -611,7 +604,7 @@ cdef class disp:
         for i in range(self.npper):
             r[i]    = (self.pvelo[i] - self.pvelp[i])/self.stdpvelo[i]
         return r
- 
+# 
         
 cdef class data1d:
     """
@@ -626,9 +619,7 @@ cdef class data1d:
     L       - likelihood value
     ==========================================================================
     """
-    cdef public disp dispR, dispL
-    cdef public rf rfr, rft
-    cdef public float L, misfit
+
     
     def __init__(self):
         self.dispR  = disp()
@@ -680,4 +671,4 @@ cdef class data1d:
 #    def get_res_tti(self):
 #        r1, r2, r3  = self.dispR.get_res_tti()
 #        r4          = self.dispL.get_res_pvel()
-#        return r1, r2, r3, r4
+        return r1, r2, r3, r4

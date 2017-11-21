@@ -42,37 +42,37 @@ cimport numpy as np
 #    return mu + sigma*(x1 * w)
 
 # import random from c++ random.h
-cdef extern from "<random>" namespace "std" nogil:
-    cdef cppclass mt19937:
-        mt19937()  # we need to define this constructor to stack allocate classes in Cython
-        mt19937(unsigned int seed)  # not worrying about matching the exact int type for seed
-
-    cdef cppclass uniform_real_distribution[T]:
-        uniform_real_distribution() 
-        uniform_real_distribution(T a, T b) 
-        T operator()(mt19937 gen) nogil # ignore the possibility of using other classes for "gen"
-        
-    cdef cppclass normal_distribution[T]:
-        normal_distribution() 
-        normal_distribution(T mu, T sigma) 
-        T operator()(mt19937 gen)  # ignore the possibility of using other classes for "gen"
-
-# import vector from c++ vector.h
-cdef extern from "<vector>" namespace "std" nogil:
-    cdef cppclass vector[T]:
-        cppclass iterator:
-            T operator*() 
-            iterator operator++() 
-            bint operator==(iterator) 
-            bint operator!=(iterator) 
-        vector() 
-        void push_back(T&) 
-        T& operator[](int) 
-        T& at(int) 
-        iterator begin() 
-        iterator end() 
-
-ctypedef vector[vector[float]] FloatMatrix
+#cdef extern from "<random>" namespace "std" nogil:
+#    cdef cppclass mt19937:
+#        mt19937()  # we need to define this constructor to stack allocate classes in Cython
+#        mt19937(unsigned int seed)  # not worrying about matching the exact int type for seed
+#
+#    cdef cppclass uniform_real_distribution[T]:
+#        uniform_real_distribution() 
+#        uniform_real_distribution(T a, T b) 
+#        T operator()(mt19937 gen) nogil # ignore the possibility of using other classes for "gen"
+#        
+#    cdef cppclass normal_distribution[T]:
+#        normal_distribution() 
+#        normal_distribution(T mu, T sigma) 
+#        T operator()(mt19937 gen)  # ignore the possibility of using other classes for "gen"
+#
+## import vector from c++ vector.h
+#cdef extern from "<vector>" namespace "std" nogil:
+#    cdef cppclass vector[T]:
+#        cppclass iterator:
+#            T operator*() 
+#            iterator operator++() 
+#            bint operator==(iterator) 
+#            bint operator!=(iterator) 
+#        vector() 
+#        void push_back(T&) 
+#        T& operator[](int) 
+#        T& at(int) 
+#        iterator begin() 
+#        iterator end() 
+##
+#ctypedef vector[vector[float]] FloatMatrix
 
 @cython.boundscheck(False)
 cdef float random_gauss(float mu, float sigma) nogil:
@@ -159,10 +159,6 @@ cdef class para1d:
                     space[2, :]     - step, used as sigma in Gaussian random generator
     =====================================================================================================================
     """
-    cdef public int npara, maxind
-    cdef public bool isspace
-    cdef public float[:, :] paraindex, space
-    cdef public float[:] paraval
     
     def __init__(self):
         self.npara          = 0
@@ -170,7 +166,7 @@ cdef class para1d:
         self.isspace        = False
         return
     
-    def init_arr(self, int npara):
+    cpdef init_arr(self, int npara):
         """
         initialize the arrays
         """
@@ -252,8 +248,8 @@ cdef class para1d:
                 newval  = random_uniform(self.space[0, i], self.space[1, i])
             self.paraval[i]     = newval
         return True
-        
-    def copy(self):
+
+    cpdef copy(self):
         """
         return a copy of the object
         """
@@ -361,13 +357,6 @@ cdef class isomod:
     para        - object storing parameters for perturbation
     =====================================================================================================================
     """
-    cdef public int nmod
-    cdef int maxlay, maxspl
-    cdef public para1d para
-    cdef public int[:] numbp, mtype, nlay, isspl
-    cdef public float[:] thickness, vpvs
-    cdef public float[:, :] cvel, ratio, vs, hArr
-    cdef public float[:, :, :] spl
     
     def __init__(self):
     
@@ -377,7 +366,7 @@ cdef class isomod:
         self.para       = para1d()
         return
     
-    def init_arr(self, nmod):
+    cpdef init_arr(self, nmod):
         """
         initialization of arrays
         """
@@ -463,7 +452,7 @@ cdef class isomod:
         return True
     
     @cython.boundscheck(False)
-    cdef public bool bspline(self, Py_ssize_t i) nogil:
+    cdef bool bspline(self, Py_ssize_t i) nogil:
         """
         Compute B-spline basis
         The actual degree is k = degBs - 1
@@ -518,7 +507,7 @@ cdef class isomod:
         return True
     
     @cython.boundscheck(False)
-    cdef public bool update(self) nogil:
+    cdef bool update(self) nogil:
         """
         Update model (vs and hArr arrays)
         """
@@ -578,7 +567,7 @@ cdef class isomod:
         return
     
     @cython.boundscheck(False)
-    cdef public void get_paraind(self) nogil:
+    cdef void get_paraind(self) nogil:
         """
         get parameter index arrays for para
         Table 1 and 2 in Shen et al. 2012
@@ -637,7 +626,7 @@ cdef class isomod:
         return
     
     @cython.boundscheck(False)
-    cdef public void mod2para(self) nogil:
+    cdef void mod2para(self) nogil:
         """
         convert model to parameter arrays for perturbation
         """
@@ -790,7 +779,7 @@ cdef class isomod:
         self.get_vmodel(vs, vp, rho, qs, qp, hArr)
         return vs, vp, rho, qs, qp, hArr
     
-    def copy(self):
+    cpdef copy(self):
         """
         return a copy of the object
         """
@@ -809,7 +798,7 @@ cdef class isomod:
         outmod.hArr     = self.hArr.copy()
         outmod.para     = self.para.copy()
         return outmod
-    
+#    
     
     
     

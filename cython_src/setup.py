@@ -38,15 +38,14 @@ ext_modules = [
         extra_compile_args=['-fopenmp', '-std=c++11'],
         extra_link_args=['-fopenmp'],
         language='c++'
-        )
-#    ),
-#    Extension(
-#        'vmodel',
-#        ["vmodel.pyx"],
-#        extra_compile_args=['-fopenmp', '-std=c++11'],
-#        extra_link_args=['-fopenmp'],
-#        language='c++'
-#    )
+    ),
+    Extension(
+        'vmodel',
+        ["vmodel.pyx"],
+        extra_compile_args=['-fopenmp', '-std=c++11'],
+        extra_link_args=['-fopenmp'],
+        language='c++'
+    )
 ]
 
 setup(
