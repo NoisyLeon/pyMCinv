@@ -36,7 +36,7 @@ cimport modparam
 cdef class model1d:
     cdef public:
         bool flat, tilt
-        int nbgrid
+        int ngrid
         float[1024] VsvArr, VpvArr, VshArr, VphArr, etaArr, rhoArr
         # Q factor
         float[1024] qsArr, qpArr
@@ -52,14 +52,18 @@ cdef class model1d:
         float[1024] CcArr, CsArr
         # Dip/strike angles of anisotropy, see Xie et al.(2015) Fig. 1 for details.
         float[1024] dipArr, strikeArr
-        # 4th order elastic tensor/Voigt matrix for tilted hexagonal symmetric media
-        float[1024] CijklArr, CijArr
+        # Voigt matrix for tilted hexagonal symmetric media
+        float CijArr[6][6][1024]
         # Voigt matrix for AA(azimuthally independent)/ETI(effective transversely isotropic) part
-        float[1024] CijAA, CijETI
-        float rmin    
+        float CijAA[6][6][1024], CijETI[6][6][1024]
+        float rmin, zmax    
         modparam.isomod isomod
     
-        
+    cdef void get_model_vel(self, float[:] vsv, float[:] vsh, float[:] vpv, float[:] vph,
+              float[:] eta, float[:] rho, float[:] z, float[:] dip, float[:] strike, bool tilt, int N) nogil
+    cdef void vel2love(self) nogil
+    cdef void love2vel(self) nogil
+    cdef bool is_iso(self) nogil
         
     
     
