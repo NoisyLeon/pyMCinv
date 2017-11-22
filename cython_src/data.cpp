@@ -2673,7 +2673,7 @@ static PyObject *__pyx_pf_4data_2rf_2readrftxt(struct __pyx_obj_4data_rf *__pyx_
  *         if self.npts > 0:
  *             print 'receiver function data is already stored!'             # <<<<<<<<<<<<<<
  *             return False
- *         inArr 		 = np.loadtxt(infname, dtype=np.float32)
+ *         inArr 		  = np.loadtxt(infname, dtype=np.float32)
  */
     if (__Pyx_PrintOne(0, __pyx_kp_s_receiver_function_data_is_alread) < 0) __PYX_ERR(0, 62, __pyx_L1_error)
 
@@ -2681,7 +2681,7 @@ static PyObject *__pyx_pf_4data_2rf_2readrftxt(struct __pyx_obj_4data_rf *__pyx_
  *         if self.npts > 0:
  *             print 'receiver function data is already stored!'
  *             return False             # <<<<<<<<<<<<<<
- *         inArr 		 = np.loadtxt(infname, dtype=np.float32)
+ *         inArr 		  = np.loadtxt(infname, dtype=np.float32)
  *         self.npts   = inArr.shape[0]
  */
     __Pyx_XDECREF(__pyx_r);
@@ -2701,7 +2701,7 @@ static PyObject *__pyx_pf_4data_2rf_2readrftxt(struct __pyx_obj_4data_rf *__pyx_
   /* "data.pyx":64
  *             print 'receiver function data is already stored!'
  *             return False
- *         inArr 		 = np.loadtxt(infname, dtype=np.float32)             # <<<<<<<<<<<<<<
+ *         inArr 		  = np.loadtxt(infname, dtype=np.float32)             # <<<<<<<<<<<<<<
  *         self.npts   = inArr.shape[0]
  *         self.to     = inArr[:,0]
  */
@@ -2735,7 +2735,7 @@ static PyObject *__pyx_pf_4data_2rf_2readrftxt(struct __pyx_obj_4data_rf *__pyx_
 
   /* "data.pyx":65
  *             return False
- *         inArr 		 = np.loadtxt(infname, dtype=np.float32)
+ *         inArr 		  = np.loadtxt(infname, dtype=np.float32)
  *         self.npts   = inArr.shape[0]             # <<<<<<<<<<<<<<
  *         self.to     = inArr[:,0]
  *         self.rfo    = inArr[:,1]
@@ -2743,7 +2743,7 @@ static PyObject *__pyx_pf_4data_2rf_2readrftxt(struct __pyx_obj_4data_rf *__pyx_
   __pyx_v_self->npts = (__pyx_v_inArr->dimensions[0]);
 
   /* "data.pyx":66
- *         inArr 		 = np.loadtxt(infname, dtype=np.float32)
+ *         inArr 		  = np.loadtxt(infname, dtype=np.float32)
  *         self.npts   = inArr.shape[0]
  *         self.to     = inArr[:,0]             # <<<<<<<<<<<<<<
  *         self.rfo    = inArr[:,1]
@@ -30977,7 +30977,7 @@ static int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
   /* "data.pyx":66
- *         inArr 		 = np.loadtxt(infname, dtype=np.float32)
+ *         inArr 		  = np.loadtxt(infname, dtype=np.float32)
  *         self.npts   = inArr.shape[0]
  *         self.to     = inArr[:,0]             # <<<<<<<<<<<<<<
  *         self.rfo    = inArr[:,1]

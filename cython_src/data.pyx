@@ -61,7 +61,7 @@ cdef class rf:
         if self.npts > 0:
             print 'receiver function data is already stored!'
             return False
-        inArr 		 = np.loadtxt(infname, dtype=np.float32)
+        inArr 		  = np.loadtxt(infname, dtype=np.float32)
         self.npts   = inArr.shape[0]        
         self.to     = inArr[:,0]
         self.rfo    = inArr[:,1]

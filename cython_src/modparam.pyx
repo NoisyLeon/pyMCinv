@@ -733,7 +733,7 @@ cdef class isomod:
         return True
     
     @cython.boundscheck(False)
-    cdef void get_vmodel(self, vector[float] &vs, vector[float] &vp, vector[float] &rho,\
+    cdef Py_ssize_t get_vmodel(self, vector[float] &vs, vector[float] &vp, vector[float] &rho,\
                     vector[float] &qs, vector[float] &qp, vector[float] &hArr) nogil:
         """
         get velocity models
@@ -744,9 +744,11 @@ cdef class isomod:
         """
 #        cdef vector[float] vs, vp, rho, qs, qp, hArr
         cdef float depth   = 0.
-        cdef Py_ssize_t i, j
+        cdef Py_ssize_t i, j, nlay
+        nlay  = 0
         for i in range(self.nmod):
             for j in range(self.nlay[i]):
+                nlay += 1
                 hArr.push_back(self.hArr[j][i])
                 depth += self.hArr[j][i]
                 if self.mtype[i] == 5:
@@ -772,7 +774,7 @@ cdef class isomod:
                     else:
                         # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
                         rho.push_back(3.35) 
-        return 
+        return nlay
     
     def get_vmodel_interface(self):
         cdef vector[float] vs, vp, rho, qs, qp, hArr

@@ -10,6 +10,7 @@ Module for handling parameterization of the model
 """
 
 from libcpp cimport bool
+from libcpp.vector cimport *
 
 # import random from c++ random.h
 cdef extern from "<random>" namespace "std":
@@ -28,19 +29,21 @@ cdef extern from "<random>" namespace "std":
         T operator()(mt19937 gen)  # ignore the possibility of using other classes for "gen"
 
 # import vector from c++ vector.h
-cdef extern from "<vector>" namespace "std":
-    cdef cppclass vector[T] nogil:
-        cppclass iterator:
-            T operator*() 
-            iterator operator++() 
-            bint operator==(iterator) 
-            bint operator!=(iterator) 
-        vector() 
-        void push_back(T&) 
-        T& operator[](int) 
-        T& at(int) 
-        iterator begin() 
-        iterator end() 
+#cdef extern from "<vector>" namespace "std":
+#    cdef cppclass vector[T] nogil:
+#        ctypedef size_t size_type
+#        cppclass iterator:
+#            T operator*() 
+#            iterator operator++() 
+#            bint operator==(iterator) 
+#            bint operator!=(iterator) 
+#        vector() 
+#        void push_back(T&) 
+#        T& operator[](int) 
+#        T& at(int) 
+#        iterator begin() 
+#        iterator end() 
+#        size_type size()
 
 ctypedef vector[vector[float]] FloatMatrix
 
@@ -78,7 +81,7 @@ cdef class isomod:
     cdef void mod2para(self) nogil
     cdef void para2mod(self) nogil
     cdef bool isgood(self, int m0, int m1, int g0, int g1) nogil
-    cdef void get_vmodel(self, vector[float] &vs, vector[float] &vp, vector[float] &rho,\
+    cdef Py_ssize_t get_vmodel(self, vector[float] &vs, vector[float] &vp, vector[float] &rho,\
                 vector[float] &qs, vector[float] &qp, vector[float] &hArr) nogil
     cpdef copy(self)
 #    
