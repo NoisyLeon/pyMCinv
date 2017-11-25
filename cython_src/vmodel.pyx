@@ -11,13 +11,11 @@ Module for handling 1D velocity model objects.
 
 from __future__ import division
 
-from libcpp cimport bool
-from libc.math cimport sqrt, exp, log, pow, fmax, fmin, fabs
+from libc.math cimport sqrt, exp, log, pow, fmax, fmin, fabs, floor
 from libc.stdlib cimport malloc, free
 from libc.stdio cimport printf
 cimport cython
 cimport modparam
-#from cython.view cimport array as cvarray
 
 import numpy as np
 cimport numpy as np
@@ -49,12 +47,15 @@ cdef class model1d:
     =====================================================================================================================
     """
     def __init__(self):
-        self.flat   = False
+        self.flat   = 0
+        self.tilt   = 0
         self.isomod = modparam.isomod()
+        self.nlay   = 0
+        self.ngrid  = 0
 #        self.ttimod = modparam.ttimod()
         return
     
-    def read_model(self, str infname, float unit=1., bool isotropic=True, bool tilt=False,
+    def read_model(self, str infname, float unit=1., int isotropic=1, int tilt=0,
             int indz=0, int indvpv=1, int indvsv=2, int indrho=3, int indvph=4, int indvsh=5, 
             int indeta=6, int inddip=7, int indstrike=8):
         """
@@ -96,8 +97,7 @@ cdef class model1d:
                       eta=eta, rho=rho, z=z, dip=dip, strike=strike, tilt=tilt, N=N)
         return
     
-    
-    def write_model(self, str outfname, bool isotropic=True):
+    def write_model(self, str outfname, int isotropic=1):
         """
         Write model in txt format
         ===========================================================================================================
@@ -148,7 +148,7 @@ cdef class model1d:
 
     @cython.boundscheck(False)
     cdef void get_model_vel(self, float[:] vsv, float[:] vsh, float[:] vpv, float[:] vph,
-                      float[:] eta, float[:] rho, float[:] z, float[:] dip, float[:] strike, bool tilt, int N) nogil:
+                      float[:] eta, float[:] rho, float[:] z, float[:] dip, float[:] strike, int tilt, int N) nogil:
         """
         Get model data given velocity/density/depth arrays
         """
@@ -163,7 +163,7 @@ cdef class model1d:
             self.VphArr[i]      = vph[i]
             self.etaArr[i]      = eta[i]
             self.rhoArr[i]      = rho[i]
-            if tilt:
+            if tilt==1:
                 self.dipArr[i]      = dip[i]
                 self.strikeArr[i]   = strike[i]
         self.ngrid = N
@@ -182,6 +182,12 @@ cdef class model1d:
             self.LArr[i]= self.rhoArr[i] * (self.VsvArr[i])**2
             self.FArr[i]= self.etaArr[i] * (self.AArr[i] - 2.* self.LArr[i])
             self.NArr[i]= self.rhoArr[i] * (self.VshArr[i])**2
+        for i in range(self.nlay):
+            self.A[i]   = self.rho[i] * (self.vph[i])**2
+            self.C[i]   = self.rho[i] * (self.vpv[i])**2
+            self.L[i]   = self.rho[i] * (self.vsv[i])**2
+            self.F[i]   = self.eta[i] * (self.A[i] - 2.* self.L[i])
+            self.N[i]   = self.rho[i] * (self.vsh[i])**2
         return
         
     @cython.boundscheck(False)
@@ -196,10 +202,60 @@ cdef class model1d:
             self.VshArr[i]  = sqrt(self.NArr[i]/self.rhoArr[i])
             self.VsvArr[i]  = sqrt(self.LArr[i]/self.rhoArr[i])
             self.etaArr[i]  = self.FArr[i]/(self.AArr[i] - 2.* self.LArr[i])
+        for i in range(self.nlay):
+            self.vph[i]     = sqrt(self.A[i]/self.rho[i])
+            self.vpv[i]     = sqrt(self.C[i]/self.rho[i])
+            self.vsh[i]     = sqrt(self.N[i]/self.rho[i])
+            self.vsv[i]     = sqrt(self.L[i]/self.rho[i])
+            self.eta[i]     = self.F[i]/(self.A[i] - 2.* self.L[i])
         return
     
     @cython.boundscheck(False)
-    cdef bool is_iso(self) nogil:
+    cdef int grid2layer(self) nogil:
+        """
+        Convert grid point model to layerized model
+        """
+        cdef Py_ssize_t i, j
+        if not self.is_layer_model():
+            return 0
+        self.nlay = int(self.ngrid/2)
+        j   = 0
+        for i in range(self.ngrid):
+            if i == 0:
+                self.vsv[j]     = self.VsvArr[i]
+                self.vsh[j]     = self.VshArr[i]
+                self.vpv[j]     = self.VpvArr[i]
+                self.vph[j]     = self.VphArr[i]
+                self.eta[j]     = self.etaArr[i]
+                self.rho[j]     = self.rhoArr[i]
+                self.dip[j]     = self.dipArr[i]
+                self.strike[j]  = self.strikeArr[i]
+                self.qs[j]      = self.qsArr[i]
+                self.qp[j]      = self.qpArr[i]
+                self.h[j]       = self.zArr[i+1]
+                j += 1
+                continue
+            if i % 2 != 0: 
+                continue
+            self.vsv[j]     = self.VsvArr[i]
+            self.vsh[j]     = self.VshArr[i]
+            self.vpv[j]     = self.VpvArr[i]
+            self.vph[j]     = self.VphArr[i]
+            self.eta[j]     = self.etaArr[i]
+            self.rho[j]     = self.rhoArr[i]
+            self.dip[j]     = self.dipArr[i]
+            self.strike[j]  = self.strikeArr[i]
+            self.qs[j]      = self.qsArr[i]
+            self.qp[j]      = self.qpArr[i]
+            self.h[j]       = self.zArr[i+1] - self.zArr[i]
+            j += 1
+        return 1
+    
+    def grid2layer_interface(self):
+        return self.grid2layer()
+
+    @cython.boundscheck(False)
+    cdef int is_iso(self) nogil:
         """Check if the model is isotropic at each point.
         """
         cdef float tol = 1e-5
@@ -207,103 +263,117 @@ cdef class model1d:
         for i in range(self.ngrid):
             if fabs(self.AArr[i] - self.CArr[i])> tol or fabs(self.LArr[i] - self.NArr[i])> tol\
                    or fabs(self.FArr[i] - (self.AArr[i]- 2.*self.LArr[i]) )> tol:
-                return False
-        return True
+                return 0
+        return 1
     
-    def get_iso_vmodel(self):
+    @cython.boundscheck(False)
+    cdef void get_iso_vmodel(self) nogil:
         """
         get the isotropic model from isomod
         """
-        cdef vector[float] vs, vp, rho, qs, qp, hArr, z
+        cdef float[512] vs, vp, rho, qs, qp, hArr, z
         cdef int N
-        cdef Py_ssize_t i
-        self.get_vmodel(vs, vp, rho, qs, qp, hArr)
-        N               = hArr.size()
+        cdef Py_ssize_t i, j, k
+        cdef float depth = 0.
+        
+        N = self.isomod.get_vmodel(vs, vp, rho, qs, qp, hArr)
+        # store layerized model
         for i in range(N):
-            z.push_back(hArr[i])
-#        
-#        hArr, vs, vp, rho, qs, qp = self.isomod.get_vmodel()
-#        zArr            = hArr.cumsum()
-#        N               = zArr.size
-#        self.zArr       = np.zeros(2*N, dtype=np.float32)
-#        self.VsvArr     = np.zeros(2*N, dtype=np.float32)
-#        self.VshArr     = np.zeros(2*N, dtype=np.float32)
-#        self.VpvArr     = np.zeros(2*N, dtype=np.float32)
-#        self.VphArr     = np.zeros(2*N, dtype=np.float32)
-#        self.qsArr      = np.zeros(2*N, dtype=np.float32)
-#        self.qpArr      = np.zeros(2*N, dtype=np.float32)
-#        self.rhoArr     = np.zeros(2*N, dtype=np.float32)
-#        self.rArr       = np.zeros(2*N, dtype=np.float32)
-#        for i in xrange(2*N):
-#            if i == 0:
-#                self.VsvArr[i]  = vs[i]*1000.
-#                self.VshArr[i]  = vs[i]*1000.
-#                self.VpvArr[i]  = vp[i]*1000.
-#                self.VphArr[i]  = vp[i]*1000.
-#                self.qsArr[i]   = qs[i]
-#                self.qpArr[i]   = qp[i]
-#                self.rhoArr[i]  = rho[i]*1000.
-#                continue
-#            j   = int(i/2)
-#            k   = i%2
-#            self.zArr[i]    = zArr[j+k-1]
-#            self.VsvArr[i]  = vs[j]*1000.
-#            self.VshArr[i]  = vs[j]*1000.
-#            self.VpvArr[i]  = vp[j]*1000.
-#            self.VphArr[i]  = vp[j]*1000.
-#            self.qsArr[i]   = qs[j]
-#            self.qpArr[i]   = qp[j]
-#            self.rhoArr[i]  = rho[j]*1000.
-#        self.zArr       = self.zArr[::-1]
-#        self.VsvArr     = self.VsvArr[::-1]
-#        self.VshArr     = self.VshArr[::-1]
-#        self.VpvArr     = self.VpvArr[::-1]
-#        self.VphArr     = self.VphArr[::-1]
-#        self.etaArr     = np.ones(2*N, dtype=np.float32)
-#        self.qsArr      = self.qsArr[::-1]
-#        self.qpArr      = self.qpArr[::-1]
-#        self.rhoArr     = self.rhoArr[::-1]
-#        self.rArr       = (np.float32(6371000.) - self.zArr*np.float32(1000.))
-#        self.vel2love()
-#        return hArr, vs, vp, rho, qs, qp
+            depth       = depth + hArr[i]
+            z[i]        = depth
+            self.vsv[i] = vs[i] 
+            self.vsh[i] = vs[i]
+            self.vpv[i] = vp[i] 
+            self.vph[i] = vp[i] 
+            self.eta[i] = 1. 
+            self.rho[i] = rho[i] 
+            self.h[i]   = hArr[i] 
+            self.qs[i]  = qs[i]
+            self.qp[i]  = qp[i]
+        self.nlay   = N
+        # store grid point model
+        for i in range(2*N):
+            if i == 0:
+                self.VsvArr[i]  = vs[i]
+                self.VshArr[i]  = vs[i]
+                self.VpvArr[i]  = vp[i]
+                self.VphArr[i]  = vp[i]
+                self.qsArr[i]   = qs[i]
+                self.qpArr[i]   = qp[i]
+                self.rhoArr[i]  = rho[i]
+                self.etaArr[i]  = 1.
+                continue
+            j   = int(i/2)
+            k   = i%2
+            self.zArr[i]    = z[j+k-1]
+            self.VsvArr[i]  = vs[j]
+            self.VshArr[i]  = vs[j]
+            self.VpvArr[i]  = vp[j]
+            self.VphArr[i]  = vp[j]
+            self.qsArr[i]   = qs[j]
+            self.qpArr[i]   = qp[j]
+            self.rhoArr[i]  = rho[j]
+            self.etaArr[i]  = 1.
+        self.ngrid  = 2*N
+        self.vel2love()
+        return 
+    
+    def get_iso_vmodel_interface(self):
+        self.get_iso_vmodel()
+        return
+    
+    @cython.boundscheck(False)
+    cdef int is_layer_model(self) nogil:
+        """
+        Check if the grid point model is a layerized one or not
+        """
+        cdef Py_ssize_t i
+        cdef float z0, z1, A0, A1, C0, C1, F0, F1, L0, L1, N0, N1, 
+        cdef float d0, d1, s0, s1
+        if self.ngrid %2 !=0:
+            return 0
+        self.vel2love()
+        
+        for i in range(self.ngrid):
+            if i == 0: 
+                continue
+            if i % 2 != 0: 
+                continue
+        
+            z0 = self.zArr[i-1];  z1 = self.zArr[i]
+            if z0 != z1:
+                return 0
+            A0  = self.AArr[i-2]; A1 = self.AArr[i-1]
+            if A0 != A1:
+                return 0
+            C0  = self.CArr[i-2]; C1 = self.CArr[i-1]
+            if C0 != C1:
+                return 0
+            F0  = self.FArr[i-2]; F1 = self.FArr[i-1]
+            if F0 != F1:
+                return 0
+            L0  = self.LArr[i-2]; L1 = self.LArr[i-1]
+            if L0 != L1:
+                return 0
+            N0  = self.NArr[i-2]; N1 = self.NArr[i-1]
+            if N0 != N1:
+                return 0
+            # check tilted angles of anisotropic axis
+            if self.tilt: 
+                d0  = self.dipArr[i-2]; d1 = self.dipArr[i-1]
+                if d0 != d1:
+                    return 0
+                s0  = self.strikeArr[i-2]; s1 = self.strikeArr[i-1]
+                if s0 != s1:
+                    return 0
+        return 1
+    
+    
     
     
     
 
         
-        
-        
-        
-#    
-#    cdef get_data_vel(self, vsv, vsh, vpv, vph, eta, rho, radius):
-#        """
-#        Get model data given velocity/density/radius arrays
-#        """
-#        self.rArr   = radius
-#        self.rhoArr = rho
-#        if radius[-1] != 6371000.:
-#            raise ValueError('Last element of radius array should be 6371000. meter !')
-#        if np.any(vsv<500.) or np.any(vsh<500.) or np.any(vpv<500.) or np.any(vph<500.) or np.any(rho<500.):
-#            raise ValueError('Wrong unit for model parameters!')
-#        if np.any(radius< 10000.):
-#            raise ValueError('Wrong unit for radius!')
-#        ###
-#        # assign velocities
-#        ###
-#        self.VsvArr = vsv
-#        self.VshArr = vsh
-#        self.VpvArr = vpv
-#        self.VphArr = vph
-#        self.etaArr = eta
-#        ###
-#        # compute Love parameters
-#        ###
-#        self.AArr   = rho * vph**2
-#        self.CArr   = rho * vpv**2
-#        self.LArr   = rho * vsv**2
-#        self.FArr   = eta * (self.AArr - np.float32(2.)* self.LArr)
-#        self.NArr   = rho * vsh**2
-#        return
     
     
     

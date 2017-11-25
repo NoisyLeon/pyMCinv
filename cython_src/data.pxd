@@ -1,6 +1,5 @@
 
 
-from libcpp cimport bool
 
 cdef class rf:
     cdef public:
@@ -16,13 +15,13 @@ cdef class rf:
     #----------------------------------------------------
     # functions computing misfit
     #----------------------------------------------------
-    cdef bool get_misfit_incompatible(self, float rffactor=*) nogil
-    cdef bool get_misfit(self, float rffactor=*) nogil
+    cdef int get_misfit_incompatible(self, float rffactor=*) nogil
+    cdef int get_misfit(self, float rffactor=*) nogil
 
 cdef class disp:
     cdef public:
         int npper, ngper, nper
-        bool isphase, isgroup
+        int isphase, isgroup
         float pmisfit, pS, pL
         float[:] pper, pvelo, stdpvelo, pvelp
         float[:] pampo, stdpampo, pampp, pphio, stdpphio, pphip
@@ -44,9 +43,9 @@ cdef class disp:
     #----------------------------------------------------
     # functions computing misfit
     #----------------------------------------------------
-    cdef bool get_pmisfit(self) nogil
-    cdef bool get_gmisfit(self) nogil
-    cdef bool get_misfit(self) nogil
+    cdef int get_pmisfit(self) nogil
+    cdef int get_gmisfit(self) nogil
+    cdef int get_misfit(self) nogil
     cdef void get_misfit_tti(self) nogil
     cpdef get_res_tti(self)
     cpdef get_res_pvel(self)

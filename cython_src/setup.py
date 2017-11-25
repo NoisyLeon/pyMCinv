@@ -25,27 +25,38 @@ for key, value in cfg_vars.items():
 #)
 
 ext_modules = [
-    Extension(
-        'data',
-        ["data.pyx"],
-        extra_compile_args=['-fopenmp','-std=c++11'],
-        extra_link_args=['-fopenmp'],
-        language='c++'
-    ),
+     Extension(
+         'data',
+         ["data.pyx"],
+         extra_compile_args=['-fopenmp'],
+         extra_link_args=['-fopenmp']
+     ),
     Extension(
         'modparam',
         ["modparam.pyx"],
-        extra_compile_args=['-fopenmp', '-std=c++11'],
-        extra_link_args=['-fopenmp'],
-        language='c++'
+        extra_compile_args=['-fopenmp'],
+        extra_link_args=['-fopenmp']
     ),
-    Extension(
-        'vmodel',
-        ["vmodel.pyx"],
-        extra_compile_args=['-fopenmp', '-std=c++11'],
-        extra_link_args=['-fopenmp'],
-        language='c++'
-    )
+     Extension(
+         'vmodel',
+         ["vmodel.pyx"],
+         extra_compile_args=['-fopenmp'],
+         extra_link_args=['-fopenmp']
+     ),
+     
+     Extension(# module name:
+     'invsolver',
+     # source file:
+     ['invsolver.pyx'],
+     # other compile args for gcc
+     extra_compile_args=['-fPIC', '-O3', '-lgfortran', '-fopenmp'],
+     # other files to link to
+     extra_link_args=['./fast_surf_src/calcul.o', './fast_surf_src/fast_surf.o', './fast_surf_src/flat1.o', './fast_surf_src/init.o',
+                     './fast_surf_src/mchdepsun.o', './fast_surf_src/surfa.o',
+                     './rftheo_src/four1.o', './rftheo_src/qlayer.o', './rftheo_src/theo.o', 
+                     '-fPIC', '-O3', '-lgfortran', '-fopenmp']
+     )
+    
 ]
 
 setup(

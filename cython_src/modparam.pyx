@@ -10,101 +10,54 @@ Module for handling parameterization of the model
 """
 from __future__ import division
 
-from libcpp cimport bool
 from libc.math cimport sqrt, exp, log, pow, fmax, fmin
 from libc.time cimport time,time_t
 from posix.time cimport clock_gettime, timespec, CLOCK_REALTIME
 from cython.parallel import parallel, prange, threadid
-from libc.stdlib cimport rand, RAND_MAX, malloc, free
+from libc.stdlib cimport rand, srand, RAND_MAX, malloc, free
 from libc.stdio cimport printf
 cimport cython
 #from cython.view cimport array as cvarray
 
-import random
+#import random
 import numpy as np
 cimport numpy as np
 
+cdef time_t t = time(NULL)
+srand(t)
 
-#cdef float random_uniform(float minval, float maxval):
-#    cdef float r = rand()
-#    return float(r/RAND_MAX)*(maxval-minval)+minval
-#
-#
-#cdef float random_gaussian(float mu, float sigma):
-#    cdef float x1, x2, w
-#    w = 2.0
-#    while (w >= 1.0 or w == 0.):
-#        x1 = 2.0 * random_uniform(0., 1.) - 1.0
-#        x2 = 2.0 * random_uniform(0., 1.) - 1.0
-#        w = x1 * x1 + x2 * x2
-#
-#    w = ((-2.0 * log(w)) / w) ** 0.5
-#    return mu + sigma*(x1 * w)
-
-# import random from c++ random.h
-#cdef extern from "<random>" namespace "std" nogil:
-#    cdef cppclass mt19937:
-#        mt19937()  # we need to define this constructor to stack allocate classes in Cython
-#        mt19937(unsigned int seed)  # not worrying about matching the exact int type for seed
-#
-#    cdef cppclass uniform_real_distribution[T]:
-#        uniform_real_distribution() 
-#        uniform_real_distribution(T a, T b) 
-#        T operator()(mt19937 gen) nogil # ignore the possibility of using other classes for "gen"
-#        
-#    cdef cppclass normal_distribution[T]:
-#        normal_distribution() 
-#        normal_distribution(T mu, T sigma) 
-#        T operator()(mt19937 gen)  # ignore the possibility of using other classes for "gen"
-#
-## import vector from c++ vector.h
-#cdef extern from "<vector>" namespace "std" nogil:
-#    cdef cppclass vector[T]:
-#        cppclass iterator:
-#            T operator*() 
-#            iterator operator++() 
-#            bint operator==(iterator) 
-#            bint operator!=(iterator) 
-#        vector() 
-#        void push_back(T&) 
-#        T& operator[](int) 
-#        T& at(int) 
-#        iterator begin() 
-#        iterator end() 
-##
-#ctypedef vector[vector[float]] FloatMatrix
-
-@cython.boundscheck(False)
-cdef float random_gauss(float mu, float sigma) nogil:
-    cdef timespec ts
-    cdef unsigned int current
-    clock_gettime(CLOCK_REALTIME, &ts)
-    current = ts.tv_nsec 
-#    current = int(ts.tv_nsec/100000000.+ ts.tv_sec*10.)
-#    cdef time_t t = time(NULL)
-    cdef mt19937 gen = mt19937(current)
-    cdef normal_distribution[float] dist = normal_distribution[float](mu,sigma)
-    return float(dist(gen))
-
-@cython.boundscheck(False)
 cdef float random_uniform(float a, float b) nogil:
-    cdef timespec ts
-    cdef unsigned int current
-    clock_gettime(CLOCK_REALTIME, &ts)
-    current = ts.tv_nsec 
-#    current = int(ts.tv_nsec/100000000.+ ts.tv_sec*10.)
-#    cdef time_t t = time(NULL)
-    cdef mt19937 gen = mt19937(current)
-    cdef uniform_real_distribution[float] dist = uniform_real_distribution[float](a, b)
-    return float(dist(gen))
+#    cdef timespec ts
+#    cdef unsigned int current
+#    clock_gettime(CLOCK_REALTIME, &ts)
+#    current = ts.tv_nsec 
+#    srand(current)
+    cdef float r = rand()
+    return float(r/RAND_MAX)*(b-a)+a
 
+
+cdef float random_gauss(float mu, float sigma) nogil:
+    cdef float x1, x2, w
+    w = 2.0
+    while (w >= 1.0 or w == 0.):
+        x1 = 2.0 * random_uniform(0., 1.) - 1.0
+        x2 = 2.0 * random_uniform(0., 1.) - 1.0
+        w = x1 * x1 + x2 * x2
+
+    w = ((-2.0 * log(w)) / w) ** 0.5
+    return mu + sigma*(x1 * w)
+
+
+def random_uniform_interface(float a, float b):
+    return random_uniform(a, b)
 
 def test(int N):
     cdef float[:] out = np.zeros(N, dtype=np.float32)
     cdef int i
-    with nogil, parallel(num_threads=4):
+    with nogil, parallel(num_threads=5):
         for i in prange(N):
-            out[i]  = random_gauss(0., 1.)
+            out[i]  = random_uniform(0., 1.)
+#            out[i]  = random_gauss(0., 1.)
     return out
 
 
@@ -163,7 +116,7 @@ cdef class para1d:
     def __init__(self):
         self.npara          = 0
         self.maxind         = 6
-        self.isspace        = False
+        self.isspace        = 0
         return
     
     cpdef init_arr(self, int npara):
@@ -214,7 +167,7 @@ cdef class para1d:
         return
 
     @cython.boundscheck(False)
-    cdef bool new_paraval(self, int ptype) nogil:
+    cdef int new_paraval(self, int ptype) nogil:
         """
         peturb parameters in paraval array
         ===============================================================================
@@ -226,28 +179,25 @@ cdef class para1d:
         """
         cdef Py_ssize_t i, j
         cdef float oldval, newval, step
-        cdef bool run
+        cdef int run
         if not self.isspace:
             printf('Parameter space for perturbation has not been initialized yet!')
-            return False
+            return 0
         for i in range(self.npara):
             if ptype  == 1 and self.space[2, i] > 0.:
                 oldval 	= self.paraval[i]
                 step 	= self.space[2, i]
-                run 	= True
+                run 	= 1
                 j		= 0
                 while (run and j<10000): 
-#                    newval  = random.gauss(oldval, step)
                     newval  = random_gauss(oldval, step)
                     if (newval >= self.space[0, i] and newval <= self.space[1, i]):
-                        run = False
+                        run = 0
                     j   +=1
             else: 
-#                newval  = uniform_real_distribution(self.space[0, i], self.space[1, i])
-#                newval  = random.uniform(self.space[0, i], self.space[1, i])
                 newval  = random_uniform(self.space[0, i], self.space[1, i])
             self.paraval[i]     = newval
-        return True
+        return 1
 
     cpdef copy(self):
         """
@@ -262,60 +212,67 @@ cdef class para1d:
         return outpara
     
 @cython.boundscheck(False)
-cdef FloatMatrix bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts) nogil:
+cdef void bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts, 
+                float[20][100] &nbasis) nogil:
     cdef int m, n_temp
     cdef Py_ssize_t i, j, pp
-    cdef FloatMatrix nbasis, obasis
-    cdef vector[float] t, depth
+    cdef float *depth   = <float *>malloc(npts * sizeof(float))
+    cdef float[20][100] obasis
     cdef float step
     #-------------------------------- 
     # defining the knot vector
     #--------------------------------
     m           = nBs-1+degBs    
+    cdef float *t       = <float *>malloc((m+1) * sizeof(float))
     for i in range(degBs):
-        t.push_back(zmin_Bs + i*(zmax_Bs-zmin_Bs)/10000.)
+        t[i]    = zmin_Bs + i*(zmax_Bs-zmin_Bs)/10000.
     for i in range(degBs,m+1-degBs):
         n_temp  = m+1-degBs-degBs+1
         if (disfacBs !=1):
             temp= (zmax_Bs-zmin_Bs)*(disfacBs-1)/(pow(disfacBs,n_temp)-1)
         else:
             temp= (zmax_Bs-zmin_Bs)/n_temp
-        t.push_back(temp*pow(disfacBs,(i-degBs)) + zmin_Bs)
+        t[i]    = temp*pow(disfacBs,(i-degBs)) + zmin_Bs
     for i in range(m+1-degBs,m+1):
-        t.push_back(zmax_Bs-(zmax_Bs-zmin_Bs)/10000.*(m-i))
+        t[i]    = zmax_Bs-(zmax_Bs-zmin_Bs)/10000.*(m-i)
     # depth array
-    step    = (zmax_Bs-zmin_Bs)/(npts-1)
+    step        = (zmax_Bs-zmin_Bs)/(npts-1)
     for i in range(npts):
-        depth.push_back(float(i) *step + zmin_Bs)
+        depth[i]= float(i) *step + zmin_Bs
     # arrays for storing B spline basis
     #-------------------------------- 
     # computing B spline basis
-    #--------------------------------
+    #-------------------------------- 
+    # initialize the arrays
+    for i in range(20):
+        for j in range(100):
+            obasis[i][j] = 0.
+            nbasis[i][j] = 0.
+            
     for i in range (m):
-        obasis.push_back(vector[float]())
         for j in range (npts):
             if (depth[j] >=t[i] and depth[j]<t[i+1]):
-                obasis[i].push_back(1.)
+                obasis[i][j] = 1.
             else:
-                obasis[i].push_back(0.)
-    for i in range (m):
-        nbasis.push_back(vector[float]())
-        for j in range (npts):
-            nbasis[i].push_back(0.)
+                obasis[i][j] = 0.
     for pp in range (1,degBs):
         for i in range (m-pp):
             for j in range (npts):
-                nbasis[i][j]    = (depth[j]-t[i])/(t[i+pp]-t[i])*obasis[i][j] + \
+                nbasis[i][j] = (depth[j]-t[i])/(t[i+pp]-t[i])*obasis[i][j] + \
                         (t[i+pp+1]-depth[j])/(t[i+pp+1]-t[i+1])*obasis[i+1][j]
-        for i in range (m-pp):
-            for j in range (npts):
+        for i in xrange (m-pp):
+            for j in xrange (npts):
                 obasis[i][j] = nbasis[i][j]
-    nbasis[0][0]            = 1.
-    nbasis[nBs-1][npts-1]   = 1.
-    return nbasis
-
+    nbasis[0][0]            = 1
+    nbasis[nBs-1][npts-1]   = 1
+    free(t)
+    free(depth)
+    return 
+#
 def test_spl(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts):
-    return bspl_basis(nBs=nBs, degBs=degBs, zmin_Bs=zmin_Bs, zmax_Bs=zmax_Bs, disfacBs=disfacBs, npts=npts)
+    cdef float[20][100] nbasis
+    bspl_basis(nBs=nBs, degBs=degBs, zmin_Bs=zmin_Bs, zmax_Bs=zmax_Bs, disfacBs=disfacBs, npts=npts, nbasis=nbasis)
+    return nbasis
 
 cdef class isomod:
     """
@@ -452,7 +409,7 @@ cdef class isomod:
         return True
     
     @cython.boundscheck(False)
-    cdef bool bspline(self, Py_ssize_t i) nogil:
+    cdef int bspline(self, Py_ssize_t i) nogil:
         """
         Compute B-spline basis
         The actual degree is k = degBs - 1
@@ -465,6 +422,7 @@ cdef class isomod:
         cdef int nBs, degBs, npts, m
         cdef Py_ssize_t ibs, ilay
         cdef float zmin_Bs, zmax_Bs, disfacBs
+        cdef float[20][100] nbasis
         
         if self.thickness[i] >= 150.:
             self.nlay[i]    = 60
@@ -477,14 +435,14 @@ cdef class isomod:
             
         if self.isspl[i] == 1:
             printf("spline basis already exists!")
-            return False
+            return 0
         if self.mtype[i] != 2:
             printf('Not spline parameterization!')
-            return False
+            return 0
         # initialize
         if i >= self.nmod:
             printf('index for spline group out of range!')
-            return False
+            return 0
         nBs         = self.numbp[i]
         if nBs < 4:
             degBs   = 3
@@ -494,20 +452,23 @@ cdef class isomod:
         zmax_Bs     = self.thickness[i]
         disfacBs    = 2.
         npts        = self.nlay[i]
-        nbasis      = bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts)
+        bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts, nbasis)
         m           = nBs-1+degBs
         if m > self.maxspl:
             printf('number of splines is too large, change default maxspl!')
-            return False
-        # # # self.spl[:m, :npts, i]  = nbasis[:m, :]
+            return 0
         for ibs in range(nBs):
             for ilay in range(npts):
                 self.spl[ibs, ilay, i]= nbasis[ibs][ilay]
         self.isspl[i]           = 1
-        return True
+        return 1
+    
+    def bspline_inferface(self, Py_ssize_t i):
+        self.bspline(i=i)
+        return
     
     @cython.boundscheck(False)
-    cdef bool update(self) nogil:
+    cdef int update(self) nogil:
         """
         Update model (vs and hArr arrays)
         """
@@ -518,7 +479,7 @@ cdef class isomod:
         for i in range(self.nmod):
             if self.nlay[i] > self.maxlay:
                 printf('number of layers is too large, need change default maxlay!')
-                return False
+                return 0
             # layered model
             if self.mtype[i] == 1:
                 self.nlay[i]    = self.numbp[i]
@@ -560,7 +521,7 @@ cdef class isomod:
                 self.vs[0, i]       = 0.
                 self.hArr[0, i]     = self.thickness[i]
                 self.nlay[i]        = 1
-        return True
+        return 1
     
     def update_interface(self):
         self.update()
@@ -668,7 +629,7 @@ cdef class isomod:
                 self.para.space[0, i] = valmin
                 self.para.space[1, i] = valmax
                 self.para.space[2, i] = step
-        self.para.isspace = True
+        self.para.isspace = 1
         return
     
     @cython.boundscheck(False)
@@ -678,6 +639,7 @@ cdef class isomod:
         """
         cdef Py_ssize_t i, ig, ip
         cdef float val 
+        
         for i in range(self.para.npara):
             val = self.para.paraval[i]
             ig  = <int>self.para.paraindex[4, i]
@@ -696,7 +658,7 @@ cdef class isomod:
         return
     
     @cython.boundscheck(False)
-    cdef bool isgood(self, int m0, int m1, int g0, int g1) nogil:
+    cdef int isgood(self, int m0, int m1, int g0, int g1) nogil:
         """
         check the model is good or not
         ==========================================================================
@@ -709,7 +671,7 @@ cdef class isomod:
         # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
         for i in range (self.nmod-1):
             if self.vs[0, i+1] < self.vs[-1, i]:
-                return False
+                return 0
         if m1 >= self.nmod:
             m1  = self.nmod -1
         if m0 < 0:
@@ -724,17 +686,17 @@ cdef class isomod:
             for j in range(m0, m1+1):
                 for i in xrange(self.nlay[j]-1):
                     if self.vs[i, j] > self.vs[i+1, j]:
-                        return False
+                        return 0
         # gradient check
         if g0<=g1:
             for j in range(g0, g1+1):
                 if self.vs[0, j] > self.vs[1, j]:
-                    return False
-        return True
+                    return 0
+        return 1
     
     @cython.boundscheck(False)
-    cdef Py_ssize_t get_vmodel(self, vector[float] &vs, vector[float] &vp, vector[float] &rho,\
-                    vector[float] &qs, vector[float] &qp, vector[float] &hArr) nogil:
+    cdef Py_ssize_t get_vmodel(self, float[512] &vs, float[512] &vp, float[512] &rho,\
+                    float[512] &qs, float[512] &qp, float[512] &hArr) nogil:
         """
         get velocity models
         ==========================================================================
@@ -744,40 +706,41 @@ cdef class isomod:
         """
 #        cdef vector[float] vs, vp, rho, qs, qp, hArr
         cdef float depth   = 0.
-        cdef Py_ssize_t i, j, nlay
-        nlay  = 0
+        cdef Py_ssize_t i, j, ilay
+        
+        ilay  = 0
         for i in range(self.nmod):
             for j in range(self.nlay[i]):
-                nlay += 1
-                hArr.push_back(self.hArr[j][i])
-                depth += self.hArr[j][i]
+                hArr[ilay]  = self.hArr[j][i]
+                depth       += self.hArr[j][i]
                 if self.mtype[i] == 5:
-                    vs.push_back(0.)
-                    vp.push_back(self.cvel[0][i])
-                    rho.push_back(1.02)
-                    qs.push_back(10000.)
-                    qp.push_back(57822.)
+                    vs[ilay]    = 0
+                    vp[ilay]    = self.cvel[0][i]
+                    rho[ilay]   = 1.02
+                    qs[ilay]    = 10000.
+                    qp[ilay]    = 57822.
                 elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
-                    vs.push_back(self.vs[j, i])
-                    vp.push_back(self.vs[j, i]*self.vpvs[i])
-                    rho.push_back(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
-                    qs.push_back(80.)
-                    qp.push_back(160.)
+                    vs[ilay]    = self.vs[j, i]
+                    vp[ilay]    = self.vs[j, i]*self.vpvs[i]
+                    rho[ilay]   = 0.541 + 0.3601*self.vs[j, i]*self.vpvs[i]
+                    qs[ilay]    = 80.
+                    qp[ilay]    = 160.
                 else:
-                    vs.push_back(self.vs[j, i])
-                    vp.push_back(self.vs[j, i]*self.vpvs[i])
+                    vs[ilay]    = self.vs[j, i]
+                    vp[ilay]    = self.vs[j, i]*self.vpvs[i]
                     # if depth < 18.:
-                    qs.push_back(600.)
-                    qp.push_back(1400.)
+                    qs[ilay]    = 600.
+                    qp[ilay]    = 1400.
                     if (self.vs[j, i]*self.vpvs[i]) < 7.5:
-                        rho.push_back(0.541 + 0.3601*self.vs[j, i]*self.vpvs[i])
+                        rho[ilay]       = 0.541 + 0.3601*self.vs[j, i]*self.vpvs[i]
                     else:
                         # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
-                        rho.push_back(3.35) 
-        return nlay
+                        rho[ilay]       = 3.35
+                ilay += 1
+        return ilay
     
     def get_vmodel_interface(self):
-        cdef vector[float] vs, vp, rho, qs, qp, hArr
+        cdef float[512] vs, vp, rho, qs, qp, hArr
         self.get_vmodel(vs, vp, rho, qs, qp, hArr)
         return vs, vp, rho, qs, qp, hArr
     
@@ -800,8 +763,8 @@ cdef class isomod:
         outmod.hArr     = self.hArr.copy()
         outmod.para     = self.para.copy()
         return outmod
+##    
 #    
-    
     
     
     

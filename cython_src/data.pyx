@@ -12,14 +12,11 @@ Module for handling input data for joint inversion.
 from __future__ import division
 import numpy as np
 cimport numpy as np
-from libcpp cimport bool
+
 from libc.math cimport sqrt, exp, fabs
 from libc.stdio cimport printf
 cimport cython
-#from cython.view cimport array as cvarray
-#from cython.parallel import parallel, prange, threadid
-#cimport openmp
-#cimport data.pxd
+
 
 
         
@@ -60,7 +57,7 @@ cdef class rf:
         cdef np.ndarray inArr  
         if self.npts > 0:
             print 'receiver function data is already stored!'
-            return False
+            return 0
         inArr 		  = np.loadtxt(infname, dtype=np.float32)
         self.npts   = inArr.shape[0]        
         self.to     = inArr[:,0]
@@ -70,7 +67,7 @@ cdef class rf:
         except IndexError:
             self.stdrfo = np.ones(self.npts, dtype=np.float32)*0.1
         self.fs     = 1./(self.to[1] - self.to[0])
-        return True
+        return 1
 #    
     def writerftxt(self, str outfname, float tf=10.):
         """
@@ -88,7 +85,7 @@ cdef class rf:
         cdef int nout 
         if self.npts == 0:
             print 'receiver function data is not stored!'
-            return False
+            return 0
         nout    = int(self.fs*tf)+1
         nout    = min(nout, self.npts)
         outArr  = np.append(self.tp[:nout], self.rfp[:nout])
@@ -99,10 +96,10 @@ cdef class rf:
         outArr  = outArr.T
         header  = 'tp rfp to rfo stdrfo'
         np.savetxt(outfname, outArr, fmt='%g', header = header)
-        return True
+        return 1
     
     @cython.boundscheck(False)
-    cdef bool get_misfit_incompatible(self, float rffactor=40.) nogil:
+    cdef int get_misfit_incompatible(self, float rffactor=40.) nogil:
         """
         compute misfit when the time array of predicted and observed data is incompatible, quite slow!
         ==============================================================================
@@ -117,7 +114,7 @@ cdef class rf:
         if self.npts == 0:
             self.misfit = 0.
             self.L      = 1.
-            return False
+            return 0
         j = 0
         for i in range(self.npts):
             while (self.tp[j] < self.to[i]):
@@ -130,10 +127,10 @@ cdef class rf:
         if tS > 50.:
             tS      = sqrt(tS*50.)
         self.L      = exp(-0.5 * tS)
-        return True
+        return 1
 #    
     @cython.boundscheck(False)
-    cdef bool get_misfit(self, float rffactor=40.) nogil:
+    cdef int get_misfit(self, float rffactor=40.) nogil:
         """
         Compute misfit for receiver function
         ==============================================================================
@@ -148,7 +145,7 @@ cdef class rf:
         if self.npts == 0:
             self.misfit = 0.
             self.L      = 1.
-            return False
+            return 0
         for i in range(self.npts):
             if self.to[i] != self.tp[i]:
                 printf('Incompatible time arrays!')
@@ -163,7 +160,7 @@ cdef class rf:
         if tS > 50.:
             tS      = sqrt(tS*50.)
         self.L      = exp(-0.5 * tS)
-        return True
+        return 1
     
 cdef class disp:
     """
@@ -215,8 +212,8 @@ cdef class disp:
         self.npper  = 0
         self.ngper  = 0
         self.nper   = 0
-        self.isphase= False
-        self.isgroup= False
+        self.isphase= 0
+        self.isgroup= 0
         return
     
     #----------------------------------------------------
@@ -239,7 +236,7 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if self.isphase:
                 print 'phase velocity data is already stored!'
-                return False
+                return 0
             inArr 		 = np.loadtxt(infname, dtype=np.float32)
             self.pper  = inArr[:,0]
             self.pvelo = inArr[:,1]
@@ -248,11 +245,11 @@ cdef class disp:
                 self.stdpvelo= inArr[:,2]
             except IndexError:
                 self.stdpvelo= np.ones(self.npper, dtype=np.float32)
-            self.isphase = True
+            self.isphase = 1
         elif dtype == 'gr' or dtype == 'group':
             if self.isgroup:
                 print 'group velocity data is already stored!'
-                return False
+                return 0
             inArr 	  = np.loadtxt(infname, dtype=np.float32)
             self.gper = inArr[:,0]
             self.gvelo= inArr[:,1]
@@ -261,10 +258,10 @@ cdef class disp:
                 self.stdgvelo= inArr[:,2]
             except IndexError:
                 self.stdgvelo= np.ones(self.ngper, dtype=np.float32)
-            self.isgroup  = True
+            self.isgroup  = 1
         else:
             raise ValueError('Unexpected dtype = '+dtype)
-        return True
+        return 1
     
     def writedisptxt(self, str outfname, str dtype='ph'):
         """
@@ -282,7 +279,7 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if not self.isphase:
                 print 'phase velocity data is not stored!'
-                return False
+                return 0
             outArr  = np.append(self.pper, self.pvelp)
             outArr  = np.append(outArr, self.pvelo)
             outArr  = np.append(outArr, self.stdpvelo)
@@ -293,7 +290,7 @@ cdef class disp:
         elif dtype == 'gr' or dtype == 'group':
             if not self.isgroup:
                 print 'group velocity data is not stored!'
-                return False
+                return 0
             outArr  = np.append(self.gper, self.gvelp)
             outArr  = np.append(outArr, self.gvelo)
             outArr  = np.append(outArr, self.stdgvelo)
@@ -303,7 +300,7 @@ cdef class disp:
             np.savetxt(outfname, outArr, fmt='%g', header=header)
         else:
             raise ValueError('Unexpected dtype: '+dtype)
-        return True
+        return 1
     
     
     def readaziamptxt(self, str infname, str dtype='ph'):
@@ -322,11 +319,11 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if not self.isphase:
                 print 'phase velocity data is not stored!'
-                return False
+                return 0
             inArr 		= np.loadtxt(infname, dtype=np.float32)
             if not np.allclose(self.pper , inArr[:,0]):
                 print 'inconsistent period array !'
-                return False
+                return 0
             self.pampo= inArr[:,1]
             self.npper= self.pper.size
             try:
@@ -335,7 +332,7 @@ cdef class disp:
                 self.stdpampo= np.ones(self.npper, dtype=np.float32)
         else:
             raise ValueError('Unexpected dtype: '+dtype)
-        return True
+        return 1
     
     def writeaziamptxt(self, str outfname, str dtype='ph'):
         """
@@ -353,7 +350,7 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if not self.isphase:
                 print 'phase velocity data is not stored!'
-                return False
+                return 0
             outArr  = np.append(self.pper, self.pampp)
             outArr  = np.append(outArr, self.pampo)
             outArr  = np.append(outArr, self.stdpampo)
@@ -363,7 +360,7 @@ cdef class disp:
             np.savetxt(outfname, outArr, fmt='%g')
         else:
             raise ValueError('Unexpected dtype: '+dtype)
-        return True
+        return 1
     
     def readaziphitxt(self, str infname, str dtype='ph'):
         """
@@ -381,11 +378,11 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if not self.isphase:
                 print 'phase velocity data is not stored!'
-                return False
+                return 0
             inArr 		= np.loadtxt(infname, dtype=np.float32)
             if not np.allclose(self.pper , inArr[:, 0]):
                 print 'inconsistent period array !'
-                return False
+                return 0
             self.pphio= inArr[:,1]
             self.npper= self.pper.size
             try:
@@ -394,7 +391,7 @@ cdef class disp:
                 self.stdpphio= np.ones(self.npper, dtype=np.float32)
         else:
             raise ValueError('Unexpected dtype: '+dtype)
-        return True
+        return 1
     
     def writeaziphitxt(self, str outfname, str dtype='ph'):
         """
@@ -412,7 +409,7 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if not self.isphase:
                 print 'phase velocity data is not stored!'
-                return False
+                return 0
             outArr  = np.append(self.pper, self.pphip)
             outArr  = np.append(outArr, self.pphio)
             outArr  = np.append(outArr, self.stdpphio)
@@ -422,7 +419,7 @@ cdef class disp:
             np.savetxt(outfname, outArr, fmt='%g', header=header)
         else:
             raise ValueError('Unexpected dtype: '+dtype)
-        return True
+        return 1
         
     def writedispttitxt(self, str outfname, str dtype='ph'):
         """
@@ -440,7 +437,7 @@ cdef class disp:
         if dtype == 'ph' or dtype == 'phase':
             if not self.isphase:
                 print 'phase velocity data is not stored!'
-                return False
+                return 0
             outArr  = np.append(self.pper, self.pvelp)
             outArr  = np.append(outArr, self.pvelo)
             outArr  = np.append(outArr, self.stdpvelo)
@@ -456,13 +453,13 @@ cdef class disp:
             outArr  = outArr.T
             header  = 'pper pvelp pvelo stdpvelo pampp pampo stdpampo pphip pphio stdpphio'
             np.savetxt(outfname, outArr, fmt='%g', header=header)
-        return True
+        return 1
     
     #----------------------------------------------------
     # functions computing misfit
     #----------------------------------------------------
     @cython.boundscheck(False)
-    cdef bool get_pmisfit(self) nogil:
+    cdef int get_pmisfit(self) nogil:
         """
         Compute the misfit for phase velocities
         """
@@ -470,7 +467,7 @@ cdef class disp:
         cdef Py_ssize_t i
         if not self.isphase :
             printf('No phase velocity data stored')
-            return False
+            return 0
         for i in range(self.npper):
             temp = temp + (self.pvelo[i] - self.pvelp[i])**2/self.stdpvelo[i]**2
         self.pmisfit    = sqrt(temp/self.npper)
@@ -478,10 +475,10 @@ cdef class disp:
         if temp > 50.:
             temp        = sqrt(temp*50.)
         self.pL         = exp(-0.5 * temp)
-        return True
+        return 1
     
     @cython.boundscheck(False)
-    cdef bool get_gmisfit(self) nogil:
+    cdef int get_gmisfit(self) nogil:
         """
         Compute the misfit for group velocities
         """
@@ -489,7 +486,7 @@ cdef class disp:
         cdef Py_ssize_t i
         if not self.isgroup:
             printf('No group velocity data stored')
-            return False
+            return 0
         for i in range(self.npper):
             temp+= (self.gvelo[i] - self.gvelp[i])**2/self.stdgvelo[i]**2
         self.gmisfit    = sqrt(temp/self.ngper)
@@ -497,10 +494,10 @@ cdef class disp:
         if temp > 50.:
             temp= sqrt(temp*50.)
         self.gL         = exp(-0.5 * temp)
-        return True
+        return 1
     
     @cython.boundscheck(False)
-    cdef bool get_misfit(self) nogil:
+    cdef int get_misfit(self) nogil:
         """
         Compute combined misfit
         """
@@ -536,7 +533,7 @@ cdef class disp:
             printf('No dispersion data stored!')
             self.misfit = 0.
             self.L      = 1.
-            return False
+            return 0
         # misfit for both
         temp    = temp1 + temp2
         self.S          = temp
@@ -546,7 +543,7 @@ cdef class disp:
         if temp > 50.:
             temp = sqrt(temp*50.)
         self.L          = exp(-0.5 * temp)
-        return True
+        return 1
     
     @cython.boundscheck(False)
     cdef void get_misfit_tti(self) nogil:
