@@ -57,4 +57,4 @@ cdef class data1d:
     cdef public rf rfr, rft
     cdef public float L, misfit
     
-    cdef public void get_misfit(self, float wdisp, float rffactor) nogil
+    cdef void get_misfit(self, float wdisp, float rffactor) nogil

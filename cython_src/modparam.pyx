@@ -181,7 +181,7 @@ cdef class para1d:
         cdef float oldval, newval, step
         cdef int run
         if not self.isspace:
-            printf('Parameter space for perturbation has not been initialized yet!')
+            printf('Parameter space for perturbation has not been initialized yet!\n')
             return 0
         for i in range(self.npara):
             if ptype  == 1 and self.space[2, i] > 0.:
@@ -210,6 +210,21 @@ cdef class para1d:
         outpara.isspace     = self.isspace
         outpara.space       = self.space.copy()
         return outpara
+    
+    @cython.boundscheck(False)
+    cdef void get_para(self, para1d inpara) nogil:
+        cdef Py_ssize_t i, j
+        if inpara.npara != self.npara:
+            with gil:
+                self.init_arr(inpara.npara)
+        for i in range(self.npara):
+            self.paraval[i]         = inpara.paraval[i]
+            for j in range(self.maxind):
+                self.paraindex[j][i]= inpara.paraindex[j][i]
+            for j in range(3):
+                self.space[j][i]    = inpara.space[j][i]
+        return
+            
     
 @cython.boundscheck(False)
 cdef void bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts, 
@@ -763,8 +778,33 @@ cdef class isomod:
         outmod.hArr     = self.hArr.copy()
         outmod.para     = self.para.copy()
         return outmod
-##    
-#    
+    
+    @cython.boundscheck(False)
+    cdef void get_mod(self, isomod inmod) nogil:
+        cdef Py_ssize_t i, j, k
+        if inmod.nmod != self.nmod:
+            with gil:
+                self.init_arr(inmod.nmod)
+        for i in range(self.nmod):
+            self.numbp[i]       = inmod.numbp[i]
+            self.mtype[i]       = inmod.mtype[i]
+            self.thickness[i]   = inmod.thickness[i]
+            self.nlay[i]        = inmod.nlay[i]
+            self.vpvs[i]        = inmod.vpvs[i]
+            self.isspl[i]       = inmod.isspl[i]
+            for j in range(self.maxspl):
+                self.cvel[j][i] = inmod.cvel[j][i]
+                for k in range(self.maxlay):
+                    self.spl[j][k][i] = inmod.spl[j][k][i]
+            for k in range(self.maxlay):
+                self.ratio[k][i]= inmod.ratio[k][i]
+                self.vs[k][i]   = inmod.vs[k][i]
+                self.hArr[k][i] = inmod.hArr[k][i]
+        self.para.get_para(inmod.para)
+        self.para.isspace = 1
+        return
+#                
+#
     
     
     

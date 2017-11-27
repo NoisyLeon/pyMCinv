@@ -22,6 +22,7 @@ cdef class para1d:
     cpdef init_arr(self, int npara)
     cdef int new_paraval(self, int ptype) nogil
     cpdef copy(self)
+    cdef void get_para(self, para1d inpara) nogil
     
 cdef void bspl_basis(int nBs, int degBs, float zmin_Bs, float zmax_Bs, float disfacBs, int npts, 
         float[20][100] &nbasis) nogil
@@ -46,6 +47,7 @@ cdef class isomod:
     cdef Py_ssize_t get_vmodel(self, float[512] &vs, float[512] &vp, float[512] &rho,\
                     float[512] &qs, float[512] &qp, float[512] &hArr) nogil
     cpdef copy(self)
+    cdef void get_mod(self, isomod inmod) nogil
 #    
     
     

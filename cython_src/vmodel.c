@@ -1049,7 +1049,7 @@ struct __pyx_obj_8modparam_para1d {
 };
 
 
-/* "modparam.pxd":29
+/* "modparam.pxd":30
  *         float[20][100] &nbasis) nogil
  * #
  * cdef class isomod:             # <<<<<<<<<<<<<<
@@ -1253,11 +1253,12 @@ struct __pyx_vtabstruct_8modparam_para1d {
   PyObject *(*init_arr)(struct __pyx_obj_8modparam_para1d *, int, int __pyx_skip_dispatch);
   int (*new_paraval)(struct __pyx_obj_8modparam_para1d *, int);
   PyObject *(*copy)(struct __pyx_obj_8modparam_para1d *, int __pyx_skip_dispatch);
+  void (*get_para)(struct __pyx_obj_8modparam_para1d *, struct __pyx_obj_8modparam_para1d *);
 };
 static struct __pyx_vtabstruct_8modparam_para1d *__pyx_vtabptr_8modparam_para1d;
 
 
-/* "modparam.pxd":29
+/* "modparam.pxd":30
  *         float[20][100] &nbasis) nogil
  * #
  * cdef class isomod:             # <<<<<<<<<<<<<<
@@ -1275,6 +1276,7 @@ struct __pyx_vtabstruct_8modparam_isomod {
   int (*isgood)(struct __pyx_obj_8modparam_isomod *, int, int, int, int);
   Py_ssize_t (*get_vmodel)(struct __pyx_obj_8modparam_isomod *, float *, float *, float *, float *, float *, float *);
   PyObject *(*copy)(struct __pyx_obj_8modparam_isomod *, int __pyx_skip_dispatch);
+  void (*get_mod)(struct __pyx_obj_8modparam_isomod *, struct __pyx_obj_8modparam_isomod *);
 };
 static struct __pyx_vtabstruct_8modparam_isomod *__pyx_vtabptr_8modparam_isomod;
 
@@ -31785,8 +31787,8 @@ PyMODINIT_FUNC PyInit_vmodel(void)
   /*--- Type import code ---*/
   __pyx_ptype_8modparam_para1d = __Pyx_ImportType("modparam", "para1d", sizeof(struct __pyx_obj_8modparam_para1d), 1); if (unlikely(!__pyx_ptype_8modparam_para1d)) __PYX_ERR(4, 15, __pyx_L1_error)
   __pyx_vtabptr_8modparam_para1d = (struct __pyx_vtabstruct_8modparam_para1d*)__Pyx_GetVtable(__pyx_ptype_8modparam_para1d->tp_dict); if (unlikely(!__pyx_vtabptr_8modparam_para1d)) __PYX_ERR(4, 15, __pyx_L1_error)
-  __pyx_ptype_8modparam_isomod = __Pyx_ImportType("modparam", "isomod", sizeof(struct __pyx_obj_8modparam_isomod), 1); if (unlikely(!__pyx_ptype_8modparam_isomod)) __PYX_ERR(4, 29, __pyx_L1_error)
-  __pyx_vtabptr_8modparam_isomod = (struct __pyx_vtabstruct_8modparam_isomod*)__Pyx_GetVtable(__pyx_ptype_8modparam_isomod->tp_dict); if (unlikely(!__pyx_vtabptr_8modparam_isomod)) __PYX_ERR(4, 29, __pyx_L1_error)
+  __pyx_ptype_8modparam_isomod = __Pyx_ImportType("modparam", "isomod", sizeof(struct __pyx_obj_8modparam_isomod), 1); if (unlikely(!__pyx_ptype_8modparam_isomod)) __PYX_ERR(4, 30, __pyx_L1_error)
+  __pyx_vtabptr_8modparam_isomod = (struct __pyx_vtabstruct_8modparam_isomod*)__Pyx_GetVtable(__pyx_ptype_8modparam_isomod->tp_dict); if (unlikely(!__pyx_vtabptr_8modparam_isomod)) __PYX_ERR(4, 30, __pyx_L1_error)
   __pyx_ptype_7cpython_4type_type = __Pyx_ImportType(__Pyx_BUILTIN_MODULE_NAME, "type", 
   #if CYTHON_COMPILING_IN_PYPY
   sizeof(PyTypeObject),

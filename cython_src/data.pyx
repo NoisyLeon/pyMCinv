@@ -122,6 +122,7 @@ cdef class rf:
                     temp    += ( (self.rfo[i] - self.rfp[j])**2 / (self.stdrfo[i]**2) )
                     k       += 1
                     break
+                j   += 1
         self.misfit = sqrt(temp/k)
         tS          = temp/rffactor
         if tS > 50.:
@@ -138,18 +139,19 @@ cdef class rf:
         rffactor    - factor for downweighting the misfit for likelihood computation
         ==============================================================================
         """
-        cdef float temp = 0.
-        cdef Py_ssize_t k      = 0
+        cdef float temp     = 0.
+        cdef Py_ssize_t k   = 0
         cdef Py_ssize_t i
         cdef float tS
+        cdef float dt       = self.to[1] - self.to[0]
         if self.npts == 0:
             self.misfit = 0.
             self.L      = 1.
             return 0
         for i in range(self.npts):
-            if self.to[i] != self.tp[i]:
+            if fabs(self.to[i] - self.tp[i]) > dt*0.01:
                 printf('Incompatible time arrays!')
-                return self.get_misfit_incompatible(rffactor=rffactor)
+                return self.get_misfit_incompatible(rffactor)
             if self.to[i] >= 0:
                 temp    += ( (self.rfo[i] - self.rfp[i])**2 / (self.stdrfo[i]**2) )
                 k       += 1
@@ -161,6 +163,10 @@ cdef class rf:
             tS      = sqrt(tS*50.)
         self.L      = exp(-0.5 * tS)
         return 1
+    
+    def get_misfit_interface(self):
+        self.get_misfit()
+        return
     
 cdef class disp:
     """
@@ -545,6 +551,10 @@ cdef class disp:
         self.L          = exp(-0.5 * temp)
         return 1
     
+    def get_misfit_interface(self):
+        self.get_misfit()
+        return
+    
     @cython.boundscheck(False)
     cdef void get_misfit_tti(self) nogil:
         """
@@ -626,7 +636,7 @@ cdef class data1d:
         return
     
     @cython.boundscheck(False)
-    cdef public void get_misfit(self, float wdisp, float rffactor) nogil:
+    cdef void get_misfit(self, float wdisp, float rffactor) nogil:
         """
         Compute combined misfit
         ==========================================================================================
