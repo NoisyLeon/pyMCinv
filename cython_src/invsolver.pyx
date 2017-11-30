@@ -291,6 +291,24 @@ cdef class invsolver1d:
     
     @cython.boundscheck(False)
     cdef void get_period(self) nogil:
+#    def get_period(self):
+        cdef Py_ssize_t i
+        if self.data.dispR.npper>0:
+            for i in range(self.data.dispR.npper):
+                self.TRpiso[i]  = self.data.dispR.pper[i]
+        if self.data.dispR.ngper>0:
+            for i in range(self.data.dispR.ngper):
+                self.TRgiso[i]  = self.data.dispR.gper[i]
+        if self.data.dispL.npper>0:
+            for i in range(self.data.dispL.npper):
+                self.TLpiso[i]  = self.data.dispL.pper[i]
+        if self.data.dispL.ngper>0:
+            for i in range(self.data.dispL.ngper):
+                self.TLgiso[i]  = self.data.dispL.gper[i]
+        return
+    
+#        cdef void get_period(self) nogil:
+    def get_period_test(self):
         cdef Py_ssize_t i
         if self.data.dispR.npper>0:
             for i in range(self.data.dispR.npper):
