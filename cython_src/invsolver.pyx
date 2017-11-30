@@ -22,7 +22,7 @@ import os
 cimport modparam
 from cython.parallel import parallel, prange
 import multiprocessing
-
+from functools import partial
 #cdef extern from './fast_surf_src/fast_surf.h':
 #    void fast_surf_(int *n_layer0,int *kind0,
 #     float *a_ref0, float *b_ref0, float *rho_ref0, float *d_ref0, float *qs_ref0,
@@ -335,7 +335,6 @@ cdef class invsolver1d:
             for i in range(nper):
                 self.data.dispR.pvelp[i]    = cr[i]
                 self.data.dispR.gvelp[i]    = ur[i]
-
         elif ilvry == 1:
             nper                = self.data.dispL.npper
             fast_surf_(&nlay, &ilvry, &self.model.vpv[0], &self.model.vsv[0], &self.model.rho[0], &self.model.h[0],\
@@ -410,18 +409,37 @@ cdef class invsolver1d:
     # functions for inversions
     #-------------------------------------------------
     
-    def mc_inv_iso_singel_thread(self, str outdir, int ind0=0, int ind1=2000, str pfx='MC', str dispdtype='ph', \
+    def mc_inv_iso_singel_thread(self, str outdir, int ind0=0, int ind1=2000, int indid=1, str pfx='MC', str dispdtype='ph', \
                     float wdisp=1., float rffactor=40., int monoc=1):
         
-        cdef char *outmod, *outdisp, *outrf
+        cdef str outmod, outdisp, outrf
         cdef float oldL, oldmisfit, newL, newmisfit, prob, rnumb
         cdef int run = 1
         cdef Py_ssize_t inew, iacc, igood, i
         cdef int Maxiter = ind1 - ind0
-        cdef float[:][:] outArr, dispArr, rfArr
-
-#        # initializations
-#        self.get_period()
+        cdef float[:, :] outArr, dispArr, rfArr
+#
+#        outArr      = np.zeros([10+self.model.isomod.para.npara, Maxiter], dtype=np.float32)
+#        dispArr     = np.zeros([self.data.dispR.npper, Maxiter], dtype=np.float32)
+#        rfArr       = np.zeros([self.data.rfr.npts, Maxiter], dtype=np.float32)
+        # initializations
+        self.get_period()
+##        if ind0 != 0:
+##            self.newisomod.get_mod(self.model.isomod)
+##            self.newisomod.get_mod(self.model.isomod)
+##            self.newisomod.para.new_paraval(0)
+##            self.newisomod.para2mod()
+##            self.newisomod.update()
+##            igood   = 0
+##            while ( self.newisomod.isgood(0, 1, 1, 0) == 0 and igood<100):
+##                igood   += igood + 1
+##                self.newisomod.get_mod(self.model.isomod)
+##                self.newisomod.para.new_paraval(0)
+##                self.newisomod.para2mod()
+##                self.newisomod.update()
+##            # assign new model to old ones
+##            self.model.isomod.get_mod(self.newisomod)
+##            self.get_vmodel()
 #        self.update_mod(0)
 #        self.get_vmodel(0)
 #        # initial run
@@ -429,103 +447,40 @@ cdef class invsolver1d:
 #        self.compute_rftheo()
 #        self.get_misfit(wdisp, rffactor)
 #        # write initial model
-#        outmod = <char *>malloc((strlen(outdir)+1+strlen(pfx)+4) * sizeof(char))
-#        strcpy(outmod, outdir)
-#        strcat(outmod, '/')
-#        strcat(outmod, pfx)
-#        strcat(outmod, '.mod')
-#        with gil:
-#            self.model.write_model(outfname=outmod, isotropic=1)
-#        free(outmod)
+#        outmod      = outdir+'/'+pfx+'.'+str(indid)+'.mod'
+#        self.model.write_model(outfname=outmod, isotropic=1)
 #        # write initial predicted data
-#        with gil:
-#            if strcmp(dispdtype, 'both') != 0:
-#                outdisp = <char *>malloc((strlen(outdir)+1+strlen(pfx)+6+strlen(dispdtype)) * sizeof(char))
-#                strcpy(outdisp, outdir)
-#                strcat(outdisp, '/')
-#                strcat(outdisp, pfx)
-#                strcat(outdisp, '.')
-#                strcat(outdisp, dispdtype)
-#                strcat(outdisp, '.disp')
-#                self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
-#                free(outdisp)
-#            else:
-#                outdisp = <char *>malloc((strlen(outdir)+1+strlen(pfx)+6+strlen(dispdtype)) * sizeof(char))
-#                strcpy(outdisp, outdir)
-#                strcat(outdisp, '/')
-#                strcat(outdisp, pfx)
-#                strcat(outdisp, '.ph.disp')
-#                self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
-#                free(outdisp)
-#                outdisp = <char *>malloc((strlen(outdir)+1+strlen(pfx)+6+strlen(dispdtype)) * sizeof(char))
-#                strcpy(outdisp, outdir)
-#                strcat(outdisp, '/')
-#                strcat(outdisp, pfx)
-#                strcat(outdisp, '.gr.disp')
-#                self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
-#                free(outdisp)
-#        with gil:
-#            outrf = <char *>malloc((strlen(outdir)+1+strlen(pfx)+3) * sizeof(char))
-#            strcpy(outrf, outdir)
-#            strcat(outrf, '/')
-#            strcat(outrf, pfx)
-#            strcat(outrf, '.rf')
-#            self.data.rfr.writerftxt(outfname=outrf)
-#            free(outrf)
+#        outdisp     = outdir+'/'+pfx+'.'+str(indid)+'.ph.disp'
+#        self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
+#        dispArr[:,0]= self.data.dispR.pvelp
+#        outrf       = outdir+'/'+pfx+'.'+str(indid)+'.rf'
+#        self.data.rfr.writerftxt(outfname=outrf)
+#        rfArr[:,0]  = self.data.rfr.rfp
 #        # convert initial model to para
 #        self.model.isomod.mod2para()
 #        # likelihood/misfit
 #        oldL        = self.data.L
 #        oldmisfit   = self.data.misfit
 #        printf('Initial likelihood = %f,' , oldL)
-#        printf('misfit = %f\n', oldmisfit)
-#        
-#        inew    = 0     # count step (or new paras)
-#        iacc    = 1     # count acceptance model
+#        printf('misfit = %f,', oldmisfit)
+#        printf(' index id = %d\n', indid)
+#        inew        = ind0 +1
+#        iacc        = 1     # count acceptance model
 #        cdef time_t t0 = time(NULL)
 #        cdef time_t t1 
 #        self.newisomod.get_mod(self.model.isomod)
-##        newmod.get_mod(self.model.isomod)
 #        while ( run==1 ):
 #            inew    += 1
 ##            printf('run step = %d\n',inew)
 #            t1      = time(NULL)
 #            # # # if ( inew > 100000 or iacc > 20000000 or time.time()-start > 7200.):
-#            if ( inew > 10000 or iacc > 20000000):
+#            if ( inew > ind1 or iacc > 20000000):
 #                run = 0
 #            if (fmod(inew, 500) == 0):
-#                printf('run step = %d,',inew)
+#                printf('Index id = %d, ',indid)
+#                printf('run step = %d,',inew-ind0)
 #                printf(' elasped time = %d', t1-t0)
 #                printf(' sec\n')
-#            #------------------------------------------------------------------------------------------
-#            # every 2500 step, perform a random walk with uniform random value in the paramerter space
-#            #------------------------------------------------------------------------------------------
-#            if ( fmod(inew, 1501) == 1500 ):
-#                self.newisomod.get_mod(self.model.isomod)
-#                self.newisomod.para.new_paraval(0)
-#                self.newisomod.para2mod()
-#                self.newisomod.update()
-#                # loop to find the "good" model,
-#                # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
-#                igood   = 0
-#                while ( self.newisomod.isgood(0, 1, 1, 0) == 0):
-#                    igood   += igood + 1
-#                    self.newisomod.get_mod(self.model.isomod)
-#                    self.newisomod.para.new_paraval(0)
-#                    self.newisomod.para2mod()
-#                    self.newisomod.update()
-#                # assign new model to old ones
-#                self.model.isomod.get_mod(self.newisomod)
-#                self.get_vmodel()
-#                # forward computation
-#                self.compute_fsurf()
-#                self.compute_rftheo()
-#                self.get_misfit(wdisp, rffactor)
-#                oldL                = self.data.L
-#                oldmisfit           = self.data.misfit
-#                iacc                += 1
-#                printf('Uniform random walk: likelihood = %f', self.data.L)
-#                printf(' misfit = %f\n', self.data.misfit)
 #            #-------------------------------
 #            # inversion part
 #            #-------------------------------
@@ -557,25 +512,19 @@ cdef class invsolver1d:
 #                        continue                        
 #                    prob    = (oldL-newL)/oldL
 #                    # reject the model
-#                    if rnumb < prob:
-##                        fidout.write("-1 %d %d " % (inew,iacc))
-##                        for i in xrange(newmod.para.npara):
-##                            fidout.write("%g " % newmod.para.paraval[i])
-##                        fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.rfr.L, self.indata.rfr.misfit,\
-##                                self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start)) 
-##                        
-#                        outArr[0][inew-1]   = -1.
-#                        outArr[1][inew-1]   = inew
-#                        outArr[2][inew-1]   = iacc
-#                        for i in range(13):
-#                            outArr[3+i][inew-1] = self.newisomod.para.paraval[i]
-#                        outArr[16][inew-1]      = newL
-#                        outArr[17][inew-1]      = newmisfit
-#                        outArr[18][inew-1]      = self.data.rfr.L
-#                        outArr[19][inew-1]      = self.data.rfr.misfit
-#                        outArr[20][inew-1]      = self.data.dispR.L
-#                        outArr[21][inew-1]      = self.data.dispR.misfit
-#                        outArr[22][inew-1]      = time(NULL)-t0
+#                    if rnumb < prob:       
+#                        outArr[0][inew-ind0-1]      = -1.
+#                        outArr[1][inew-ind0-1]      = inew
+#                        outArr[2][inew-ind0-1]      = iacc
+#                        for i in range(self.newisomod.para.npara):
+#                            outArr[3+i][inew-ind0-1] = self.newisomod.para.paraval[i]
+#                        outArr[16][inew-ind0-1]     = newL
+#                        outArr[17][inew-ind0-1]     = newmisfit
+#                        outArr[18][inew-ind0-1]     = self.data.rfr.L
+#                        outArr[19][inew-ind0-1]     = self.data.rfr.misfit
+#                        outArr[20][inew-ind0-1]     = self.data.dispR.L
+#                        outArr[21][inew-ind0-1]     = self.data.dispR.misfit
+#                        outArr[22][inew-ind0-1]     = time(NULL)-t0
 #                        
 #                        self.model.isomod.get_mod(self.oldisomod)
 #                        continue
@@ -586,20 +535,21 @@ cdef class invsolver1d:
 ##                fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.indata.rfr.L, self.indata.rfr.misfit,\
 ##                        self.indata.dispR.L, self.indata.dispR.misfit, time.time()-start)) 
 ##                
-#                outArr[0][inew-1]   = -1.
-#                outArr[1][inew-1]   = inew
-#                outArr[2][inew-1]   = iacc
-#                for i in range(13):
-#                    outArr[3+i][inew-1] = self.newisomod.para.paraval[i]
-#                outArr[16][inew-1]      = newL
-#                outArr[17][inew-1]      = newmisfit
-#                outArr[18][inew-1]      = self.data.rfr.L
-#                outArr[19][inew-1]      = self.data.rfr.misfit
-#                outArr[20][inew-1]      = self.data.dispR.L
-#                outArr[21][inew-1]      = self.data.dispR.misfit
-#                outArr[22][inew-1]      = time(NULL)-t0
+#                outArr[0][inew-ind0-1]      = -1.
+#                outArr[1][inew-ind0-1]      = inew
+#                outArr[2][inew-ind0-1]      = iacc
+#                for i in range(self.newisomod.para.npara):
+#                    outArr[3+i][inew-1]     = self.newisomod.para.paraval[i]
+#                outArr[16][inew-ind0-1]     = newL
+#                outArr[17][inew-ind0-1]     = newmisfit
+#                outArr[18][inew-ind0-1]     = self.data.rfr.L
+#                outArr[19][inew-ind0-1]     = self.data.rfr.misfit
+#                outArr[20][inew-ind0-1]     = self.data.dispR.L
+#                outArr[21][inew-ind0-1]     = self.data.dispR.misfit
+#                outArr[22][inew-ind0-1]     = time(NULL)-t0
 #                
-#                printf('Accept a model: %d', inew)
+#                printf('Index id = %d', indid)
+#                printf(' ,accept a model: %d', inew)
 #                printf(' %d ', iacc)
 #                printf(' %f ', oldL)
 #                printf(' %f ', oldmisfit)
@@ -649,6 +599,35 @@ cdef class invsolver1d:
 ##                self.model.isomod   = newmod
 ##                continue
         return
+    
+    def mc_inv_iso_mp(self, str outdir, int maxstep=10000, int maxsubstep=2000, str pfx='MC', str dispdtype='ph', \
+                    float wdisp=1., float rffactor=40., int monoc=1, int nprocess=2):
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        indLst      = []
+        cdef Py_ssize_t i
+        cdef np.ndarray indArr = np.zeros(3, np.int32)
+        
+        maxstep     = (np.ceil(maxstep/maxsubstep))*maxsubstep
+        for i in range(int(maxstep/maxsubstep)):
+            indArr[0]   = i*maxsubstep
+            indArr[1]   = (i+1)*maxsubstep
+            indArr[2]   = i+1
+            indLst.append(indArr.copy())
+        print 'Start MC inverion for isotropic model, multiprocessing'
+        MCINV = partial(mcinviso4mp, solver=self, outdir=outdir, pfx=pfx, dispdtype=dispdtype,\
+                    wdisp=wdisp, rffactor=rffactor, monoc=monoc)
+        pool = multiprocessing.Pool(processes=nprocess)
+        pool.map(MCINV, indLst) 
+        pool.close() 
+        pool.join() 
+        
+        
+        
+        
+        
+        
+        
 
     
     @cython.boundscheck(False)
@@ -910,6 +889,15 @@ cdef class invsolver1d:
 #        pfx  = 'MC'
         self.mc_inv_iso(outdir, pfx, dispdtype)
 #        self.mc_inv_iso()
+
+
+def mcinviso4mp(iArr, invsolver1d solver, str outdir, str pfx, str dispdtype, \
+                    float wdisp, float rffactor, int monoc):
+    print iArr[2], iArr[1]
+    solver.mc_inv_iso_singel_thread(outdir=outdir, ind0=iArr[0], ind1=iArr[1], indid=iArr[2], pfx=pfx, dispdtype=dispdtype, wdisp=wdisp,\
+                                    rffactor=rffactor, monoc=monoc)
+    return
+    
 
     
     
