@@ -8,9 +8,9 @@ Module for handling parameterization of the model
     CIEI, Department of Physics, University of Colorado Boulder
     email: lili.feng@colorado.edu
 """
-from __future__ import division
 import numpy as np
-import numba, math
+import numba
+import math
 
 
 class para1d(object):
@@ -154,8 +154,7 @@ class para1d(object):
 # auxiliary functions
 ####################################################
 
-@numba.jit(numba.types.Tuple((numba.float64[:], numba.float64[:,:]))(\
-        numba.int64, numba.int64, numba.float64, numba.float64, numba.int64, numba.int64))
+@numba.jit(numba.float64[:, :](numba.int64, numba.int64, numba.float64, numba.float64, numba.int64, numba.int64))
 def bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts):
     #-------------------------------- 
     # defining the knot vector
@@ -596,36 +595,69 @@ class isomod(object):
         ==========================================================================
         """
         
-        ilay  = 0
+        nlay    = self.nlay.sum()
+        hArr    = np.array([], dtype = np.float64)
+        vs      = np.array([], dtype = np.float64)
+        vp      = np.array([], dtype = np.float64)
+        rho     = np.array([], dtype = np.float64)
+        qs      = np.array([], dtype = np.float64)
+        qp      = np.array([], dtype = np.float64)
+        depth   = np.array([], dtype = np.float64)
         for i in range(self.nmod):
-            for j in range(self.nlay[i]):
-                hArr[ilay]  = self.hArr[j][i]
-                depth       += self.hArr[j][i]
-                if self.mtype[i] == 5:
-                    vs[ilay]    = 0
-                    vp[ilay]    = self.cvel[0][i]
-                    rho[ilay]   = 1.02
-                    qs[ilay]    = 10000.
-                    qp[ilay]    = 57822.
-                elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
-                    vs[ilay]    = self.vs[j, i]
-                    vp[ilay]    = self.vs[j, i]*self.vpvs[i]
-                    rho[ilay]   = 0.541 + 0.3601*self.vs[j, i]*self.vpvs[i]
-                    qs[ilay]    = 80.
-                    qp[ilay]    = 160.
-                else:
-                    vs[ilay]    = self.vs[j, i]
-                    vp[ilay]    = self.vs[j, i]*self.vpvs[i]
-                    # if depth < 18.:
-                    qs[ilay]    = 600.
-                    qp[ilay]    = 1400.
-                    if (self.vs[j, i]*self.vpvs[i]) < 7.5:
-                        rho[ilay]       = 0.541 + 0.3601*self.vs[j, i]*self.vpvs[i]
-                    else:
-                        # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
-                        rho[ilay]       = 3.35
-                ilay += 1
-        return ilay
+            hArr    = np.append(hArr, self.hArr[:self.nlay[i], i])
+            depth   = np.append(depth, (self.hArr[:self.nlay[i], i]).cumsum())
+            if self.mtype[i] == 5:
+                vs      = np.append(vs, 0.)
+                vp      = np.append(vp, self.cvel[0][i])
+                rho     = np.append(rho, 1.02)
+                qs      = np.append(qs, 10000.)
+                qp      = np.append(qp, 57822.)
+            elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
+                vs      = np.append(vs, self.vs[:self.nlay[i], i])
+                vp      = np.append(vp, self.vs[:self.nlay[i], i]*self.vpvs[i])
+                rho     = np.append(rho, 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i])
+                qs      = np.append(qs, 80.*np.ones(self.nlay[i], dtype=np.float64))
+                qp      = np.append(qp, 160.*np.ones(self.nlay[i], dtype=np.float64))
+            else:
+                vs      = np.append(vs, self.vs[:self.nlay[i], i])
+                vp      = np.append(vp, self.vs[:self.nlay[i], i]*self.vpvs[i])
+                rho     = np.append(rho, 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i])
+                qs      = np.append(qs, 600.*np.ones(self.nlay[i], dtype=np.float64))
+                qp      = np.append(qp, 1400.*np.ones(self.nlay[i], dtype=np.float64))
+        rho[vp > 7.5]   = 3.35
+        return hArr, vs, vp, rho, qs, qp, nlay
+            
+            
+        #     
+        #     
+        #     for j in range(self.nlay[i]):
+        #         hArr[ilay]  = self.hArr[j][i]
+        #         depth       += self.hArr[j][i]
+        #         if self.mtype[i] == 5:
+        #             vs[ilay]    = 0
+        #             vp[ilay]    = self.cvel[0][i]
+        #             rho[ilay]   = 1.02
+        #             qs[ilay]    = 10000.
+        #             qp[ilay]    = 57822.
+        #         elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
+        #             vs[ilay]    = self.vs[j, i]
+        #             vp[ilay]    = self.vs[j, i]*self.vpvs[i]
+        #             rho[ilay]   = 0.541 + 0.3601*self.vs[j, i]*self.vpvs[i]
+        #             qs[ilay]    = 80.
+        #             qp[ilay]    = 160.
+        #         else:
+        #             vs[ilay]    = self.vs[j, i]
+        #             vp[ilay]    = self.vs[j, i]*self.vpvs[i]
+        #             # if depth < 18.:
+        #             qs[ilay]    = 600.
+        #             qp[ilay]    = 1400.
+        #             if (self.vs[j, i]*self.vpvs[i]) < 7.5:
+        #                 rho[ilay]       = 0.541 + 0.3601*self.vs[j, i]*self.vpvs[i]
+        #             else:
+        #                 # Kaban, M. K et al. (2003), Density of the continental roots: Compositional and thermal contributions
+        #                 rho[ilay]       = 3.35
+        #         ilay += 1
+        # return ilay
 #     
 #     def get_vmodel_interface(self):
 #         cdef float[512] vs, vp, rho, qs, qp, hArr
