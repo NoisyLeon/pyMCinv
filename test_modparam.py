@@ -1,11 +1,7 @@
 import modparam
-
-# imod = modparam.isomod()
 # 
-# 
-# modparam.readmodtxt('old_code/TEST/Q22A.mod1', inmod=imod)
+# para = modparam.para1d()
 
-
-tmod    = modparam.ttimod()
-# modparam.readtimodtxt('demo_7.mod', inmod=tmod)
-modparam.readtimodtxt('mod_-112.2.36.4.mod', inmod=tmod)
+isomod = modparam.isomod()
+isomod.readmodtxt('../old_code/TEST/Q22A.mod1')
+isomod.update()

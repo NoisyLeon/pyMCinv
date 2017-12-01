@@ -102,8 +102,6 @@ class model1d(object):
         vph     = np.array(self.VphArr, dtype=np.float64)
         eta     = np.array(self.etaArr, dtype=np.float64)
         rho     = np.array(self.rhoArr, dtype=np.float64)
-        dip     = np.array(self.dipArr, dtype=np.float64)
-        strike  = np.array(self.strikeArr, dtype=np.float64)
         
         outArr  = np.append(z[:self.ngrid], vsv[:self.ngrid])
         if not isotropic:
@@ -113,6 +111,8 @@ class model1d(object):
             outArr  = np.append(outArr, vph[:self.ngrid])
             outArr  = np.append(outArr, eta[:self.ngrid])
             if self.tilt:
+                dip     = np.array(self.dipArr, dtype=np.float64)
+                strike  = np.array(self.strikeArr, dtype=np.float64)
                 outArr  = np.append(outArr, dip[:self.ngrid])
                 outArr  = np.append(outArr, strike[:self.ngrid])
         outArr  = np.append(outArr, rho[:self.ngrid])
@@ -256,46 +256,41 @@ class model1d(object):
         self.qs     = qs
         self.qp     = qp
         self.nlay   = nlay
-        # 
-        # N = self.isomod.get_vmodel(vs, vp, rho, qs, qp, hArr)
-        # # store layerized model
-        # for i in range(N):
-        #     depth       = depth + hArr[i]
-        #     z[i]        = depth
-        #     self.vsv[i] = vs[i] 
-        #     self.vsh[i] = vs[i]
-        #     self.vpv[i] = vp[i] 
-        #     self.vph[i] = vp[i] 
-        #     self.eta[i] = 1. 
-        #     self.rho[i] = rho[i] 
-        #     self.h[i]   = hArr[i] 
-        #     self.qs[i]  = qs[i]
-        #     self.qp[i]  = qp[i]
-        # self.nlay   = N
-        # # store grid point model
-        # for i in range(2*N):
-        #     if i == 0:
-        #         self.VsvArr[i]  = vs[i]
-        #         self.VshArr[i]  = vs[i]
-        #         self.VpvArr[i]  = vp[i]
-        #         self.VphArr[i]  = vp[i]
-        #         self.qsArr[i]   = qs[i]
-        #         self.qpArr[i]   = qp[i]
-        #         self.rhoArr[i]  = rho[i]
-        #         self.etaArr[i]  = 1.
-        #         continue
-        #     j   = int(i/2)
-        #     k   = i%2
-        #     self.zArr[i]    = z[j+k-1]
-        #     self.VsvArr[i]  = vs[j]
-        #     self.VshArr[i]  = vs[j]
-        #     self.VpvArr[i]  = vp[j]
-        #     self.VphArr[i]  = vp[j]
-        #     self.qsArr[i]   = qs[j]
-        #     self.qpArr[i]   = qp[j]
-        #     self.rhoArr[i]  = rho[j]
-        #     self.etaArr[i]  = 1.
-        # self.ngrid  = 2*N
+        self.ngrid  = 2*nlay
+        # store grid point model
+        indlay      = np.arange(nlay, dtype=np.int32)
+        indgrid0    = indlay*2
+        indgrid1    = indlay*2+1
+        self.VsvArr = np.ones(self.ngrid, dtype=np.float64)
+        self.VshArr = np.ones(self.ngrid, dtype=np.float64)
+        self.VpvArr = np.ones(self.ngrid, dtype=np.float64)
+        self.VphArr = np.ones(self.ngrid, dtype=np.float64)
+        self.qsArr  = np.ones(self.ngrid, dtype=np.float64)
+        self.qpArr  = np.ones(self.ngrid, dtype=np.float64)
+        self.rhoArr = np.ones(self.ngrid, dtype=np.float64)
+        self.etaArr = np.ones(self.ngrid, dtype=np.float64)
+        self.zArr   = np.zeros(self.ngrid, dtype=np.float64)
+        depth       = hArr.cumsum()
+        # model arrays
+        self.VsvArr[indgrid0]   = vs[:]
+        self.VsvArr[indgrid1]   = vs[:]
+        self.VshArr[indgrid0]   = vs[:]
+        self.VshArr[indgrid1]   = vs[:]
+        self.VpvArr[indgrid0]   = vp[:]
+        self.VpvArr[indgrid1]   = vp[:]
+        self.VphArr[indgrid0]   = vp[:]
+        self.VphArr[indgrid1]   = vp[:]
+        self.rhoArr[indgrid0]   = rho[:]
+        self.rhoArr[indgrid1]   = rho[:]
+        self.qsArr[indgrid0]    = qs[:]
+        self.qsArr[indgrid1]    = qs[:]
+        self.qpArr[indgrid0]    = qp[:]
+        self.qpArr[indgrid1]    = qp[:]
+        # depth array
+        indlay2                 = np.arange(nlay-1, dtype=np.int32)
+        indgrid2                = indlay2*2+2
+        self.zArr[indgrid1]     = depth
+        self.zArr[indgrid2]     = depth[:-1]
         self.vel2love()
         return 
     # 

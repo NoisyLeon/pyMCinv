@@ -6,6 +6,7 @@ vpr.readdisp(infname='../old_code/TEST/Q22A.com.txt')
 vpr.readrf(infname='../old_code/TEST/in.rf')
 vpr.readmod(infname='../old_code/TEST/Q22A.mod1')
 # vpr.readpara(infname='../old_code/TEST/in.para')
+vpr.getpara()
 # # vpr.mc_inv_iso()
 # # 
 # # vpr.read_iso_inv(indir='./workingdir')

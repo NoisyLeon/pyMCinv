@@ -9,7 +9,6 @@ Module for handling input data for joint inversion.
     CIEI, Department of Physics, University of Colorado Boulder
     email: lili.feng@colorado.edu
 """
-from __future__ import division
 import numpy as np
 
 
@@ -29,7 +28,6 @@ class rf(object):
     L       - likelihood value
     ==========================================================================
     """
-
     def __init__(self):
         self.npts   = 0
         self.fs     = 0.
@@ -42,7 +40,7 @@ class rf(object):
         ::: input :::
         infname     - input file name
         ::: output :::
-        receiver function data is stored in self
+        receiver function data is stored
         ==========================================================================
         """
         if self.npts > 0:

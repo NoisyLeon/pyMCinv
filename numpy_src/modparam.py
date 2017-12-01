@@ -11,7 +11,7 @@ Module for handling parameterization of the model
 import numpy as np
 import numba
 import math
-
+import random
 
 class para1d(object):
     """
@@ -89,6 +89,8 @@ class para1d(object):
         infname - input file name
         ==========================================================================
         """
+        npara       = 0
+        i           = 0
         for l1 in open(infname,"r"):
             npara   += 1
         print "Number of parameters for perturbation: %d " % npara
@@ -128,12 +130,23 @@ class para1d(object):
         if ptype == 0:
             self.paraval[:] = np.random.uniform(self.space[0, :], self.space[1, :], size=self.npara)
         elif ptype == 1:
-            newval          = np.random.normal(loc = self.paraval, scale = self.space[2, :], size=self.npara)
-            ind0            = newval<self.space[0, :]
-            ind1            = newval>self.space[1, :]
-            newval[ind0]    = (self.space[0, :])[ind0]
-            newval[ind1]    = (self.space[1, :])[ind1]
-            self.paraval[:] = newval
+            for i in xrange(self.npara):
+                oldval 	= self.paraval[i]
+                step 	= self.space[2, i]
+                run 	= True
+                j		= 0
+                while (run and j<10000): 
+                    newval  = random.gauss(oldval, step)
+                    if (newval >= self.space[0, i] and newval <= self.space[1, i]):
+                        run = False
+                    j   +=1
+                self.paraval[i] = newval
+            # newval          = np.random.normal(loc = self.paraval, scale = self.space[2, :], size=self.npara)
+            # ind0            = newval<self.space[0, :]
+            # ind1            = newval>self.space[1, :]
+            # newval[ind0]    = (self.space[0, :])[ind0]
+            # newval[ind1]    = (self.space[1, :])[ind1]
+            # self.paraval[:] = newval
         else:
             raise ValueError('Unexpected perturbation type!')
         return True
