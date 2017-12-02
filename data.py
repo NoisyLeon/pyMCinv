@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # distutils: language=c++
 """
-Module for handling input data for joint inversion.
+Module for handling input data for Bayesian Monte Carlo inversion.
 
 :Copyright:
     Author: Lili Feng
@@ -9,9 +9,7 @@ Module for handling input data for joint inversion.
     CIEI, Department of Physics, University of Colorado Boulder
     email: lili.feng@colorado.edu
 """
-from __future__ import division
 import numpy as np
-
 
 class rf(object):
     """
@@ -29,7 +27,6 @@ class rf(object):
     L       - likelihood value
     ==========================================================================
     """
-
     def __init__(self):
         self.npts   = 0
         self.fs     = 0.
@@ -58,7 +55,7 @@ class rf(object):
             self.stdrfo = np.ones(self.npts, dtype=np.float64)*0.1
         self.fs     = 1./(self.to[1] - self.to[0])
         return True
-#    
+  
     def writerftxt(self, outfname, tf=10.):
         """
         Write receiver function data to a txt file
@@ -111,7 +108,6 @@ class rf(object):
     #         tS      = sqrt(tS*50.)
     #     self.L      = exp(-0.5 * tS)
     #     return 1
-#    
 
     def get_misfit(self, rffactor=40.):
         """
