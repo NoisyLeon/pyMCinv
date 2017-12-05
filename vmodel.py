@@ -9,11 +9,8 @@ Module for handling 1D velocity model objects.
     email: lili.feng@colorado.edu
 """
 
-
 import numpy as np
 import modparam
-
-
 
 class model1d(object):
     """
@@ -48,7 +45,7 @@ class model1d(object):
         return
     
     def read_model(self, infname, unit=1., isotropic=True, tilt=False,
-            indz=0, indvpv=1, indvsv=2, indrho=3, indvph=4, indvsh=5, 
+                indz=0, indvpv=1, indvsv=2, indrho=3, indvph=4, indvsh=5, 
             indeta=6, inddip=7, indstrike=8):
         """
         Read model in txt format
@@ -75,7 +72,7 @@ class model1d(object):
         else:
             vph     = inArr[:, indvph]*unit
             vsh     = inArr[:, indvsh]*unit
-        if tilt and isotropic:
+        if tilt and not isotropic:
             dip     = inArr[:, inddip]
             strike  = inArr[:, indstrike]
         else:
@@ -95,27 +92,17 @@ class model1d(object):
         isotropic                   - whether the input is isotrpic or not
         ===========================================================================================================
         """
-        z       = np.array(self.zArr, dtype=np.float64)
-        vsv     = np.array(self.VsvArr, dtype=np.float64)
-        vsh     = np.array(self.VshArr, dtype=np.float64)
-        vpv     = np.array(self.VpvArr, dtype=np.float64)
-        vph     = np.array(self.VphArr, dtype=np.float64)
-        eta     = np.array(self.etaArr, dtype=np.float64)
-        rho     = np.array(self.rhoArr, dtype=np.float64)
-        
-        outArr  = np.append(z[:self.ngrid], vsv[:self.ngrid])
+        outArr  = np.append(self.zArr, self.VsvArr)
         if not isotropic:
-            outArr  = np.append(outArr, vsh[:self.ngrid])
-        outArr  = np.append(outArr, vpv[:self.ngrid])
+            outArr  = np.append(outArr, self.VshArr)
+        outArr      = np.append(outArr, self.VpvArr)
         if not isotropic:
-            outArr  = np.append(outArr, vph[:self.ngrid])
-            outArr  = np.append(outArr, eta[:self.ngrid])
+            outArr  = np.append(outArr, self.VphArr)
+            outArr  = np.append(outArr, self.etaArr)
             if self.tilt:
-                dip     = np.array(self.dipArr, dtype=np.float64)
-                strike  = np.array(self.strikeArr, dtype=np.float64)
-                outArr  = np.append(outArr, dip[:self.ngrid])
-                outArr  = np.append(outArr, strike[:self.ngrid])
-        outArr  = np.append(outArr, rho[:self.ngrid])
+                outArr  = np.append(outArr, self.dipArr)
+                outArr  = np.append(outArr, self.strikeArr)
+        outArr      = np.append(outArr, self.rhoArr)
         if isotropic:
             N       = 4
             header  = 'depth vs vp rho'
@@ -186,48 +173,31 @@ class model1d(object):
             self.eta        = self.F/(self.A - 2.* self.L)
         return
     
-    # def int grid2layer(self):
-    #     """
-    #     Convert grid point model to layerized model
-    #     """
-    #     cdef Py_ssize_t i, j
-    #     if not self.is_layer_model():
-    #         return 0
-    #     self.nlay = int(self.ngrid/2)
-    #     j   = 0
-    #     for i in range(self.ngrid):
-    #         if i == 0:
-    #             self.vsv[j]     = self.VsvArr[i]
-    #             self.vsh[j]     = self.VshArr[i]
-    #             self.vpv[j]     = self.VpvArr[i]
-    #             self.vph[j]     = self.VphArr[i]
-    #             self.eta[j]     = self.etaArr[i]
-    #             self.rho[j]     = self.rhoArr[i]
-    #             self.dip[j]     = self.dipArr[i]
-    #             self.strike[j]  = self.strikeArr[i]
-    #             self.qs[j]      = self.qsArr[i]
-    #             self.qp[j]      = self.qpArr[i]
-    #             self.h[j]       = self.zArr[i+1]
-    #             j += 1
-    #             continue
-    #         if i % 2 != 0: 
-    #             continue
-    #         self.vsv[j]     = self.VsvArr[i]
-    #         self.vsh[j]     = self.VshArr[i]
-    #         self.vpv[j]     = self.VpvArr[i]
-    #         self.vph[j]     = self.VphArr[i]
-    #         self.eta[j]     = self.etaArr[i]
-    #         self.rho[j]     = self.rhoArr[i]
-    #         self.dip[j]     = self.dipArr[i]
-    #         self.strike[j]  = self.strikeArr[i]
-    #         self.qs[j]      = self.qsArr[i]
-    #         self.qp[j]      = self.qpArr[i]
-    #         self.h[j]       = self.zArr[i+1] - self.zArr[i]
-    #         j += 1
-    #     return 1
-    # 
-
-
+    def grid2layer(self, checklayer=True):
+        """
+        Convert grid point model to layerized model
+        """
+        if checklayer:
+            if not self.is_layer_model():
+                return False
+        self.nlay   = int(self.ngrid/2)
+        indz0       = np.arange(int(self.ngrid/2), dtype = np.int32)*2
+        indz1       = np.arange(int(self.ngrid/2), dtype = np.int32)*2 + 1
+        z0          = self.zArr[indz0]
+        z1          = self.zArr[indz1]
+        self.h      = z1 - z0
+        indlay      = np.arange(int(self.ngrid/2), dtype = np.int32)*2 + 1
+        self.vph    = self.VphArr[indlay]
+        self.vpv    = self.VpvArr[indlay]
+        self.vsh    = self.VshArr[indlay]
+        self.vsv    = self.VsvArr[indlay]
+        self.eta    = self.etaArr[indlay]
+        self.rho    = self.rhoArr[indlay]
+        if self.tilt:
+            self.dip    = self.dipArr[indlay]
+            self.strike = self.strikeArr[indlay]
+        return True
+    
     def is_iso(self):
         """Check if the model is isotropic at each point.
         """
@@ -235,10 +205,6 @@ class model1d(object):
         if (abs(self.AArr - self.CArr)).max() > tol or (abs(self.LArr - self.NArr)).max() > tol\
             or (abs(self.FArr - (self.AArr- 2.*self.LArr))).max() > tol:
             return False
-        # # # for i in range(self.ngrid):
-        # # #     if fabs(self.AArr[i] - self.CArr[i])> tol or fabs(self.LArr[i] - self.NArr[i])> tol\
-        # # #            or fabs(self.FArr[i] - (self.AArr[i]- 2.*self.LArr[i]) )> tol:
-        # # #         return False
         return True
 
     def get_iso_vmodel(self):
@@ -292,57 +258,43 @@ class model1d(object):
         self.zArr[indgrid1]     = depth
         self.zArr[indgrid2]     = depth[:-1]
         self.vel2love()
-        return 
-    # 
-    # def get_iso_vmodel_interface(self):
-    #     self.get_iso_vmodel()
-    #     return
-    # 
-    # @cython.boundscheck(False)
-    # cdef int is_layer_model(self) nogil:
-    #     """
-    #     Check if the grid point model is a layerized one or not
-    #     """
-    #     cdef Py_ssize_t i
-    #     cdef float z0, z1, A0, A1, C0, C1, F0, F1, L0, L1, N0, N1, 
-    #     cdef float d0, d1, s0, s1
-    #     if self.ngrid %2 !=0:
-    #         return 0
-    #     self.vel2love()
-    #     
-    #     for i in range(self.ngrid):
-    #         if i == 0: 
-    #             continue
-    #         if i % 2 != 0: 
-    #             continue
-    #     
-    #         z0 = self.zArr[i-1];  z1 = self.zArr[i]
-    #         if z0 != z1:
-    #             return 0
-    #         A0  = self.AArr[i-2]; A1 = self.AArr[i-1]
-    #         if A0 != A1:
-    #             return 0
-    #         C0  = self.CArr[i-2]; C1 = self.CArr[i-1]
-    #         if C0 != C1:
-    #             return 0
-    #         F0  = self.FArr[i-2]; F1 = self.FArr[i-1]
-    #         if F0 != F1:
-    #             return 0
-    #         L0  = self.LArr[i-2]; L1 = self.LArr[i-1]
-    #         if L0 != L1:
-    #             return 0
-    #         N0  = self.NArr[i-2]; N1 = self.NArr[i-1]
-    #         if N0 != N1:
-    #             return 0
-    #         # check tilted angles of anisotropic axis
-    #         if self.tilt: 
-    #             d0  = self.dipArr[i-2]; d1 = self.dipArr[i-1]
-    #             if d0 != d1:
-    #                 return 0
-    #             s0  = self.strikeArr[i-2]; s1 = self.strikeArr[i-1]
-    #             if s0 != s1:
-    #                 return 0
-    #     return 1
+        return
+    
+    def is_layer_model(self):
+        """
+        Check if the grid point model is a layerized one or not
+        """
+        if self.ngrid %2 !=0:
+            return False
+        self.vel2love()
+        if self.zArr[0] != 0.:
+            return False
+        indz0   = np.arange(int(self.ngrid/2)-1, dtype = np.int32)*2 + 1
+        indz1   = np.arange(int(self.ngrid/2)-1, dtype = np.int32)*2 + 2
+        if not np.allclose(self.zArr[indz0], self.zArr[indz1]):
+            return False
+        ind0    = np.arange(int(self.ngrid/2), dtype = np.int32)*2
+        ind1    = np.arange(int(self.ngrid/2), dtype = np.int32)*2 + 1
+        if not np.allclose(self.AArr[ind0], self.AArr[ind1]):
+            return False
+        if not np.allclose(self.CArr[ind0], self.CArr[ind1]):
+            return False
+        if not np.allclose(self.FArr[ind0], self.FArr[ind1]):
+            return False
+        if not np.allclose(self.LArr[ind0], self.LArr[ind1]):
+            return False
+        if not np.allclose(self.NArr[ind0], self.NArr[ind1]):
+            return False
+        if not np.allclose(self.rhoArr[ind0], self.rhoArr[ind1]):
+            return False
+        if self.tilt: 
+            if not np.allclose(self.dipArr[ind0], self.dipArr[ind1]):
+                return False
+            if not np.allclose(self.strikeArr[ind0], self.strikeArr[ind1]):
+                return False
+        return True
+    
+    
     
     
     

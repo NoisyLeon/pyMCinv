@@ -9,25 +9,27 @@ Module for inversion of 1d models
     email: lili.feng@colorado.edu
 """
 
-
 import numpy as np
 import os
-import vmodel
-import modparam
-import data
+import vmodel, modparam, data
 import copy
-import fast_surf
-import theo
+import fast_surf, theo
 import multiprocessing
 from functools import partial
 import time
 import random
 
-
-
 class vprofile1d(object):
-    
-    
+    """
+    An object for 1D velocity profile inversion
+    =====================================================================================================================
+    ::: parameters :::
+    data                - object storing input data
+    model               - object storing 1D model
+    eigkR, eigkL        - eigenkernel objects storing Rayleigh/Love eigenfunctions and sensitivity kernels
+    disprefR, disprefL  - flags indicating existence of sensitivity kernels for reference model
+    =====================================================================================================================
+    """
     def __init__(self):
         self.model      = vmodel.model1d()
         self.data       = data.data1d()
@@ -104,8 +106,8 @@ class vprofile1d(object):
         mtype   = mtype.lower()
         if mtype == 'iso' or mtype == 'isotropic':
             self.model.isomod.readmodtxt(infname)
-        elif mtype == 'tti':
-            self.model.isomod.readtimodtxt(infname)
+        # elif mtype == 'tti':
+        #     self.model.ttimod.readttimodtxt(infname)
         else:
             raise ValueError('Unexpected wave type: '+mtype)
         return
@@ -157,8 +159,7 @@ class vprofile1d(object):
 #            self.model.ttimod.update()
         else:
             raise ValueError('Unexpected wave type: '+ mtype)
-            return False
-        return True
+        return 
    
     
     def get_vmodel(self, mtype='iso'):
@@ -177,14 +178,16 @@ class vprofile1d(object):
 #            self.model.decompose()
         else:
             raise ValueError('Unexpected wave type: '+ mtype)
-            return False
-        return True
+        return 
     
     #----------------------------------------------------
     # forward modelling for surface waves
     #----------------------------------------------------
     
     def get_period(self):
+        """
+        get period array for forward modelling
+        """
         if self.data.dispR.npper>0:
             self.TRpiso     = self.data.dispR.pper.copy()
         if self.data.dispR.ngper>0:
@@ -204,78 +207,74 @@ class vprofile1d(object):
         =====================================================================
         """
         wtype   = wtype.lower()
+        if self.model.nlay == 0:
+            raise ValueError('No layerized model stored!')
         if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
-            ilvry               = 2
-            nper                = self.TRpiso.size
-            per                 = np.zeros(200, dtype=np.float64)
-            per[:nper]          = self.TRpiso[:]
-            qsinv               = 1./self.model.qs
-            (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(self.model.nlay, ilvry, \
-                                    self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
-            self.data.dispR.pvelp       = cr0[:nper]
-            self.data.dispR.gvelp       = ur0[:nper]
+            ilvry                   = 2
+            nper                    = self.TRpiso.size
+            per                     = np.zeros(200, dtype=np.float64)
+            per[:nper]              = self.TRpiso[:]
+            qsinv                   = 1./self.model.qs
+            (ur0,ul0,cr0,cl0)       = fast_surf.fast_surf(self.model.nlay, ilvry, \
+                                        self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
+            self.data.dispR.pvelp   = cr0[:nper]
+            self.data.dispR.gvelp   = ur0[:nper]
         elif wtype=='l' or wtype == 'love':
-            ilvry               = 1
-            nper                = self.TLpiso.size
-            per                 = np.zeros(200, dtype=np.float64)
-            per[:nper]          = self.TLpiso[:]
-            (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(self.model.nlay, ilvry, \
-                                    self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
-            self.data.dispL.pvelp     = cl0[:nper]
-            self.data.dispL.gvelp     = ul0[:nper]
+            ilvry                   = 1
+            nper                    = self.TLpiso.size
+            per                     = np.zeros(200, dtype=np.float64)
+            per[:nper]              = self.TLpiso[:]
+            (ur0,ul0,cr0,cl0)       = fast_surf.fast_surf(self.model.nlay, ilvry, \
+                                        self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
+            self.data.dispL.pvelp   = cl0[:nper]
+            self.data.dispL.gvelp   = ul0[:nper]
         return
 
-        
     #----------------------------------------------------
     # forward modelling for receiver function
     #----------------------------------------------------
     
-    def compute_rftheo(self, dtype='r', slowness = 0.06, din=None):
+    def compute_rftheo(self, slowness = 0.06, din=None):
         """
         compute receiver function of isotropic model using theo
         ===========================================================================================
         ::: input :::
-        dtype   - data type (radial or trnasverse)
         slowness- reference horizontal slowness (default - 0.06 s/km, 1./0.06=16.6667)
         din     - incident angle in degree (default - None, din will be computed from slowness)
         ===========================================================================================
         """
-        dtype   = dtype.lower()
-        if dtype=='r' or dtype == 'radial':
-            # initialize input model arrays
-            hin         = np.zeros(100, dtype=np.float64)
-            vsin        = np.zeros(100, dtype=np.float64)
-            vpvs        = np.zeros(100, dtype=np.float64)
-            qsin        = 600.*np.ones(100, dtype=np.float64)
-            qpin        = 1400.*np.ones(100, dtype=np.float64)
-            # assign model arrays to the input arrays
-            if self.model.nlay<100:
-                nl      = self.model.nlay
-            else:
-                nl      = 100
-            hin[:nl]    = self.model.h
-            vsin[:nl]   = self.model.vsv
-            vpvs[:nl]   = self.model.vpv/self.model.vsv
-            qsin[:nl]   = self.model.qs
-            qpin[:nl]   = self.model.qp
-            # fs/npts
-            fs          = self.fs
-            # # # ntimes      = 1000
-            ntimes      = self.npts
-            # incident angle
-            if din is None:
-                din     = 180.*np.arcsin(vsin[nl-1]*vpvs[nl-1]*slowness)/np.pi
-            # solve for receiver function using theo
-            rx 	                = theo.theo(nl, vsin, hin, vpvs, qpin, qsin, fs, din, 2.5, 0.005, 0, ntimes)
-            # store the predicted receiver function (ONLY radial component) to the data object
-            self.data.rfr.rfp   = rx[:self.npts]
-            self.data.rfr.tp    = np.arange(self.npts, dtype=np.float64)*1./self.fs
+        # initialize input model arrays
+        hin         = np.zeros(100, dtype=np.float64)
+        vsin        = np.zeros(100, dtype=np.float64)
+        vpvs        = np.zeros(100, dtype=np.float64)
+        qsin        = 600.*np.ones(100, dtype=np.float64)
+        qpin        = 1400.*np.ones(100, dtype=np.float64)
+        # assign model arrays to the input arrays
+        if self.model.nlay<100:
+            nl      = self.model.nlay
         else:
-            raise ValueError('Unexpected receiver function type: '+dtype)
+            nl      = 100
+        hin[:nl]    = self.model.h
+        vsin[:nl]   = self.model.vsv
+        vpvs[:nl]   = self.model.vpv/self.model.vsv
+        qsin[:nl]   = self.model.qs
+        qpin[:nl]   = self.model.qp
+        # fs/npts
+        fs          = self.fs
+        # # # ntimes      = 1000
+        ntimes      = self.npts
+        # incident angle
+        if din is None:
+            din     = 180.*np.arcsin(vsin[nl-1]*vpvs[nl-1]*slowness)/np.pi
+        # solve for receiver function using theo
+        rx 	        = theo.theo(nl, vsin, hin, vpvs, qpin, qsin, fs, din, 2.5, 0.005, 0, ntimes)
+        # store the predicted receiver function (ONLY radial component) to the data object
+        self.data.rfr.rfp   = rx[:self.npts]
+        self.data.rfr.tp    = np.arange(self.npts, dtype=np.float64)*1./self.fs
         return
-    
-
-    
+    #-------------------------------------------------
+    # computing misfit
+    #-------------------------------------------------
     def get_misfit(self, wdisp=1., rffactor=40.):
         """
         compute data misfit
@@ -292,6 +291,179 @@ class vprofile1d(object):
     # functions for inversions
     #-------------------------------------------------
     
+    def mc_inv_single_thread_iso(self, outdir, ind0=0, ind1=2000, indid=1, pfx='MC', dispdtype='ph', \
+                 wdisp=1., rffactor=40., monoc=True):
+        """
+        
+        """
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        # initializations
+        self.get_period()
+        
+        
+        
+        self.update_mod(mtype = 'iso')
+        self.get_vmodel(mtype = 'iso')
+        # initial run
+        self.compute_fsurf()
+        self.compute_rftheo()
+        self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+        # write initial model
+        outmod  = outdir+'/'+pfx+'.mod'
+        self.model.write_model(outfname=outmod, isotropic=True)
+        # write initial predicted data
+        if dispdtype != 'both':
+            outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
+        else:
+            outdisp = outdir+'/'+pfx+'.ph.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
+            outdisp = outdir+'/'+pfx+'.gr.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
+        outrf   = outdir+'/'+pfx+'.rf'
+        self.data.rfr.writerftxt(outfname=outrf)
+        # convert initial model to para
+        self.model.isomod.mod2para()
+        # likelihood/misfit
+        oldL        = self.data.L
+        oldmisfit   = self.data.misfit
+        print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
+        
+        run     = True     # the key that controls the sampling
+        inew    = 0     # count step (or new paras)
+        iacc    = 1     # count acceptance model
+        start   = time.time()
+        # output log files
+        outtxtfname = outdir+'/'+pfx+'.out'
+        outbinfname = outdir+'/MC.bin'
+        fidout      = open(outtxtfname, "w")
+        # fidoutb     = open(outbinfname, "wb")
+        while ( run ):
+            inew+= 1
+            # print 'run step = ',inew
+            # # # if ( inew > 100000 or iacc > 20000000 or time.time()-start > 7200.):
+            if ( inew > 10000 or iacc > 20000000):
+                run   = False
+            if (np.fmod(inew, 500) == 0):
+                print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
+            #------------------------------------------------------------------------------------------
+            # every 2500 step, perform a random walk with uniform random value in the paramerter space
+            #------------------------------------------------------------------------------------------
+            if ( np.fmod(inew, 1501) == 1500 ):
+                newmod      = copy.deepcopy(self.model.isomod)
+                newmod.para.new_paraval(0)
+                newmod.para2mod()
+                newmod.update()
+                # loop to find the "good" model,
+                # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                igood   = 0
+                while ( not newmod.isgood(0, 1, 1, 0)):
+                    igood   += igood + 1
+                    newmod  = copy.deepcopy(self.model.isomod)
+                    newmod.para.new_paraval(0)
+                    newmod.para2mod()
+                    newmod.update()
+                # assign new model to old ones
+                self.model.isomod   = newmod
+                self.get_vmodel()
+                # forward computation
+                self.compute_fsurf()
+                self.compute_rftheo()
+                self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+                oldL                = self.data.L
+                oldmisfit           = self.data.misfit
+                iacc                += 1
+                print 'Uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
+            #-------------------------------
+            # inversion part
+            #-------------------------------
+            # sample the posterior distribution ##########################################
+            if (wdisp >= 0 and wdisp <=1):
+                newmod      = copy.deepcopy(self.model.isomod)
+                # newmod.para = copy.deepcopy(self.model.isomod.para)
+                newmod.para.new_paraval(1)
+                newmod.para2mod()
+                newmod.update()
+                if monoc:
+                    # loop to find the "good" model,
+                    # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                    if not newmod.isgood(0, 1, 1, 0):
+                        continue
+                # assign new model to old ones
+                oldmod              = copy.deepcopy(self.model.isomod)
+                # oldmod.para         = copy.deepcopy(self.model.isomod.para)
+                self.model.isomod   = newmod
+                self.get_vmodel()
+                # forward computation
+                self.compute_fsurf()
+                self.compute_rftheo()
+                self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+                newL                = self.data.L
+                newmisfit           = self.data.misfit
+                # 
+                if newL < oldL:
+                    prob    = (oldL-newL)/oldL
+                    rnumb   = random.random()
+                    # reject the model
+                    if rnumb < prob:
+                        fidout.write("-1 %d %d " % (inew,iacc))
+                        for i in xrange(newmod.para.npara):
+                            fidout.write("%g " % newmod.para.paraval[i])
+                        fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
+                                self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
+                        ### ttmodel.writeb (para1, ffb,[-1,i,ii])
+                        # return to oldmod
+                        self.model.isomod   = oldmod
+                        continue
+                # accept the new model
+                fidout.write("1 %d %d " % (inew,iacc))
+                for i in xrange(newmod.para.npara):
+                    fidout.write("%g " % newmod.para.paraval[i])
+                fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
+                        self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
+                print "Accept a model", inew, iacc, oldL, newL, self.data.rfr.L, self.data.rfr.misfit,\
+                                self.data.dispR.L, self.data.dispR.misfit, time.time()-start
+                # # write accepted model
+                # outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
+                # vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
+                # # write corresponding data
+                # if dispdtype != 'both':
+                #     outdisp = outdir+'/'+pfx+'.'+dispdtype+'.%d.disp' % iacc
+                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                # else:
+                #     outdisp = outdir+'/'+pfx+'.ph.%d.disp' % iacc
+                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
+                #     outdisp = outdir+'/'+pfx+'.gr.%d.disp' % iacc
+                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
+                # # outdisp = outdir+'/'+pfx+'.%d.disp' % iacc
+                # # data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                # outrf   = outdir+'/'+pfx+'.%d.rf' % iacc
+                # data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
+                # assign likelihood/misfit
+                oldL        = newL
+                oldmisfit   = newmisfit
+                iacc        += 1
+                continue
+        #     else:
+        #         if monoc:
+        #             newmod  = self.model.isomod.copy()
+        #             newmod.para.new_paraval(1)
+        #             newmod.para2mod()
+        #             newmod.update()
+        #             if not newmod.isgood(0, 1, 1, 0):
+        #                 continue
+        #         else:
+        #             newmod  = self.model.isomod.copy()
+        #             newmod.para.new_paraval(0)
+        #         fidout.write("-2 %d 0 " % inew)
+        #         for i in xrange(newmod.para.npara):
+        #             fidout.write("%g " % newmod.para.paraval[i])
+        #         fidout.write("\n")
+        #         self.model.isomod   = newmod
+        #         continue
+        # fidout.close()
+        return
     
     def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC'):
         """
