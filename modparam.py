@@ -68,7 +68,7 @@ class para1d(object):
     def __init__(self):
         self.npara          = 0
         self.maxind         = 6
-        self.isspace        = 0
+        self.isspace        = False
         return
     
     def init_arr(self, npara):
@@ -125,7 +125,7 @@ class para1d(object):
         ===============================================================================
         """
         if not self.isspace:
-            printf('Parameter space for perturbation has not been initialized yet!\n')
+            print('Parameter space for perturbation has not been initialized yet!')
             return False
         if ptype == 0:
             self.paraval[:] = np.random.uniform(self.space[0, :], self.space[1, :], size=self.npara)
@@ -150,18 +150,6 @@ class para1d(object):
         else:
             raise ValueError('Unexpected perturbation type!')
         return True
-    # 
-    # cpdef copy(self):
-    #     """
-    #     return a copy of the object
-    #     """
-    #     outpara             = para1d()
-    #     outpara.init_arr(self.npara)
-    #     outpara.paraindex   = self.paraindex.copy()
-    #     outpara.paraval     = self.paraval.copy()
-    #     outpara.isspace     = self.isspace
-    #     outpara.space       = self.space.copy()
-    #     return outpara
     
 ####################################################
 # auxiliary functions
@@ -319,15 +307,15 @@ class isomod(object):
             self.numbp[iid]         = tnp 
             if (int(l2[1]) == 5):  # water layer			
                 if (tnp != 1):
-                    print " Water layer! Only one value for Vp"
+                    print('Water layer! Only one value for Vp')
                     return False
             if (int(l2[1]) == 4):
                 if (tnp != 2):
-                    print "Error: only two values needed for gradient type, and one value for vpvs"
+                    print('Error: only two values needed for gradient type, and one value for vpvs')
                     print tnp
                     return False
             if ( (int(l2[1])==1 and len(l2) != 4+2*tnp + 1) or (int(l2[1]) == 2 and len(l2) != 4+tnp + 1) ): # tnp parameters (+ tnp ratio for layered model) + 1 vpvs parameter
-                print "wrong input !!!"
+                print('wrong input !!!')
                 return False
             nr          = 0
             for i in xrange(tnp):
@@ -337,7 +325,6 @@ class isomod(object):
                     nr  += 1
             self.vpvs[iid]         = (float(l2[-1]))-0.
         return True
-    
 
     def bspline(self, i):
         """

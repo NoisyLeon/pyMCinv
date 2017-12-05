@@ -178,16 +178,13 @@ class disp(object):
     nper    - common number of periods
     ==========================================================================
     """
-
-    
     def __init__(self):
         self.npper  = 0
         self.ngper  = 0
         self.nper   = 0
-        self.isphase= 0
-        self.isgroup= 0
+        self.isphase= False
+        self.isgroup= False
         return
-    
     #----------------------------------------------------
     # I/O functions
     #----------------------------------------------------
@@ -231,7 +228,7 @@ class disp(object):
                 self.stdgvelo= np.ones(self.ngper, dtype=np.float64)
             self.isgroup  = True
         else:
-            raise ValueError('Unexpected dtype = '+dtype)
+            raise ValueError('Unexpected dtype: '+dtype)
         return True
     
     def writedisptxt(self, outfname, dtype='ph'):
@@ -487,9 +484,9 @@ class disp(object):
         self.S          = temp
         self.misfit     = np.sqrt(temp/(self.npper+self.ngper))
         if temp > 50.:
-            temp    = np.sqrt(temp*50.)
+            temp        = np.sqrt(temp*50.)
         if temp > 50.:
-            temp    = np.sqrt(temp*50.)
+            temp        = np.sqrt(temp*50.)
         self.L          = np.exp(-0.5 * temp)
         return True
     
@@ -497,17 +494,17 @@ class disp(object):
         """
         compute misfit for inversion of tilted TI models, only applies to phase velocity dispersion
         """
-        temp1       = ((self.pvelo - self.pvelp)**2/self.stdpvelo**2).sum()
-        temp2       = ((self.pampo - self.pampp)**2/self.stdpampo**2).sum()
-        phidiff     = abs(self.pphio - self.pphip)
-        phidiff[phidiff>90.]  = 180. - phidiff[phidiff>90.]
-        temp3       = (phidiff**2/self.stdpphio**2).sum()
-        self.pS     = temp1+temp2+temp3
-        tS          = temp1+temp2+temp3
-        self.pmisfit= np.sqrt(tS/3./self.npper)
+        temp1                   = ((self.pvelo - self.pvelp)**2/self.stdpvelo**2).sum()
+        temp2                   = ((self.pampo - self.pampp)**2/self.stdpampo**2).sum()
+        phidiff                 = abs(self.pphio - self.pphip)
+        phidiff[phidiff>90.]    = 180. - phidiff[phidiff>90.]
+        temp3                   = (phidiff**2/self.stdpphio**2).sum()
+        self.pS                 = temp1+temp2+temp3
+        tS                      = temp1+temp2+temp3
+        self.pmisfit            = np.sqrt(tS/3./self.npper)
         if tS > 50.:
-            tS      = np.sqrt(tS*50.)
-        self.pL     = np.exp(-0.5 * tS)
+            tS                  = np.sqrt(tS*50.)
+        self.pL                 = np.exp(-0.5 * tS)
         return
 # #    
 #     cpdef get_res_tti(self):
@@ -553,8 +550,6 @@ class data1d(object):
     L       - likelihood value
     ==========================================================================
     """
-
-    
     def __init__(self):
         self.dispR  = disp()
         self.dispL  = disp()
