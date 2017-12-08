@@ -336,162 +336,166 @@ class vprofile1d(object):
             self.compute_fsurf()
             self.compute_rftheo()
             self.get_misfit(wdisp=wdisp, rffactor=rffactor)
-            
-        # # write initial model
-        # outmod  = outdir+'/'+pfx+'.mod'
-        # self.model.write_model(outfname=outmod, isotropic=True)
-        # # write initial predicted data
-        # if dispdtype != 'both':
-        #     outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
-        #     self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
-        # else:
-        #     outdisp = outdir+'/'+pfx+'.ph.disp'
-        #     self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
-        #     outdisp = outdir+'/'+pfx+'.gr.disp'
-        #     self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
-        # outrf   = outdir+'/'+pfx+'.rf'
-        # self.data.rfr.writerftxt(outfname=outrf)
-        # # convert initial model to para
-        # self.model.isomod.mod2para()
-        # # likelihood/misfit
-        # oldL        = self.data.L
-        # oldmisfit   = self.data.misfit
-        # print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
-        # 
-        # run     = True     # the key that controls the sampling
-        # inew    = 0     # count step (or new paras)
-        # iacc    = 1     # count acceptance model
-        # start   = time.time()
-        # # output log files
-        # outtxtfname = outdir+'/'+pfx+'.out'
-        # outbinfname = outdir+'/MC.bin'
-        # fidout      = open(outtxtfname, "w")
-        # # fidoutb     = open(outbinfname, "wb")
-        # while ( run ):
-        #     inew+= 1
-        #     # print 'run step = ',inew
-        #     # # # if ( inew > 100000 or iacc > 20000000 or time.time()-start > 7200.):
-        #     if ( inew > 10000 or iacc > 20000000):
-        #         run   = False
-        #     if (np.fmod(inew, 500) == 0):
-        #         print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
-        #     #------------------------------------------------------------------------------------------
-        #     # every 2500 step, perform a random walk with uniform random value in the paramerter space
-        #     #------------------------------------------------------------------------------------------
-        #     if ( np.fmod(inew, 1501) == 1500 ):
-        #         newmod      = copy.deepcopy(self.model.isomod)
-        #         newmod.para.new_paraval(0)
-        #         newmod.para2mod()
-        #         newmod.update()
-        #         # loop to find the "good" model,
-        #         # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
-        #         igood   = 0
-        #         while ( not newmod.isgood(0, 1, 1, 0)):
-        #             igood   += igood + 1
-        #             newmod  = copy.deepcopy(self.model.isomod)
-        #             newmod.para.new_paraval(0)
+            # likelihood/misfit
+            oldL        = self.data.L
+            oldmisfit   = self.data.misfit
+            print 'Initial start, runid = '+str(indid)+', likelihood =', self.data.L, 'misfit =',self.data.misfit
+        # write initial model
+        outmod  = outdir+'/'+pfx+'.'+str(indid)+'.mod'
+        self.model.write_model(outfname=outmod, isotropic=True)
+        # write initial predicted data
+        if dispdtype != 'both':
+            outdisp = outdir+'/'+pfx+'.'+str(indid)+'.'+dispdtype+'.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
+        else:
+            outdisp = outdir+'/'+pfx+'.'+str(indid)+'.ph.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
+            outdisp = outdir+'/'+pfx+'.'+str(indid)+'.gr.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
+        outrf       = outdir+'/'+pfx+'.'+str(indid)+'.rf'
+        self.data.rfr.writerftxt(outfname=outrf)
+        # convert initial model to para
+        self.model.isomod.mod2para()
+        run         = True      # the key that controls the sampling
+        inew        = ind0      # count step (or new paras)
+        iacc        = 0         # count acceptance model
+        start       = time.time()
+        # initialize output array
+        dispArr         = np.zeros((self.data.dispR.npper, ind1-ind0), dtype=np.float64)
+        rfArr           = np.zeros((self.data.rfr.npts, ind1-ind0), dtype=np.float64)
+        misfitArr       = np.zeros((3+self.model.isomod.para.npara+7+1, ind1-ind0), dtype=np.float64)
+        # store first run in output arrays
+        inew            += 1
+        dispArr[:,0]    = self.data.dispR.pvelp[:]
+        rfArr[:,0]      = self.data.rfr.rfp[:]
+        misfitArr[:4, 0]= np.array([-1, ind0+1, 0, indid])
+        misfitArr[4:4+self.model.isomod.para.npara, 0]  = self.model.isomod.para.paraval[:]
+        misfitArr[4+self.model.isomod.para.npara:, 0]   = np.array([oldL, oldmisfit, self.data.rfr.L, self.data.rfr.misfit, \
+                                                            self.data.dispR.L, self.data.dispR.misfit, time.time()-start])
+        while ( run ):
+            inew    += 1
+            # print 'run step = ',inew
+            if ( inew > 10000 or iacc > 20000000):
+                run   = False
+            if (np.fmod(inew, 500) == 0):
+                print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
+            #------------------------------------------------------------------------------------------
+            # every 2500 step, perform a random walk with uniform random value in the paramerter space
+            #------------------------------------------------------------------------------------------
+            if ( np.fmod(inew, 1501) == 1500 ):
+                newmod      = copy.deepcopy(self.model.isomod)
+                newmod.para.new_paraval(0)
+                newmod.para2mod()
+                newmod.update()
+                # loop to find the "good" model,
+                # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                igood   = 0
+                while ( not newmod.isgood(0, 1, 1, 0)):
+                    igood   += igood + 1
+                    newmod  = copy.deepcopy(self.model.isomod)
+                    newmod.para.new_paraval(0)
+                    newmod.para2mod()
+                    newmod.update()
+                # assign new model to old ones
+                self.model.isomod   = newmod
+                self.get_vmodel()
+                # forward computation
+                self.compute_fsurf()
+                self.compute_rftheo()
+                self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+                oldL                = self.data.L
+                oldmisfit           = self.data.misfit
+                iacc                += 1
+                print 'Uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
+            #-------------------------------
+            # inversion part
+            #-------------------------------
+            # sample the posterior distribution ##########################################
+            if (wdisp >= 0 and wdisp <=1):
+                newmod      = copy.deepcopy(self.model.isomod)
+                # newmod.para = copy.deepcopy(self.model.isomod.para)
+                newmod.para.new_paraval(1)
+                newmod.para2mod()
+                newmod.update()
+                if monoc:
+                    # loop to find the "good" model,
+                    # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                    if not newmod.isgood(0, 1, 1, 0):
+                        continue
+                # assign new model to old ones
+                oldmod              = copy.deepcopy(self.model.isomod)
+                # oldmod.para         = copy.deepcopy(self.model.isomod.para)
+                self.model.isomod   = newmod
+                self.get_vmodel()
+                # forward computation
+                self.compute_fsurf()
+                self.compute_rftheo()
+                self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+                newL                = self.data.L
+                newmisfit           = self.data.misfit
+                # 
+                if newL < oldL:
+                    prob    = (oldL-newL)/oldL
+                    rnumb   = random.random()
+                    # reject the model
+                    if rnumb < prob:
+                        fidout.write("-1 %d %d " % (inew,iacc))
+                        for i in xrange(newmod.para.npara):
+                            fidout.write("%g " % newmod.para.paraval[i])
+                        fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
+                                self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
+                        ### ttmodel.writeb (para1, ffb,[-1,i,ii])
+                        # return to oldmod
+                        self.model.isomod   = oldmod
+                        continue
+                # accept the new model
+                fidout.write("1 %d %d " % (inew,iacc))
+                for i in xrange(newmod.para.npara):
+                    fidout.write("%g " % newmod.para.paraval[i])
+                fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
+                        self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
+                print "Accept a model", inew, iacc, oldL, newL, self.data.rfr.L, self.data.rfr.misfit,\
+                                self.data.dispR.L, self.data.dispR.misfit, time.time()-start
+                # # write accepted model
+                # outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
+                # vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
+                # # write corresponding data
+                # if dispdtype != 'both':
+                #     outdisp = outdir+'/'+pfx+'.'+dispdtype+'.%d.disp' % iacc
+                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                # else:
+                #     outdisp = outdir+'/'+pfx+'.ph.%d.disp' % iacc
+                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
+                #     outdisp = outdir+'/'+pfx+'.gr.%d.disp' % iacc
+                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
+                # # outdisp = outdir+'/'+pfx+'.%d.disp' % iacc
+                # # data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
+                # outrf   = outdir+'/'+pfx+'.%d.rf' % iacc
+                # data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
+                # assign likelihood/misfit
+                oldL        = newL
+                oldmisfit   = newmisfit
+                iacc        += 1
+                continue
+        #     else:
+        #         if monoc:
+        #             newmod  = self.model.isomod.copy()
+        #             newmod.para.new_paraval(1)
         #             newmod.para2mod()
         #             newmod.update()
-        #         # assign new model to old ones
-        #         self.model.isomod   = newmod
-        #         self.get_vmodel()
-        #         # forward computation
-        #         self.compute_fsurf()
-        #         self.compute_rftheo()
-        #         self.get_misfit(wdisp=wdisp, rffactor=rffactor)
-        #         oldL                = self.data.L
-        #         oldmisfit           = self.data.misfit
-        #         iacc                += 1
-        #         print 'Uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
-        #     #-------------------------------
-        #     # inversion part
-        #     #-------------------------------
-        #     # sample the posterior distribution ##########################################
-        #     if (wdisp >= 0 and wdisp <=1):
-        #         newmod      = copy.deepcopy(self.model.isomod)
-        #         # newmod.para = copy.deepcopy(self.model.isomod.para)
-        #         newmod.para.new_paraval(1)
-        #         newmod.para2mod()
-        #         newmod.update()
-        #         if monoc:
-        #             # loop to find the "good" model,
-        #             # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
         #             if not newmod.isgood(0, 1, 1, 0):
         #                 continue
-        #         # assign new model to old ones
-        #         oldmod              = copy.deepcopy(self.model.isomod)
-        #         # oldmod.para         = copy.deepcopy(self.model.isomod.para)
-        #         self.model.isomod   = newmod
-        #         self.get_vmodel()
-        #         # forward computation
-        #         self.compute_fsurf()
-        #         self.compute_rftheo()
-        #         self.get_misfit(wdisp=wdisp, rffactor=rffactor)
-        #         newL                = self.data.L
-        #         newmisfit           = self.data.misfit
-        #         # 
-        #         if newL < oldL:
-        #             prob    = (oldL-newL)/oldL
-        #             rnumb   = random.random()
-        #             # reject the model
-        #             if rnumb < prob:
-        #                 fidout.write("-1 %d %d " % (inew,iacc))
-        #                 for i in xrange(newmod.para.npara):
-        #                     fidout.write("%g " % newmod.para.paraval[i])
-        #                 fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
-        #                         self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
-        #                 ### ttmodel.writeb (para1, ffb,[-1,i,ii])
-        #                 # return to oldmod
-        #                 self.model.isomod   = oldmod
-        #                 continue
-        #         # accept the new model
-        #         fidout.write("1 %d %d " % (inew,iacc))
+        #         else:
+        #             newmod  = self.model.isomod.copy()
+        #             newmod.para.new_paraval(0)
+        #         fidout.write("-2 %d 0 " % inew)
         #         for i in xrange(newmod.para.npara):
         #             fidout.write("%g " % newmod.para.paraval[i])
-        #         fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
-        #                 self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
-        #         print "Accept a model", inew, iacc, oldL, newL, self.data.rfr.L, self.data.rfr.misfit,\
-        #                         self.data.dispR.L, self.data.dispR.misfit, time.time()-start
-        #         # # write accepted model
-        #         # outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
-        #         # vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
-        #         # # write corresponding data
-        #         # if dispdtype != 'both':
-        #         #     outdisp = outdir+'/'+pfx+'.'+dispdtype+'.%d.disp' % iacc
-        #         #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
-        #         # else:
-        #         #     outdisp = outdir+'/'+pfx+'.ph.%d.disp' % iacc
-        #         #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
-        #         #     outdisp = outdir+'/'+pfx+'.gr.%d.disp' % iacc
-        #         #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
-        #         # # outdisp = outdir+'/'+pfx+'.%d.disp' % iacc
-        #         # # data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
-        #         # outrf   = outdir+'/'+pfx+'.%d.rf' % iacc
-        #         # data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
-        #         # assign likelihood/misfit
-        #         oldL        = newL
-        #         oldmisfit   = newmisfit
-        #         iacc        += 1
+        #         fidout.write("\n")
+        #         self.model.isomod   = newmod
         #         continue
-        # #     else:
-        # #         if monoc:
-        # #             newmod  = self.model.isomod.copy()
-        # #             newmod.para.new_paraval(1)
-        # #             newmod.para2mod()
-        # #             newmod.update()
-        # #             if not newmod.isgood(0, 1, 1, 0):
-        # #                 continue
-        # #         else:
-        # #             newmod  = self.model.isomod.copy()
-        # #             newmod.para.new_paraval(0)
-        # #         fidout.write("-2 %d 0 " % inew)
-        # #         for i in xrange(newmod.para.npara):
-        # #             fidout.write("%g " % newmod.para.paraval[i])
-        # #         fidout.write("\n")
-        # #         self.model.isomod   = newmod
-        # #         continue
-        # # fidout.close()
-        # return
+        # fidout.close()
+        return
     
     def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC'):
         """
