@@ -10,6 +10,7 @@ Module for handling input data for Bayesian Monte Carlo inversion.
     email: lili.feng@colorado.edu
 """
 import numpy as np
+import matplotlib.pyplot as plt
 
 class rf(object):
     """
@@ -51,6 +52,29 @@ class rf(object):
         self.rfo    = inArr[:,1]
         try:
             self.stdrfo = inArr[:,2]
+        except IndexError:
+            self.stdrfo = np.ones(self.npts, dtype=np.float64)*0.1
+        self.fs     = 1./(self.to[1] - self.to[0])
+        return True
+    
+    def get_rf(self, indata):
+        """
+        get input receiver function data
+        ==========================================================================
+        ::: input :::
+        indata      - input data array (3, N)
+        ::: output :::
+        receiver function data is stored in self
+        ==========================================================================
+        """
+        if self.npts > 0:
+            print 'receiver function data is already stored!'
+            return False
+        self.npts   = indata.shape[1]        
+        self.to     = indata[0, :]
+        self.rfo    = indata[1, :]
+        try:
+            self.stdrfo = indata[2, :]
         except IndexError:
             self.stdrfo = np.ones(self.npts, dtype=np.float64)*0.1
         self.fs     = 1./(self.to[1] - self.to[0])
@@ -132,6 +156,24 @@ class rf(object):
             tS      = np.sqrt(tS*50.)
         self.L      = np.exp(-0.5 * tS)
         return True
+    
+    def plot(self, showfig=True, prediction=False):
+        if self.npts == 0:
+            print 'No data for plotting!'
+            return
+        # First illustrate basic pyplot interface, using defaults where possible.
+        plt.figure()
+        ax  = plt.subplot()
+        plt.errorbar(self.to, self.rfo, yerr=self.stdrfo)
+        if prediction:
+            plt.plot(self.to, self.rfp, 'r--', lw=3)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel('time (sec)', fontsize=30)
+        plt.ylabel('ampltude', fontsize=30)
+        plt.title('receiver function', fontsize=30)
+        if showfig:
+            plt.show()
     
     
 class disp(object):
@@ -224,6 +266,46 @@ class disp(object):
             self.ngper= self.gper.size
             try:
                 self.stdgvelo= inArr[:,2]
+            except IndexError:
+                self.stdgvelo= np.ones(self.ngper, dtype=np.float64)
+            self.isgroup  = True
+        else:
+            raise ValueError('Unexpected dtype: '+dtype)
+        return True
+    
+    def get_disp(self, indata, dtype='ph'):
+        """
+        get dispersion curve data from a input numpy array
+        ==========================================================================
+        ::: input :::
+        indata      - input array (3, N)
+        dtype       - data type (phase/group)
+        ::: output :::
+        dispersion curve is stored
+        ==========================================================================
+        """
+        dtype   = dtype.lower()
+        if dtype == 'ph' or dtype == 'phase':
+            if self.isphase:
+                print 'phase velocity data is already stored!'
+                return False
+            self.pper   = indata[0, :]
+            self.pvelo  = indata[1, :]
+            self.npper  = self.pper.size
+            try:
+                self.stdpvelo= indata[2, :]
+            except IndexError:
+                self.stdpvelo= np.ones(self.npper, dtype=np.float64)
+            self.isphase = True
+        elif dtype == 'gr' or dtype == 'group':
+            if self.isgroup:
+                print 'group velocity data is already stored!'
+                return False
+            self.gper = indata[0, :]
+            self.gvelo= indata[1, :]
+            self.ngper= self.gper.size
+            try:
+                self.stdgvelo= indata[2, :]
             except IndexError:
                 self.stdgvelo= np.ones(self.ngper, dtype=np.float64)
             self.isgroup  = True

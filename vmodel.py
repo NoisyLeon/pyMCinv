@@ -46,7 +46,7 @@ class model1d(object):
     
     def read_model(self, infname, unit=1., isotropic=True, tilt=False,
                 indz=0, indvpv=1, indvsv=2, indrho=3, indvph=4, indvsh=5, 
-            indeta=6, inddip=7, indstrike=8):
+                    indeta=6, inddip=7, indstrike=8):
         """
         Read model in txt format
         ===========================================================================================================

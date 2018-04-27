@@ -29,6 +29,8 @@ from functools import partial
 import multiprocessing
 from subprocess import call
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm
+import obspy
+import vprofile
 
 class invASDF(pyasdf.ASDFDataSet):
     """ An object to for MCMC inversion based on ASDF database
@@ -133,7 +135,11 @@ class invASDF(pyasdf.ASDFDataSet):
             self.add_auxiliary_data(data=data, data_type='Ref'+reftype, path=staid_aux, parameters=ref_header)
         return
     
-    def read_raytomo_dbase(self, inh5fname, runid, create_header=True):
+    def read_raytomo_dbase(self, inh5fname, runid, dtype='ph', wtype='ray', create_header=True, Tmin=-999, Tmax=999, verbose=False):
+        if dtype is not 'ph' and dtype is not 'gr':
+            raise ValueError('data type can only be ph or gr!')
+        if wtype is not 'ray' and wtype is not 'lov':
+            raise ValueError('wave type can only be ray or lov!')
         stalst      = self.waveforms.list()
         if len(stalst) == 0:
             print 'Inversion with surface wave datasets only, not added yet!'
@@ -162,70 +168,149 @@ class invASDF(pyasdf.ASDFDataSet):
             inv_header  = {'minlon': minlon, 'maxlon': maxlon, 'minlat': minlat, 'maxlat': maxlat,
                            'dlon': dlon, 'dlat': dlat, 'dlon_HD': dlon_HD, 'dlat_HD': dlat_HD}
             self.add_auxiliary_data(data=np.array([]), data_type='Header', path='raytomo', parameters=inv_header)
-        
         self._get_lon_lat_arr(path='raytomo', hd=True)
-        # for staid in stalst:
-        #     netcode, stacode    = staid.split('.')
-        #     staid_aux           = netcode+'_'+stacode
-        #     stla, elev, stlo    = self.waveforms[staid].coordinates.values()
-        #     if stla > maxlat or stla < minlat or stlo > maxlon or stlo < minlon:
-        #         print 'WARNING: station: '+ staid+', lat = '+str(stla)+' lon = '+str(stlo)+', out of the range of tomograpic maps!'
-        #         continue
-        #     disp_v              = np.array([])
-        #     disp_un             = np.array([])
-        #     T                   = np.array([])
-        #     for per in pers:
-        #         try:
-        #             pergrp      = grp['%g_sec'%( per )]
-        #             vel         = pergrp['vel_iso_HD'].value
-        #             vel_sem     = pergrp['vel_sem_HD'].value
-        #         except KeyError:
-        #             print 'No data for T = '+str(per)+' sec'
-        #             continue
-        #         T               = np.append(T, per)
+        for staid in stalst:
+            netcode, stacode    = staid.split('.')
+            staid_aux           = netcode+'_'+stacode
+            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+            if stlo < 0.:
+                stlo            += 360.
+            if stla > maxlat or stla < minlat or stlo > maxlon or stlo < minlon:
+                print 'WARNING: station: '+ staid+', lat = '+str(stla)+' lon = '+str(stlo)+', out of the range of tomograpic maps!'
+                continue
+            disp_v              = np.array([])
+            disp_un             = np.array([])
+            T                   = np.array([])
+            #-----------------------------
+            # determine the indices
+            #-----------------------------
+            ind_lon             = np.where(stlo<=self.lons)[0][0]
+            find_lon            = ind_lon            
+            ind_lat             = np.where(stla<=self.lats)[0][0]
+            find_lat            = ind_lat
+            # point 1
+            distmin, az, baz    = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat], self.lons[ind_lon]) # distance is in m
+            # point 2
+            dist, az, baz       = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat], self.lons[ind_lon-1]) # distance is in m
+            if dist < distmin:
+                find_lon        = ind_lon-1
+                distmin         = dist
+            # point 3
+            dist, az, baz       = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat-1], self.lons[ind_lon]) # distance is in m
+            if dist < distmin:
+                find_lat        = ind_lat-1
+                distmin         = dist
+            # point 4
+            dist, az, baz       = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat-1], self.lons[ind_lon-1]) # distance is in m
+            if dist < distmin:
+                find_lat        = ind_lat-1
+                find_lon        = ind_lon-1
+                distmin         = dist
+            for per in pers:
+                if per < Tmin or per > Tmax:
+                    continue
+                try:
+                    pergrp      = grp['%g_sec'%( per )]
+                    vel         = pergrp['vel_iso_HD'].value
+                    vel_sem     = pergrp['vel_sem_HD'].value
+                except KeyError:
+                    if verbose:
+                        print 'No data for T = '+str(per)+' sec'
+                    continue
+                T               = np.append(T, per)
+                disp_v          = np.append(disp_v, vel[find_lat, find_lon])
+                disp_un         = np.append(disp_un, vel_sem[find_lat, find_lon])
+            data                = np.zeros((3, T.size))
+            data[0, :]          = T[:]
+            data[1, :]          = disp_v[:]
+            data[2, :]          = disp_un[:]
+            disp_header         = {'Np': T.size}
+            self.add_auxiliary_data(data=data, data_type='RayDISPcurve', path=wtype+'/'+dtype+'/'+staid_aux, parameters=disp_header)
+        indset.close()
+        return
+    
+    def read_moho_depth(self, infname='crsthk.xyz'):
+        inArr   = np.loadtxt(infname)
+        lonArr  = inArr[:, 0]
+        lonArr  = lonArr.reshape(lonArr.size/360, 360)
+        latArr  = inArr[:, 1]
+        latArr  = latArr.reshape(latArr.size/360, 360)
+        depthArr= inArr[:, 2]
+        depthArr= depthArr.reshape(depthArr.size/360, 360)
         
-        # 
-        # mask1           = grp['mask1']
-        # mask2           = grp['mask2']
-        # index1          = np.logical_not(mask1)
-        # index2          = np.logical_not(mask2)
-        # for per in pers:
-        #     working_per = workingdir+'/'+str(per)+'sec'
-        #     if not os.path.isdir(working_per):
-        #         os.makedirs(working_per)
-        #     #-------------------------------
-        #     # get data
-        #     #-------------------------------
-        #     try:
-        #         pergrp      = grp['%g_sec'%( per )]
-        #         vel         = pergrp['vel_iso'].value
-        #         vel_sem     = pergrp['vel_sem'].value
-        #     except KeyError:
-        #         print 'No data for T = '+str(per)+' sec'
-        #         continue
-        #     #-------------------------------
-        #     # interpolation for velocity
-        #     #-------------------------------
-        #     field2d_v   = field2d_earth.Field2d(minlon=minlon, maxlon=maxlon, dlon=dlon,
-        #                     minlat=minlat, maxlat=maxlat, dlat=dlat, period=per, evlo=(minlon+maxlon)/2., evla=(minlat+maxlat)/2.)
-        #     field2d_v.read_array(lonArr = self.lonArr[index1], latArr = self.latArr[index1], ZarrIn = vel[index1])
-        #     outfname    = 'interp_vel.lst'
-        #     field2d_v.interp_surface(workingdir=working_per, outfname=outfname)
-        #     vHD_dset    = pergrp.create_dataset(name='vel_iso_HD', data=field2d_v.Zarr)
-        #     #-------------------------------
-        #     # interpolation for uncertainties
-        #     #-------------------------------
-        #     field2d_un  = field2d_earth.Field2d(minlon=minlon, maxlon=maxlon, dlon=dlon,
-        #                     minlat=minlat, maxlat=maxlat, dlat=dlat, period=per, evlo=(minlon+maxlon)/2., evla=(minlat+maxlat)/2.)
-        #     field2d_un.read_array(lonArr = self.lonArr[index2], latArr = self.latArr[index2], ZarrIn = vel_sem[index2])
-        #     outfname    = 'interp_un.lst'
-        #     field2d_un.interp_surface(workingdir=working_per, outfname=outfname)
-        #     unHD_dset   = pergrp.create_dataset(name='vel_sem_HD', data=field2d_un.Zarr)
-        # if deletetxt:
-        #     shutil.rmtree(workingdir)
-        # 
-        # 
-        # indset.close()
+        
+        stalst                  = self.waveforms.list()
+        if len(stalst) == 0:
+            print 'Inversion with surface wave datasets only, not added yet!'
+            return
+        for staid in stalst:
+            netcode, stacode    = staid.split('.')
+            staid_aux           = netcode+'_'+stacode
+            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+            if stlo > 180.:
+                stlo            -= 360.
+            whereArr= np.where((lonArr>=stlo)*(latArr>=stla))
+            ind_lat = whereArr[0][-1]
+            ind_lon = whereArr[1][0]
+            # check
+            lon     = lonArr[ind_lat, ind_lon]
+            lat     = latArr[ind_lat, ind_lon]
+            if abs(lon-stlo) > 1. or abs(lat - stla) > 1.:
+                print 'ERROR!',lon,lat,stlo,stla
+                
+        
+    
+    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False):
+        if instafname is None:
+            stalst  = self.waveforms.list()
+        for staid in stalst:
+            netcode, stacode    = staid.split('.')
+            staid_aux           = netcode+'_'+stacode
+            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+            #-----------------------------
+            # get data
+            #-----------------------------
+            vpr                 = vprofile.vprofile1d()
+            if phase:
+                try:
+                    indisp      = self.auxiliary_data['RayDISPcurve']['ray']['ph'][staid_aux].data.value
+                    vpr.get_disp(indata=indisp, dtype='ph', wtype='ray')
+                except KeyError:
+                    print 'WARNING: No phase dispersion data for station: '+staid
+            if group:
+                try:
+                    indisp      = self.auxiliary_data['RayDISPcurve']['ray']['gr'][staid_aux].data.value
+                    vpr.get_disp(indata=indisp, dtype='gr', wtype='ray')
+                except KeyError:
+                    print 'WARNING: No group dispersion data for station: '+staid
+            if vpr.data.dispR.npper == 0 and vpr.data.dispR.ngper == 0:
+                print 'WARNING: No dispersion data for station: '+staid 
+                continue
+            if ref:
+                try:
+                    inrf        = self.auxiliary_data['RefR'][staid_aux+'_P'].data.value
+                    N           = self.auxiliary_data['RefR'][staid_aux+'_P'].parameters['npts']
+                    dt          = self.auxiliary_data['RefR'][staid_aux+'_P'].parameters['delta']
+                    indata      = np.zeros((3, N))
+                    indata[0, :]= np.arange(N)*dt
+                    indata[1, :]= inrf[0, :]
+                    indata[2, :]= inrf[3, :]
+                    vpr.get_rf(indata = indata)
+                except KeyError:
+                    print 'WARNING: No phase dispersion data for station: '+staid
+            #-----------------------------
+            # initial model parameters
+            #-----------------------------
+            if staid == 'AK.WRH':
+                return vpr
+                
+            # vpr.readdisp(infname='./old_code/TEST/Q22A.com.txt')
+            # vpr.readrf(infname='./old_code/TEST/in.rf')
+            # vpr.readmod(infname='./old_code/TEST/Q22A.mod1')
+            # # vpr.readpara(infname='../old_code/TEST/in.para')
+            # vpr.getpara()
+    
+    
         
             
         

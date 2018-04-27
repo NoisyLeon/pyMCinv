@@ -69,7 +69,32 @@ class vprofile1d(object):
         else:
             raise ValueError('Unexpected wave type: '+wtype)
         return
-
+    
+    def get_disp(self, indata, dtype='ph', wtype='ray'):
+        """
+        read dispersion curve data from a txt file
+        ===========================================================
+        ::: input :::
+        indata      - input array (3, N)
+        dtype       - data type (phase or group)
+        wtype       - wave type (Rayleigh or Love)
+        ===========================================================
+        """
+        dtype   = dtype.lower()
+        wtype   = wtype.lower()
+        if wtype=='ray' or wtype=='rayleigh' or wtype=='r':
+            self.data.dispR.get_disp(indata=indata, dtype=dtype)
+            if self.data.dispR.npper>0:
+                self.data.dispR.pvelp = np.zeros(self.data.dispR.npper, dtype=np.float64)
+                self.data.dispR.gvelp = np.zeros(self.data.dispR.npper, dtype=np.float64)
+        elif wtype=='lov' or wtype=='love' or wtype=='l':
+            self.data.dispL.get_disp(indata=indata, dtype=dtype)
+            if self.data.dispL.npper>0:
+                self.data.dispL.pvelp = np.zeros(self.data.dispL.npper, dtype=np.float64)
+                self.data.dispL.gvelp = np.zeros(self.data.dispL.npper, dtype=np.float64)
+        else:
+            raise ValueError('Unexpected wave type: '+wtype)
+        return
 
     def readrf(self, infname, dtype='r'):
         """
@@ -90,6 +115,29 @@ class vprofile1d(object):
             self.fs             = 1./(self.data.rfr.to[1] - self.data.rfr.to[0])
         elif dtype=='t' or dtype == 'transverse':
             self.data.rft.readrftxt(infname)
+        else:
+            raise ValueError('Unexpected wave type: '+dtype)
+        return
+    
+    def get_rf(self, indata, dtype='r'):
+        """
+        read receiver function data from a txt file
+        ===========================================================
+        ::: input :::
+        indata      - input data array (3, N)
+        dtype       - data type (radial or transverse)
+        ===========================================================
+        """
+        dtype   = dtype.lower()
+        if dtype=='r' or dtype == 'radial':
+            self.data.rfr.get_rf(indata=indata)
+            self.data.rfr.tp    = np.linspace(self.data.rfr.to[0], self.data.rfr.to[-1], \
+                        self.data.rfr.npts, dtype=np.float64)
+            self.data.rfr.rfp   = np.zeros(self.data.rfr.npts, dtype=np.float64)
+            self.npts           = self.data.rfr.npts
+            self.fs             = 1./(self.data.rfr.to[1] - self.data.rfr.to[0])
+        # # elif dtype=='t' or dtype == 'transverse':
+        # #     self.data.rft.readrftxt(infname)
         else:
             raise ValueError('Unexpected wave type: '+dtype)
         return
