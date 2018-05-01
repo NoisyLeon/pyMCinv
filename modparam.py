@@ -12,6 +12,7 @@ import numpy as np
 import numba
 import math
 import random
+from scipy.optimize import lsq_linear
 
 class para1d(object):
     """
@@ -80,7 +81,7 @@ class para1d(object):
         self.paraindex      = np.zeros((self.maxind, self.npara), dtype = np.float64)
         self.space          = np.zeros((3, self.npara), dtype = np.float64)
         return
-#     
+   
     def readparatxt(self, infname):
         """
         read txt perturbation parameter file
@@ -136,17 +137,11 @@ class para1d(object):
                 run 	= True
                 j		= 0
                 while (run and j<10000): 
-                    newval  = random.gauss(oldval, step)
+                    newval      = random.gauss(oldval, step)
                     if (newval >= self.space[0, i] and newval <= self.space[1, i]):
-                        run = False
-                    j   +=1
+                        run     = False
+                    j           += 1
                 self.paraval[i] = newval
-            # newval          = np.random.normal(loc = self.paraval, scale = self.space[2, :], size=self.npara)
-            # ind0            = newval<self.space[0, :]
-            # ind1            = newval>self.space[1, :]
-            # newval[ind0]    = (self.space[0, :])[ind0]
-            # newval[ind1]    = (self.space[1, :])[ind1]
-            # self.paraval[:] = newval
         else:
             raise ValueError('Unexpected perturbation type!')
         return True
@@ -337,7 +332,7 @@ class isomod(object):
         ::: output :::
         self.spl    - (nBs+k, npts)
                         [:nBs, :] B spline basis for nBs control points
-                        [nBs:,:] can be ignored
+                        [nBs:, :] can be ignored
         """    
         if self.thickness[i] >= 150:
             self.nlay[i]    = 60
@@ -389,7 +384,7 @@ class isomod(object):
                 self.vs[:self.nlay[i], i]   = self.cvel[:self.nlay[i], i]
             # B spline model
             elif self.mtype[i] == 2:
-                self.isspl[i]   = False
+                self.isspl[i]               = False
                 self.bspline(i)
                 # # if self.isspl[i] != 1:
                 # #     self.bspline(i)
@@ -412,25 +407,22 @@ class isomod(object):
                     nlay    = int(self.thickness[i]/0.5)
                 if self.thickness[i] < 0.5:
                     nlay    = 2
-                dh 	        = self.thickness[i]/float(nlay)
-                dcvel 		= (self.cvel[1, i] - self.cvel[0, i])/(nlay - 1.)
+                dh 	                    = self.thickness[i]/float(nlay)
+                dcvel 		            = (self.cvel[1, i] - self.cvel[0, i])/(nlay - 1.)
                 self.vs[:nlay, i]       = self.cvel[0, i] + dcvel*np.arange(nlay, dtype=np.float64)
                 self.hArr[:nlay, i]     = dh
-                # # # for ilay in range(nlay):
-                # # #     self.vs[ilay, i]    = self.cvel[0, i] + dcvel*float(ilay)
-                # # #     self.hArr[ilay, i]  = dh
                 self.nlay[i]            = nlay
             # water layer
             elif self.mtype[i] == 5:
-                nlay                = 1
-                self.vs[0, i]       = 0.
-                self.hArr[0, i]     = self.thickness[i]
-                self.nlay[i]        = 1
+                nlay                    = 1
+                self.vs[0, i]           = 0.
+                self.hArr[0, i]         = self.thickness[i]
+                self.nlay[i]            = 1
         return True
     
     def update_depth(self):
         """
-        Update model (vs and hArr arrays)
+        Update hArr arrays only, used for paramerization of a refernce input model
         """
         for i in range(self.nmod):
             if self.nlay[i] > self.maxlay:
@@ -456,17 +448,34 @@ class isomod(object):
                     nlay    = int(self.thickness[i]/0.5)
                 if self.thickness[i] < 0.5:
                     nlay    = 2
-                dh 	        = self.thickness[i]/float(nlay)
+                dh 	                    = self.thickness[i]/float(nlay)
                 self.hArr[:nlay, i]     = dh
                 self.nlay[i]            = nlay
             # water layer
             elif self.mtype[i] == 5:
-                nlay                = 1
-                self.hArr[0, i]     = self.thickness[i]
-                self.nlay[i]        = 1
+                nlay                    = 1
+                self.hArr[0, i]         = self.thickness[i]
+                self.nlay[i]            = 1
         return True
     
-    def parameterize_input(self, zarr, vsarr, mohodepth, seddepth=0.2, maxdepth=200.):
+    def parameterize_input(self, zarr, vsarr, mohodepth, seddepth, maxdepth=200.):
+        """
+        paramerization of a refernce input model
+        ===============================================================================
+        ::: input :::
+        zarr, vsarr - input depth/vs array, must be the same size (unit - km, km/s)
+        mohodepth   - input moho depth (unit - km)
+        seddepth    - input sediment depth (unit - km)
+        maxdepth    - maximum depth for the 1-D profile (default - 200 km)
+        ::: output :::
+        self.thickness  
+        self.numbp      - [2, 4, 5]
+        self.mtype      - [4, 2, 2]
+        self.vpvs       - [2., 1.75, 1.75]
+        self.spl
+        self.cvel       - determined from input vs profile
+        ===============================================================================
+        """
         if zarr.size != vsarr.size:
             raise ValueError('Inconsistent input 1-D profile depth and vs arrays!')
         self.init_arr(3)
@@ -499,22 +508,46 @@ class isomod(object):
         # sediments
         self.cvel[0, 0]     = vsinterp[0]
         self.cvel[1, 0]     = vsinterp[self.nlay[0]-1]
+        # # # crust
+        # # self.cvel[0, 1]     = vsinterp[self.nlay[0]]
+        # # spl                 = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
+        # # ind_max2            = spl[:, 1].argmax()
+        # # ind_max3            = spl[:, 2].argmax()
+        # # self.cvel[3, 1]     = vsinterp[self.nlay[0]+self.nlay[1] - 1]
+        # # self.cvel[1, 1]     = self.cvel[0, 1] + (self.cvel[3, 1] - self.cvel[0, 1])*ind_max2/self.nlay[1]
+        # # self.cvel[2, 1]     = self.cvel[0, 1] + (self.cvel[3, 1] - self.cvel[0, 1])*ind_max3/self.nlay[1]
+        # # # mantle
+        # # self.cvel[0, 2]     = vsinterp[self.nlay[0]+self.nlay[1]]
+        # # self.cvel[4, 2]     = vsinterp[-1]
+        #---------------------------------
+        # inversion with lsq_linear
+        #---------------------------------
         # crust
         A                   = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
         b                   = vsinterp[self.nlay[0]:(self.nlay[0]+self.nlay[1])]
-        x                   = np.linalg.lstsq(A, b)[0]
+        vs0                 = max(vsinterp[self.nlay[0]], 3.0)
+        vs1                 = min(vsinterp[self.nlay[0]+self.nlay[1] - 1], 4.2)
+        x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
         self.cvel[:4, 1]    = x[:]
         # mantle
         A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
         b                   = vsinterp[(self.nlay[0]+self.nlay[1]):]
-        x                   = np.linalg.lstsq(A, b)[0]
+        vs0                 = max(vsinterp[(self.nlay[0]+self.nlay[1]):].min(), 4.0)
+        vs1                 = min(vsinterp[(self.nlay[0]+self.nlay[1]):].max(), vsarr.max())
+        x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
         self.cvel[:5, 2]    = x[:]
+        # # # inversion with numpy
+        # # # crust
+        # # A                   = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
+        # # b                   = vsinterp[self.nlay[0]:(self.nlay[0]+self.nlay[1])]
+        # # x                   = np.linalg.lstsq(A, b)[0]
+        # # self.cvel[:4, 1]    = x[:]
+        # # # mantle
+        # # A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
+        # # b                   = vsinterp[(self.nlay[0]+self.nlay[1]):]
+        # # x                   = np.linalg.lstsq(A, b)[0]
+        # # self.cvel[:5, 2]    = x[:]
         return
-        
-        
-        
-        
-        
 
     def get_paraind(self):
         """
@@ -541,10 +574,10 @@ class isomod(object):
                     self.para.paraindex[1, ipara]   = -1
                     self.para.paraindex[2, ipara]   = 20.
                 # 0.05 km/s 
-                self.para.paraindex[3, ipara]   = 0.05
-                self.para.paraindex[4, ipara]   = i
-                self.para.paraindex[5, ipara]   = j
-                ipara   +=1
+                self.para.paraindex[3, ipara]       = 0.05
+                self.para.paraindex[4, ipara]       = i
+                self.para.paraindex[5, ipara]       = j
+                ipara                               +=1
         if self.nmod >= 3:
             # sediment thickness
             self.para.paraindex[0, ipara]   = 1
@@ -552,12 +585,12 @@ class isomod(object):
             self.para.paraindex[2, ipara]   = 100.
             self.para.paraindex[3, ipara]   = 0.1
             self.para.paraindex[4, ipara]   = 0
-            ipara   += 1
+            ipara                           += 1
         # crustal thickness
-        self.para.paraindex[0, ipara]   = 1
-        self.para.paraindex[1, ipara]   = -1
-        self.para.paraindex[2, ipara]   = 20.
-        self.para.paraindex[3, ipara]   = 1.
+        self.para.paraindex[0, ipara]       = 1
+        self.para.paraindex[1, ipara]       = -1
+        self.para.paraindex[2, ipara]       = 20.
+        self.para.paraindex[3, ipara]       = 1.
         if self.nmod >= 3:
             self.para.paraindex[4, ipara]   = 1.
         else:
@@ -581,7 +614,7 @@ class isomod(object):
             elif int(self.para.paraindex[0, i]) == -1:
                 val = self.vpvs[ig]
             else:
-                printf('Unexpected value in paraindex!')
+                print 'Unexpected value in paraindex!'
             self.para.paraval[i] = val
             #-------------------------------------------
             # defining parameter space for perturbation
@@ -598,12 +631,12 @@ class isomod(object):
                 valmax      = max (valmin + 0.0001, valmax)
                 if (int(self.para.paraindex[0, i]) == 0 and i == 0 \
                     and int(self.para.paraindex[5, i]) == 0): # if it is the upper sedi:
-                    valmin  = max (0.2, valmin)
-                    valmax  = max (0.5, valmax) 
-                self.para.space[0, i] = valmin
-                self.para.space[1, i] = valmax
-                self.para.space[2, i] = step
-        self.para.isspace = True
+                    valmin              = max (0.2, valmin)
+                    valmax              = max (0.5, valmax) 
+                self.para.space[0, i]   = valmin
+                self.para.space[1, i]   = valmax
+                self.para.space[2, i]   = step
+        self.para.isspace               = True
         return
 
     def para2mod(self):
@@ -654,12 +687,8 @@ class isomod(object):
             for j in range(m0, m1+1):
                 vs0     = self.vs[:self.nlay[j]-1, j]
                 vs1     = self.vs[1:self.nlay[j], j]
-                # return 
                 if np.any(np.greater(vs0, vs1)):
                     return False
-                # # for i in xrange(self.nlay[j]-1):
-                # #     if self.vs[i, j] > self.vs[i+1, j]:
-                # #         return False
         # gradient check
         if g0<=g1:
             for j in range(g0, g1+1):
@@ -667,7 +696,7 @@ class isomod(object):
                     return False
         return True
     
-    def get_vmodel(self):
+    def get_vmodel_old(self):
         """
         get velocity models
         ==========================================================================
@@ -705,6 +734,69 @@ class isomod(object):
                 qs      = np.append(qs,  600.*np.ones(self.nlay[i], dtype=np.float64))
                 qp      = np.append(qp,  1400.*np.ones(self.nlay[i], dtype=np.float64))
         rho[vp > 7.5]   = 3.35
+        return hArr, vs, vp, rho, qs, qp, nlay
+    
+    def get_vmodel(self):
+        """
+        get velocity models, slightly faster than get_vmodel_old
+        ==========================================================================
+        ::: output :::
+        hArr, vs, vp, rho, qs, qp
+        ==========================================================================
+        """
+        nlay    = self.nlay.sum()
+        hArr    = np.zeros(nlay, dtype = np.float64)
+        vs      = np.zeros(nlay, dtype = np.float64)
+        vp      = np.zeros(nlay, dtype = np.float64)
+        rho     = np.zeros(nlay, dtype = np.float64)
+        qs      = np.zeros(nlay, dtype = np.float64)
+        qp      = np.zeros(nlay, dtype = np.float64)
+        depth   = np.zeros(nlay, dtype = np.float64)
+        for i in range(self.nmod):
+            if i == 0:
+                hArr[:self.nlay[0]]                             = self.hArr[:self.nlay[0], 0]
+            elif i < self.nmod - 1:
+                hArr[self.nlay[:i].sum():self.nlay[:i+1].sum()] = self.hArr[:self.nlay[i], i]
+            else:
+                hArr[self.nlay[:i].sum():]                      = self.hArr[:self.nlay[i], i]
+            if self.mtype[i] == 5 and i == 0:
+                vs[0]                   = 0.
+                vp[0]                   = self.cvel[0][i]
+                rho[0]                  = 1.02
+                qs[0]                   = 10000.
+                qp[0]                   = 57822.
+            elif (i == 0 and self.mtype[i] != 5):
+                vs[:self.nlay[0]]       = self.vs[:self.nlay[i], i]
+                vp[:self.nlay[0]]       = self.vs[:self.nlay[i], i]*self.vpvs[i]
+                rho[:self.nlay[0]]      = 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i]
+                qs[:self.nlay[0]]       = 80.*np.ones(self.nlay[i], dtype=np.float64)
+                qp[:self.nlay[0]]       = 160.*np.ones(self.nlay[i], dtype=np.float64)
+            elif (i == 1 and self.mtype[0] == 5) and self.nmod > 2:
+                vs[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = self.vs[:self.nlay[i], i]
+                vp[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = self.vs[:self.nlay[i], i]*self.vpvs[i]
+                rho[self.nlay[:i].sum():self.nlay[:i+1].sum()]  = 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i]
+                qs[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = 80.*np.ones(self.nlay[i], dtype=np.float64)
+                qp[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = 160.*np.ones(self.nlay[i], dtype=np.float64)
+            elif (i == 1 and self.mtype[0] == 5) and self.nmod == 2:
+                vs[self.nlay[:i].sum():]    = self.vs[:self.nlay[i], i]
+                vp[self.nlay[:i].sum():]    = self.vs[:self.nlay[i], i]*self.vpvs[i]
+                rho[self.nlay[:i].sum():]   = 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i]
+                qs[self.nlay[:i].sum():]    = 80.*np.ones(self.nlay[i], dtype=np.float64)
+                qp[self.nlay[:i].sum():]    = 160.*np.ones(self.nlay[i], dtype=np.float64)
+            elif i < self.nmod - 1:
+                vs[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = self.vs[:self.nlay[i], i]
+                vp[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = self.vs[:self.nlay[i], i]*self.vpvs[i]
+                rho[self.nlay[:i].sum():self.nlay[:i+1].sum()]  = 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i]
+                qs[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = 600.*np.ones(self.nlay[i], dtype=np.float64)
+                qp[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = 1400.*np.ones(self.nlay[i], dtype=np.float64)
+            else:
+                vs[self.nlay[:i].sum():]    = self.vs[:self.nlay[i], i]
+                vp[self.nlay[:i].sum():]    = self.vs[:self.nlay[i], i]*self.vpvs[i]
+                rho[self.nlay[:i].sum():]   = 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i]
+                qs[self.nlay[:i].sum():]    = 600.*np.ones(self.nlay[i], dtype=np.float64)
+                qp[self.nlay[:i].sum():]    = 1400.*np.ones(self.nlay[i], dtype=np.float64)
+        depth               = hArr.cumsum()
+        rho[vp > 7.5]       = 3.35
         return hArr, vs, vp, rho, qs, qp, nlay
     
     

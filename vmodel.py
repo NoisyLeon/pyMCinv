@@ -131,8 +131,8 @@ class model1d(object):
         self.etaArr         = eta
         self.rhoArr         = rho
         if tilt:
-            self.dipArr         = dip
-            self.strikeArr      = strike
+            self.dipArr     = dip
+            self.strikeArr  = strike
         self.vel2love()
         self.ngrid          = z.size
         return
@@ -201,7 +201,7 @@ class model1d(object):
     def is_iso(self):
         """Check if the model is isotropic at each point.
         """
-        tol = 1e-5
+        tol     = 1e-5
         if (abs(self.AArr - self.CArr)).max() > tol or (abs(self.LArr - self.NArr)).max() > tol\
             or (abs(self.FArr - (self.AArr- 2.*self.LArr))).max() > tol:
             return False

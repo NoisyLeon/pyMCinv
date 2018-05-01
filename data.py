@@ -46,15 +46,15 @@ class rf(object):
         if self.npts > 0:
             print 'receiver function data is already stored!'
             return False
-        inArr 		= np.loadtxt(infname, dtype=np.float64)
-        self.npts   = inArr.shape[0]        
-        self.to     = inArr[:,0]
-        self.rfo    = inArr[:,1]
+        inArr 		    = np.loadtxt(infname, dtype=np.float64)
+        self.npts       = inArr.shape[0]        
+        self.to         = inArr[:,0]
+        self.rfo        = inArr[:,1]
         try:
             self.stdrfo = inArr[:,2]
         except IndexError:
             self.stdrfo = np.ones(self.npts, dtype=np.float64)*0.1
-        self.fs     = 1./(self.to[1] - self.to[0])
+        self.fs         = 1./(self.to[1] - self.to[0])
         return True
     
     def get_rf(self, indata):
@@ -70,14 +70,14 @@ class rf(object):
         if self.npts > 0:
             print 'receiver function data is already stored!'
             return False
-        self.npts   = indata.shape[1]        
-        self.to     = indata[0, :]
-        self.rfo    = indata[1, :]
+        self.npts       = indata.shape[1]        
+        self.to         = indata[0, :]
+        self.rfo        = indata[1, :]
         try:
             self.stdrfo = indata[2, :]
         except IndexError:
             self.stdrfo = np.ones(self.npts, dtype=np.float64)*0.1
-        self.fs     = 1./(self.to[1] - self.to[0])
+        self.fs         = 1./(self.to[1] - self.to[0])
         return True
   
     def writerftxt(self, outfname, tf=10.):
@@ -289,26 +289,26 @@ class disp(object):
             if self.isphase:
                 print 'phase velocity data is already stored!'
                 return False
-            self.pper   = indata[0, :]
-            self.pvelo  = indata[1, :]
-            self.npper  = self.pper.size
+            self.pper           = indata[0, :]
+            self.pvelo          = indata[1, :]
+            self.npper          = self.pper.size
             try:
-                self.stdpvelo= indata[2, :]
+                self.stdpvelo   = indata[2, :]
             except IndexError:
-                self.stdpvelo= np.ones(self.npper, dtype=np.float64)
-            self.isphase = True
+                self.stdpvelo   = np.ones(self.npper, dtype=np.float64)
+            self.isphase        = True
         elif dtype == 'gr' or dtype == 'group':
             if self.isgroup:
                 print 'group velocity data is already stored!'
                 return False
-            self.gper = indata[0, :]
-            self.gvelo= indata[1, :]
-            self.ngper= self.gper.size
+            self.gper           = indata[0, :]
+            self.gvelo          = indata[1, :]
+            self.ngper          = self.gper.size
             try:
-                self.stdgvelo= indata[2, :]
+                self.stdgvelo   = indata[2, :]
             except IndexError:
-                self.stdgvelo= np.ones(self.ngper, dtype=np.float64)
-            self.isgroup  = True
+                self.stdgvelo   = np.ones(self.ngper, dtype=np.float64)
+            self.isgroup        = True
         else:
             raise ValueError('Unexpected dtype: '+dtype)
         return True

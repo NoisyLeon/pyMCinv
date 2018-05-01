@@ -261,6 +261,37 @@ class invASDF(pyasdf.ASDFDataSet):
             self.add_auxiliary_data(data=np.array([]), data_type='MohoDepth', path=staid_aux, parameters=header)
         return
     
+    def read_sediment_depth(self, infname='sedthk.xyz'):
+        inArr   = np.loadtxt(infname)
+        lonArr  = inArr[:, 0]
+        lonArr  = lonArr.reshape(lonArr.size/360, 360)
+        latArr  = inArr[:, 1]
+        latArr  = latArr.reshape(latArr.size/360, 360)
+        depthArr= inArr[:, 2]
+        depthArr= depthArr.reshape(depthArr.size/360, 360)
+        stalst                  = self.waveforms.list()
+        if len(stalst) == 0:
+            print 'Inversion with surface wave datasets only, not added yet!'
+            return
+        for staid in stalst:
+            netcode, stacode    = staid.split('.')
+            staid_aux           = netcode+'_'+stacode
+            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+            if stlo > 180.:
+                stlo            -= 360.
+            whereArr= np.where((lonArr>=stlo)*(latArr>=stla))
+            ind_lat = whereArr[0][-1]
+            ind_lon = whereArr[1][0]
+            # check
+            lon     = lonArr[ind_lat, ind_lon]
+            lat     = latArr[ind_lat, ind_lon]
+            if abs(lon-stlo) > 1. or abs(lat - stla) > 1.:
+                print 'ERROR!',lon,lat,stlo,stla
+            depth   = depthArr[ind_lat, ind_lon]
+            header  = {'sedi_depth': depth, 'data_source': 'crust_1.0'}
+            self.add_auxiliary_data(data=np.array([]), data_type='SediDepth', path=staid_aux, parameters=header)
+        return
+    
     def read_CU_model(self, infname='CU_SDT1.0.mod.h5'):
         indset      = h5py.File(infname)
         lons        = np.mgrid[0.:359.:2.]
@@ -343,9 +374,6 @@ class invASDF(pyasdf.ASDFDataSet):
                        'vsmax': 7, 'vsvmax': 8, 'vshmax': 9}
             self.add_auxiliary_data(data=data, data_type='ReferenceModel', path=staid_aux, parameters=header)
         return
-        
-            
-        
     
     def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False):
         if instafname is None:
@@ -388,6 +416,11 @@ class invASDF(pyasdf.ASDFDataSet):
             #-----------------------------
             # initial model parameters
             #-----------------------------
+            vsdata              = self.auxiliary_data['ReferenceModel'][staid_aux].data.value
+            mohodepth           = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
+            seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
+            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
+            vpr.getpara()
             if staid == 'AK.WRH':
                 return vpr
                 
