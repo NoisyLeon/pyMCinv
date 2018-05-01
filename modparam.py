@@ -292,6 +292,7 @@ class isomod(object):
         for l1 in open(infname,"r"):
             nmod    += 1
         print "Number of model parameter groups: %d " % nmod
+        # step 1
         self.init_arr(nmod)
         
         for l1 in open(infname,"r"):
@@ -301,6 +302,7 @@ class isomod(object):
             flag		            = int(l2[1])
             thickness	            = float(l2[2])
             tnp 		            = int(l2[3]) # number of parameters
+            # step 2
             self.mtype[iid]	        = flag
             self.thickness[iid]     = thickness
             self.numbp[iid]         = tnp 
@@ -317,11 +319,13 @@ class isomod(object):
                 print('wrong input !!!')
                 return False
             nr          = 0
+            # step 3
             for i in xrange(tnp):
                 self.cvel[i, iid]       = float(l2[4+i])
                 if (int(l2[1]) ==1):  # type 1 layer
                     self.ratio[nr, iid] = float(l2[4+tnp+i])
                     nr  += 1
+            # step 4
             self.vpvs[iid]         = (float(l2[-1]))-0.
         return True
 
@@ -411,7 +415,7 @@ class isomod(object):
                 dh 	        = self.thickness[i]/float(nlay)
                 dcvel 		= (self.cvel[1, i] - self.cvel[0, i])/(nlay - 1.)
                 self.vs[:nlay, i]       = self.cvel[0, i] + dcvel*np.arange(nlay, dtype=np.float64)
-                self.hArr[:, i]         = dh
+                self.hArr[:nlay, i]     = dh
                 # # # for ilay in range(nlay):
                 # # #     self.vs[ilay, i]    = self.cvel[0, i] + dcvel*float(ilay)
                 # # #     self.hArr[ilay, i]  = dh
@@ -424,7 +428,93 @@ class isomod(object):
                 self.nlay[i]        = 1
         return True
     
+    def update_depth(self):
+        """
+        Update model (vs and hArr arrays)
+        """
+        for i in range(self.nmod):
+            if self.nlay[i] > self.maxlay:
+                printf('number of layers is too large, need change default maxlay!')
+                return False
+            # layered model
+            if self.mtype[i] == 1:
+                self.nlay[i]                = self.numbp[i]
+                self.hArr[:self.nlay[i], i] = self.ratio[:self.nlay[i], i] * self.thickness[i]
+            # B spline model
+            elif self.mtype[i] == 2:
+                self.isspl[i]   = False
+                self.bspline(i)
+                self.hArr[:self.nlay[i], i] = self.thickness[i]/self.nlay[i]
+            # gradient layer
+            elif self.mtype[i] == 4:
+                nlay 	    = 4
+                if self.thickness[i] >= 20.:
+                    nlay    = 20
+                if self.thickness[i] > 10. and self.thickness[i] < 20.:
+                    nlay    = int(self.thickness[i]/1.)
+                if self.thickness[i] > 2. and self.thickness[i] <= 10.:
+                    nlay    = int(self.thickness[i]/0.5)
+                if self.thickness[i] < 0.5:
+                    nlay    = 2
+                dh 	        = self.thickness[i]/float(nlay)
+                self.hArr[:nlay, i]     = dh
+                self.nlay[i]            = nlay
+            # water layer
+            elif self.mtype[i] == 5:
+                nlay                = 1
+                self.hArr[0, i]     = self.thickness[i]
+                self.nlay[i]        = 1
+        return True
     
+    def parameterize_input(self, zarr, vsarr, mohodepth, seddepth=0.2, maxdepth=200.):
+        if zarr.size != vsarr.size:
+            raise ValueError('Inconsistent input 1-D profile depth and vs arrays!')
+        self.init_arr(3)
+        self.thickness[:]   = np.array([seddepth, mohodepth - seddepth, maxdepth - mohodepth])
+        self.numbp[:]       = np.array([2, 4, 5])
+        self.mtype[:]       = np.array([4, 2, 2])
+        self.vpvs[:]        = np.array([2., 1.75, 1.75])
+        self.update_depth()
+        hArr                = np.append(self.hArr[:self.nlay[0], 0], self.hArr[:self.nlay[1], 1])
+        hArr                = np.append(hArr, self.hArr[:self.nlay[2], 2])
+        zinterp             = hArr.cumsum()
+        ind_max             = np.where(zarr >= maxdepth)[0][0]
+        zarr                = zarr[:(ind_max+1)]
+        vsarr               = vsarr[:(ind_max+1)]
+        if vsarr[0] > vsarr[1]:
+            vs_temp         = vsarr[0]
+            vsarr[0]        = vsarr[1]
+            vsarr[1]        = vs_temp
+        ind_crust           = np.where(zarr >= mohodepth)[0][0]
+        vs_crust            = vsarr[:(ind_crust+1)]  
+        if not np.all(vs_crust[1:] >= vs_crust[:-1]):
+            print 'WARNING: sort the input vs array to make it monotonically increases with depth in the crust'
+            vs_crust        = np.sort(vs_crust)
+            vsarr           = np.append(vs_crust, vsarr[(ind_crust+1):])
+        # interpolation
+        vsinterp            = np.interp(zinterp, zarr, vsarr)    
+        #------------------------------------
+        # determine self.cvel arrays
+        #------------------------------------
+        # sediments
+        self.cvel[0, 0]     = vsinterp[0]
+        self.cvel[1, 0]     = vsinterp[self.nlay[0]-1]
+        # crust
+        A                   = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
+        b                   = vsinterp[self.nlay[0]:(self.nlay[0]+self.nlay[1])]
+        x                   = np.linalg.lstsq(A, b)[0]
+        self.cvel[:4, 1]    = x[:]
+        # mantle
+        A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
+        b                   = vsinterp[(self.nlay[0]+self.nlay[1]):]
+        x                   = np.linalg.lstsq(A, b)[0]
+        self.cvel[:5, 2]    = x[:]
+        return
+        
+        
+        
+        
+        
 
     def get_paraind(self):
         """

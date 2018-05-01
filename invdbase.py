@@ -238,7 +238,6 @@ class invASDF(pyasdf.ASDFDataSet):
         depthArr= inArr[:, 2]
         depthArr= depthArr.reshape(depthArr.size/360, 360)
         
-        
         stalst                  = self.waveforms.list()
         if len(stalst) == 0:
             print 'Inversion with surface wave datasets only, not added yet!'
@@ -257,7 +256,95 @@ class invASDF(pyasdf.ASDFDataSet):
             lat     = latArr[ind_lat, ind_lon]
             if abs(lon-stlo) > 1. or abs(lat - stla) > 1.:
                 print 'ERROR!',lon,lat,stlo,stla
-                
+            depth   = depthArr[ind_lat, ind_lon]
+            header  = {'moho_depth': depth, 'data_source': 'crust_1.0'}
+            self.add_auxiliary_data(data=np.array([]), data_type='MohoDepth', path=staid_aux, parameters=header)
+        return
+    
+    def read_CU_model(self, infname='CU_SDT1.0.mod.h5'):
+        indset      = h5py.File(infname)
+        lons        = np.mgrid[0.:359.:2.]
+        lats        = np.mgrid[-88.:89.:2.]
+        stalst                  = self.waveforms.list()
+        if len(stalst) == 0:
+            print 'Inversion with surface wave datasets only, not added yet!'
+            return
+        for staid in stalst:
+            netcode, stacode    = staid.split('.')
+            staid_aux           = netcode+'_'+stacode
+            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+            if stlo < 0.:
+                stlo            += 360.
+            try:
+                ind_lon         = np.where(lons>=stlo)[0][0]
+            except:
+                ind_lon         = lons.size - 1
+            try:
+                ind_lat         = np.where(lats>=stla)[0][0]
+            except:
+                ind_lat         = lats.size - 1
+            pind                = 0
+            while(True):
+                if pind == 0:
+                    data        = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat])].value
+                    if data[0, 1] != 0:
+                        outlon  = lons[ind_lon]
+                        outlat  = lats[ind_lat]
+                        break
+                    pind        += 1
+                    continue
+                data            = indset[str(lons[ind_lon+pind])+'_'+str(lats[ind_lat])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon+pind]
+                    outlat      = lats[ind_lat]
+                    break
+                data            = indset[str(lons[ind_lon-pind])+'_'+str(lats[ind_lat])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon-pind]
+                    outlat      = lats[ind_lat]
+                    break
+                data            = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat+pind])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon]
+                    outlat      = lats[ind_lat+pind]
+                    break
+                data            = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat-pind])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon]
+                    outlat      = lats[ind_lat-pind]
+                    break
+                data            = indset[str(lons[ind_lon-pind])+'_'+str(lats[ind_lat-pind])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon-pind]
+                    outlat      = lats[ind_lat-pind]
+                    break
+                data            = indset[str(lons[ind_lon-pind])+'_'+str(lats[ind_lat+pind])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon-pind]
+                    outlat      = lats[ind_lat+pind]
+                    break
+                data            = indset[str(lons[ind_lon+pind])+'_'+str(lats[ind_lat-pind])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon+pind]
+                    outlat      = lats[ind_lat-pind]
+                    break
+                data            = indset[str(lons[ind_lon+pind])+'_'+str(lats[ind_lat+pind])].value
+                if data[0, 1] != 0:
+                    outlon      = lons[ind_lon+pind]
+                    outlat      = lats[ind_lat+pind]
+                    break
+                pind            += 1
+            if pind >= 5:
+                print 'WARNING: Large differences in the finalized points: lon = '+str(outlon)+', lat = '+str(outlat)\
+                    + ', station: '+staid+' stlo = '+str(stlo) + ', stla = '+str(stla)
+            # print outlon, outlat, stlo, stla, pind
+            header  = {'data_source': 'CU_SDT',\
+                       'depth': 0, 'vs': 1, 'vsv': 2, 'vsh': 3, 'vsmin': 4, 'vsvmin': 5, 'vshmin': 6, \
+                       'vsmax': 7, 'vsvmax': 8, 'vshmax': 9}
+            self.add_auxiliary_data(data=data, data_type='ReferenceModel', path=staid_aux, parameters=header)
+        return
+        
+            
         
     
     def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False):
