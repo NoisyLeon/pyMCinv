@@ -17,23 +17,26 @@ class model1d(object):
     An object for handling a 1D Earth model
     =====================================================================================================================
     ::: parameters :::
-    VsvArr, VshArr, - Vsv, Vsh, Vpv, Vph velocity (unit - m/s)
+    :---grid model---:
+    VsvArr, VshArr, - Vsv, Vsh, Vpv, Vph velocity (unit - km/s)
     VpvArr, VphArr  
-    rhoArr          - density (kg/m^3)
+    rhoArr          - density (g/cm^3)
     etaArr          - eta(F/(A-2L)) dimensionless
-    AArr, CArr, FArr- Love parameters (unit - Pa)
+    AArr, CArr, FArr- Love parameters (unit - GPa)
     LArr, NArr
-    rArr            - radius array (unit - m), sorted from the rmin to rmax(6371000. m)
-    zArr            - depth array (unit - km), sorted as rArr
+    zArr            - depth array (unit - km)
+    dipArr,strikeArr- dip/strike angles, used for tilted hexagonal symmetric media
+    :---layer model---:
+    vsv, vsh, vpv,  - velocity (unit - km/s)
+    vph          
+    rho             - density (g/cm^3)
+    eta             - eta(F/(A-2L)) dimensionless
+    h               - layer arry (unit - km)
+    :   other parameters :
     flat            - = 0 spherical Earth, = 1 flat Earth (default)
                         Note: different from CPS
-    arrays with *E  - Love parameters for effective VTI tensor
-    arrays with *R  - Love parameters and density arrays after Earth flattening transformation for PSV motion
-    arrays with *L  - Love parameters and density arrays after Earth flattening transformation for SH motion
-    rArrS           - radius array after Earth flattening transformation
-    dipArr,strikeArr- dip/strike angles, used for tilted hexagonal symmetric media
-    CijArr          - elastic tensor given rotational angles(dip, strike) (unit - Pa)
-    CijAA           - azimuthally anisotropic elastic tensor (unit - Pa)
+    CijArr          - elastic tensor given rotational angles(dip, strike) (unit - GPa)
+    CijAA           - azimuthally anisotropic elastic tensor (unit - GPa)
     =====================================================================================================================
     """
     def __init__(self):
@@ -211,32 +214,32 @@ class model1d(object):
         """
         get the isotropic model from isomod
         """
-        hArr, vs, vp, rho, qs, qp, nlay= self.isomod.get_vmodel()
-        self.vsv    = vs.copy()
-        self.vsh    = vs.copy()
-        self.vpv    = vp.copy()
-        self.vph    = vp.copy()
-        self.eta    = np.ones(nlay, dtype=np.float64)
-        self.rho    = rho
-        self.h      = hArr
-        self.qs     = qs
-        self.qp     = qp
-        self.nlay   = nlay
-        self.ngrid  = 2*nlay
+        hArr, vs, vp, rho, qs, qp, nlay = self.isomod.get_vmodel()
+        self.vsv                = vs.copy()
+        self.vsh                = vs.copy()
+        self.vpv                = vp.copy()
+        self.vph                = vp.copy()
+        self.eta                = np.ones(nlay, dtype=np.float64)
+        self.rho                = rho
+        self.h                  = hArr
+        self.qs                 = qs
+        self.qp                 = qp
+        self.nlay               = nlay
+        self.ngrid              = 2*nlay
         # store grid point model
-        indlay      = np.arange(nlay, dtype=np.int32)
-        indgrid0    = indlay*2
-        indgrid1    = indlay*2+1
-        self.VsvArr = np.ones(self.ngrid, dtype=np.float64)
-        self.VshArr = np.ones(self.ngrid, dtype=np.float64)
-        self.VpvArr = np.ones(self.ngrid, dtype=np.float64)
-        self.VphArr = np.ones(self.ngrid, dtype=np.float64)
-        self.qsArr  = np.ones(self.ngrid, dtype=np.float64)
-        self.qpArr  = np.ones(self.ngrid, dtype=np.float64)
-        self.rhoArr = np.ones(self.ngrid, dtype=np.float64)
-        self.etaArr = np.ones(self.ngrid, dtype=np.float64)
-        self.zArr   = np.zeros(self.ngrid, dtype=np.float64)
-        depth       = hArr.cumsum()
+        indlay                  = np.arange(nlay, dtype=np.int32)
+        indgrid0                = indlay*2
+        indgrid1                = indlay*2+1
+        self.VsvArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.VshArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.VpvArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.VphArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.qsArr              = np.ones(self.ngrid, dtype=np.float64)
+        self.qpArr              = np.ones(self.ngrid, dtype=np.float64)
+        self.rhoArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.etaArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.zArr               = np.zeros(self.ngrid, dtype=np.float64)
+        depth                   = hArr.cumsum()
         # model arrays
         self.VsvArr[indgrid0]   = vs[:]
         self.VsvArr[indgrid1]   = vs[:]
