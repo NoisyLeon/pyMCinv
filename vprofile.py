@@ -714,13 +714,16 @@ class vprofile1d(object):
         # fidout.close()
         return
     
-    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC'):
+    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
+                   monoc=True, pfx='MC', verbose=False, step4uwalk=2500, numbrun=10000):
         """
         
         """
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
+        #-------------------------------
         # initializations
+        #-------------------------------
         self.get_period()
         self.update_mod(mtype = 'iso')
         self.get_vmodel(mtype = 'iso')
@@ -740,42 +743,39 @@ class vprofile1d(object):
             self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
             outdisp = outdir+'/'+pfx+'.gr.disp'
             self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
-        outrf   = outdir+'/'+pfx+'.rf'
+        outrf       = outdir+'/'+pfx+'.rf'
         self.data.rfr.writerftxt(outfname=outrf)
         # convert initial model to para
         self.model.isomod.mod2para()
         # likelihood/misfit
         oldL        = self.data.L
         oldmisfit   = self.data.misfit
-        print "Initial likelihood = ", oldL, ' misfit =',oldmisfit
         run         = True     # the key that controls the sampling
         inew        = 0     # count step (or new paras)
         iacc        = 1     # count acceptance model
         start       = time.time()
-        # output log files
-        outtxtfname = outdir+'/'+pfx+'.out'
-        outbinfname = outdir+'/MC.bin'
-        fidout      = open(outtxtfname, "w")
-        # fidoutb     = open(outbinfname, "wb")
+        # output arrays
+        outmodarr       = np.zeros((numbrun, self.model.isomod.para.npara+9))
+        outdisparr_ph   = np.zeros((numbrun, self.data.dispR.npper))
+        outdisparr_gr   = np.zeros((numbrun, self.data.dispR.ngper))
+        outrfarr        = np.zeros((numbrun, self.data.rfr.npts))
         while ( run ):
-            inew+= 1
-            # print 'run step = ',inew
-            # # # if ( inew > 100000 or iacc > 20000000 or time.time()-start > 7200.):
-            if ( inew > 10000 or iacc > 20000000):
-                run   = False
-            if (np.fmod(inew, 500) == 0):
-                print 'step =',inew, 'elasped time =', time.time()-start, ' sec'
+            inew    += 1
+            if ( inew > numbrun or iacc > 20000000):
+                break
+            if (np.fmod(inew, 500) == 0) and verbose:
+                print pfx, 'step =',inew, 'elasped time =', time.time()-start,' sec'
             #------------------------------------------------------------------------------------------
             # every 2500 step, perform a random walk with uniform random value in the paramerter space
             #------------------------------------------------------------------------------------------
-            if ( np.fmod(inew, 1501) == 1500 ):
+            if ( np.fmod(inew, step4uwalk+1) == step4uwalk ):
                 newmod      = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(0)
                 newmod.para2mod()
                 newmod.update()
                 # loop to find the "good" model,
                 # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
-                igood   = 0
+                igood       = 0
                 while ( not newmod.isgood(0, 1, 1, 0)):
                     igood   += igood + 1
                     newmod  = copy.deepcopy(self.model.isomod)
@@ -792,14 +792,14 @@ class vprofile1d(object):
                 oldL                = self.data.L
                 oldmisfit           = self.data.misfit
                 iacc                += 1
-                print 'Uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
+                if verbose:
+                    print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
             #-------------------------------
             # inversion part
             #-------------------------------
-            # sample the posterior distribution ##########################################
+            # sample the posterior distribution 
             if (wdisp >= 0 and wdisp <=1):
                 newmod      = copy.deepcopy(self.model.isomod)
-                # newmod.para = copy.deepcopy(self.model.isomod.para)
                 newmod.para.new_paraval(1)
                 newmod.para2mod()
                 newmod.update()
@@ -810,7 +810,6 @@ class vprofile1d(object):
                         continue
                 # assign new model to old ones
                 oldmod              = copy.deepcopy(self.model.isomod)
-                # oldmod.para         = copy.deepcopy(self.model.isomod.para)
                 self.model.isomod   = newmod
                 self.get_vmodel()
                 # forward computation
@@ -819,83 +818,66 @@ class vprofile1d(object):
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 newL                = self.data.L
                 newmisfit           = self.data.misfit
-                # 
                 if newL < oldL:
                     prob    = (oldL-newL)/oldL
                     rnumb   = random.random()
                     # reject the model
                     if rnumb < prob:
-                        fidout.write("-1 %d %d " % (inew,iacc))
-                        for i in xrange(newmod.para.npara):
-                            fidout.write("%g " % newmod.para.paraval[i])
-                        fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
-                                self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
-                        ### ttmodel.writeb (para1, ffb,[-1,i,ii])
-                        # return to oldmod
-                        self.model.isomod   = oldmod
+                        outmodarr[inew-1, 0]                        = -1 # index for acceptance
+                        outmodarr[inew-1, 1]                        = iacc
+                        outmodarr[inew-1, 2:(newmod.para.npara+2)]  = newmod.para.paraval[:]
+                        outmodarr[inew-1, newmod.para.npara+2]      = newL
+                        outmodarr[inew-1, newmod.para.npara+3]      = newmisfit
+                        outmodarr[inew-1, newmod.para.npara+4]      = self.data.rfr.L
+                        outmodarr[inew-1, newmod.para.npara+5]      = self.data.rfr.misfit
+                        outmodarr[inew-1, newmod.para.npara+6]      = self.data.dispR.L
+                        outmodarr[inew-1, newmod.para.npara+7]      = self.data.dispR.misfit
+                        outmodarr[inew-1, newmod.para.npara+8]      = time.time()-start
+                        self.model.isomod                           = oldmod
                         continue
                 # accept the new model
-                fidout.write("1 %d %d " % (inew,iacc))
-                for i in xrange(newmod.para.npara):
-                    fidout.write("%g " % newmod.para.paraval[i])
-                fidout.write("%g %g %g %g %g %g %g\n" % (newL, newmisfit, self.data.rfr.L, self.data.rfr.misfit,\
-                        self.data.dispR.L, self.data.dispR.misfit, time.time()-start))        
-                print "Accept a model", inew, iacc, oldL, newL, self.data.rfr.L, self.data.rfr.misfit,\
-                                self.data.dispR.L, self.data.dispR.misfit, time.time()-start
-                # # write accepted model
-                # outmod      = outdir+'/'+pfx+'.%d.mod' % iacc
-                # vmodel.write_model(model=self.model, outfname=outmod, isotropic=True)
-                # # write corresponding data
-                # if dispdtype != 'both':
-                #     outdisp = outdir+'/'+pfx+'.'+dispdtype+'.%d.disp' % iacc
-                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
-                # else:
-                #     outdisp = outdir+'/'+pfx+'.ph.%d.disp' % iacc
-                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='ph')
-                #     outdisp = outdir+'/'+pfx+'.gr.%d.disp' % iacc
-                #     data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype='gr')
-                # # outdisp = outdir+'/'+pfx+'.%d.disp' % iacc
-                # # data.writedisptxt(outfname=outdisp, outdisp=self.indata.dispR, dtype=dispdtype)
-                # outrf   = outdir+'/'+pfx+'.%d.rf' % iacc
-                # data.writerftxt(outfname=outrf, outrf=self.indata.rfr)
+                outmodarr[inew-1, 0]                        = 1 # index for acceptance
+                outmodarr[inew-1, 1]                        = iacc
+                outmodarr[inew-1, 2:(newmod.para.npara+2)]  = newmod.para.paraval[:]
+                outmodarr[inew-1, newmod.para.npara+2]      = newL
+                outmodarr[inew-1, newmod.para.npara+3]      = newmisfit
+                outmodarr[inew-1, newmod.para.npara+4]      = self.data.rfr.L
+                outmodarr[inew-1, newmod.para.npara+5]      = self.data.rfr.misfit
+                outmodarr[inew-1, newmod.para.npara+6]      = self.data.dispR.L
+                outmodarr[inew-1, newmod.para.npara+7]      = self.data.dispR.misfit
+                outmodarr[inew-1, newmod.para.npara+8]      = time.time()-start
+                # predicted dispersion data
+                if dispdtype == 'ph' or dispdtype == 'both':
+                    outdisparr_ph[inew-1, :]    = self.data.dispR.pvelp[:]
+                if dispdtype == 'gr' or dispdtype == 'both':
+                    outdisparr_gr[inew-1, :]    = self.data.dispR.gvelp[:]
+                # predicted receiver function data
+                outrfarr[inew-1, :]             = self.data.rfr.rfp[:]
                 # assign likelihood/misfit
                 oldL        = newL
                 oldmisfit   = newmisfit
                 iacc        += 1
                 continue
-        #     else:
-        #         if monoc:
-        #             newmod  = self.model.isomod.copy()
-        #             newmod.para.new_paraval(1)
-        #             newmod.para2mod()
-        #             newmod.update()
-        #             if not newmod.isgood(0, 1, 1, 0):
-        #                 continue
-        #         else:
-        #             newmod  = self.model.isomod.copy()
-        #             newmod.para.new_paraval(0)
-        #         fidout.write("-2 %d 0 " % inew)
-        #         for i in xrange(newmod.para.npara):
-        #             fidout.write("%g " % newmod.para.paraval[i])
-        #         fidout.write("\n")
-        #         self.model.isomod   = newmod
-        #         continue
-        # fidout.close()
-        return
-
-    
-
-    
-    
-        
-    
-    
-    
-    
-    
-
-    
-    
-
-
-    
+            # # # else:
+            # # #     if monoc:
+            # # #         newmod  = self.model.isomod.copy()
+            # # #         newmod.para.new_paraval(1)
+            # # #         newmod.para2mod()
+            # # #         newmod.update()
+            # # #         if not newmod.isgood(0, 1, 1, 0):
+            # # #             continue
+            # # #     else:
+            # # #         newmod  = self.model.isomod.copy()
+            # # #         newmod.para.new_paraval(0)
+            # # #     fidout.write("-2 %d 0 " % inew)
+            # # #     for i in xrange(newmod.para.npara):
+            # # #         fidout.write("%g " % newmod.para.paraval[i])
+            # # #     fidout.write("\n")
+            # # #     self.model.isomod   = newmod
+            # # #     continue
+            #-----------------------------------
+            # write results to binary npz files
+            #-----------------------------------
+        outfname    = outdir+'/mc_inv.'+pfx+'.npz'
+        np.savez(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
+        return    
