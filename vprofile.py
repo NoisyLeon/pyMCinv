@@ -714,7 +714,7 @@ class vprofile1d(object):
         # fidout.close()
         return
     
-    def mc_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
+    def mc_joint_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
                    monoc=True, pfx='MC', verbose=False, step4uwalk=2500, numbrun=10000):
         """
         
@@ -804,9 +804,17 @@ class vprofile1d(object):
                 newmod.para2mod()
                 newmod.update()
                 if monoc:
-                    # loop to find the "good" model,
                     # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                    # loop to find the "good" model, added on May 3rd, 2018
+                    itemp   = 0
+                    while (not newmod.isgood(0, 1, 1, 0)) and itemp < 100:
+                        itemp       += 1
+                        newmod      = copy.deepcopy(self.model.isomod)
+                        newmod.para.new_paraval(1)
+                        newmod.para2mod()
+                        newmod.update()
                     if not newmod.isgood(0, 1, 1, 0):
+                        print 'No good model found!'
                         continue
                 # assign new model to old ones
                 oldmod              = copy.deepcopy(self.model.isomod)
@@ -879,5 +887,17 @@ class vprofile1d(object):
             # write results to binary npz files
             #-----------------------------------
         outfname    = outdir+'/mc_inv.'+pfx+'.npz'
-        np.savez(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
+        np.savez_compressed(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
+        outfname    = outdir+'/mc_data.'+pfx+'.npz'
+        try:
+            np.savez(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                    self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
+                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+        except AttributeError:
+            try:
+                np.savez(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            except AttributeError:
+                np.savez(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
         return    
