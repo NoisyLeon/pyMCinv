@@ -282,7 +282,7 @@ class vprofile1d(object):
     # forward modelling for receiver function
     #----------------------------------------------------
     
-    def compute_rftheo(self, slowness = 0.06, din=None):
+    def compute_rftheo(self, slowness = 0.06, din=None, npts=None):
         """
         compute receiver function of isotropic model using theo
         ===========================================================================================
@@ -302,15 +302,18 @@ class vprofile1d(object):
             nl      = self.model.nlay
         else:
             nl      = 100
-        hin[:nl]    = self.model.h
-        vsin[:nl]   = self.model.vsv
-        vpvs[:nl]   = self.model.vpv/self.model.vsv
-        qsin[:nl]   = self.model.qs
-        qpin[:nl]   = self.model.qp
+        hin[:nl]    = self.model.h[:nl]
+        vsin[:nl]   = self.model.vsv[:nl]
+        vpvs[:nl]   = self.model.vpv[:nl]/self.model.vsv[:nl]
+        qsin[:nl]   = self.model.qs[:nl]
+        qpin[:nl]   = self.model.qp[:nl]
         # fs/npts
         fs          = self.fs
         # # # ntimes      = 1000
-        ntimes      = self.npts
+        if npts is None:
+            ntimes  = self.npts
+        else:
+            ntimes  = npts
         # incident angle
         if din is None:
             din     = 180.*np.arcsin(vsin[nl-1]*vpvs[nl-1]*slowness)/np.pi

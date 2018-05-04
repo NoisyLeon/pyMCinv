@@ -1,0 +1,629 @@
+7C.MM04  0 0
+AK.AKT  0 0
+AK.ANM  483 1
+AK.BAGL  86 1 
+AK.BAL  374 2
+AK.BARK  9 2
+AK.BARN  164 1
+AK.BCP  101 2 "almost no negative part in A0"
+AK.BERG  66 2
+AK.BESE  315 1
+AK.BGLC  6 0
+AK.BMR  738 1
+AK.BPAW  928 1
+AK.BRLK  419 2 "depth unclear moho ?" 
+AK.BRSE  141 2 "second pulse near zero"
+AK.BWN  70 2 "zero point is not maximum?"
+AK.CAPN  23 0 "typical useless ref"
+AK.CAST  629 1 "very clean ref, clear moho"
+AK.CCB  707 1
+AK.CHI  43 2 "second pulse near zero"
+AK.CHN  85 1 "thin crust?"
+AK.CHUM  669 1 "not clear moho"
+AK.CNP  250 1 thin crust?""
+AK.COLD  1246 1 
+AK.CRQ  123 2 "not clear moho"
+AK.CTG  356 2 "small wiggles"
+AK.CUT  59  2
+AK.CYK  79 2 "almost no negative values"
+AK.DCPH  137 1
+AK.DDM  9 0
+AK.DHY  410 1
+AK.DIV  895 1 "thick crust"
+AK.DOT  746 1
+AK.EYAK  616 1
+AK.FALS  140 2 "a lot of wiggles"
+AK.FIB  39 0 "typical useless"
+AK.FID  0 0
+AK.FIRE  21 0 "typical useless"
+AK.FYU  128 0 "typical useless"
+AK.GAMB  1002 1 "typical good"
+AK.GCSA  98 1
+AK.GHO  315 1 "thin crust"
+AK.GLB  207 1
+AK.GLI  251 1
+AK.GLM  76 1
+AK.GOAT  74 1 "two pulses"
+AK.GRIN  86 1
+AK.GRNC  157 1
+AK.HARP  5 0
+AK.HDA  469 1
+AK.HIN  116 1 "double moho?"
+AK.HMT  68 2
+AK.HOM  121 2 "broad first pulse"
+AK.ISLE  61 2
+AK.JIS  311 1
+AK.KAI  16 0
+AK.KHIT  131 1
+AK.KIAG  160 2 "thick crust?"
+AK.KLU  456 2 "thick crust?"
+AK.KNK  338 2 "not sure about crust"
+AK.KOTZ  4 0
+AK.KTH  687 1
+AK.KULT  63 2 "very broad Ps"
+AK.LOGN  86 1 "double moho?"
+AK.MCAR  104 2 "thick crust?"
+AK.MCK  913 1 "sediments?" 
+AK.MDM  754 1
+AK.MESA  95 2 "sediments?"
+AK.MLY  663 1 "sediments?"
+AK.NEA  104 2 "broad moho"
+AK.NEA2  302 1 "broad moho, consisten with NEA"
+AK.NICH  66 2 "double moho?"
+AK.NIKH  267 2 "not clear moho"
+AK.NIKO  79 2 "broad first pulse"
+AK.NKA  1 0
+AK.NOTK  15 0
+AK.PAX  807 1 "not clear moho"
+AK.PIN  135 2 "thin crust?"
+AK.PNL  280 1 
+AK.PPD  313 1 "sediments?"
+AK.PPLA  676 2 "double moho"
+AK.PTPK  142 2 "negative Ps or thick/unclear moho?"
+AK.PWL  281 1
+AK.RAG  95 2
+AK.RC01  838 1 "thick crust"
+AK.RDOG  535 1
+AK.RIDG  277 1
+AK.RKAV  78 2 "multiple pulses"
+AK.RND  648 1
+AK.SAMH  41 2
+AK.SAW  603 1
+AK.SCM  288 1 "thick crust"
+AK.SCRK  562 1 
+AK.SGA  66 2
+AK.SII  103 1
+AK.SKN  242 1
+AK.SLK  212 1 "thick crust"
+AK.SPIA  196 1
+AK.SSN  277 1
+AK.SSP  91 1
+AK.SUCK  85 2
+AK.SWD  540 1 "no clear Ps"
+AK.TABL  89 1 "thick crust?"
+AK.TGL  168 2 "no clear moho, noisy"
+AK.THY  41 2 "a little noisy, but clear Ps"
+AK.TNA  1002 1
+AK.TRAP  0 0
+AK.TRF  580 1
+AK.UNV  396 2 "no clear Ps"
+AK.VRDI  192 1 "thick crust"
+AK.WAT1  98 0 "compare WAT1~7"
+AK.WAT2  178 0
+AK.WAT3  131 0
+AK.WAT4  191 0
+AK.WAT5  124 0
+AK.WAT6  325 2
+AK.WAT7  295 1
+AK.WAX  134 2 "multiple large pulses, a little noisy"
+AK.WRH  562 1 "typical good"
+AK.YAH  146 2 "no clear Ps"
+AT.AKUT  227 2 "broad first pulse"
+AT.CHGN  148 1
+AT.CRAG  394 1
+AT.MENT  307 1
+AT.MID  68 0 "typical useless"
+AT.OHAK  430 1
+AT.PMR  932 1
+AT.SDPT  4 0
+AT.SIT  379 1 "thin crust"
+AT.SKAG  731 1
+AT.SVW2  590 2 "no clear moho in A0"
+AT.TTA  270 1
+AT.YKU2  26 0
+AV.ACH  1 0
+AV.AKBB  30 2 
+AV.AKGG  63 2 "double moho?"
+AV.AKLV  70 2 "double moho?"
+AV.AKMO  92 2 "not sure about PS"
+AV.AKRB  97 2 "not clean zero-pulse"
+AV.AKSA  34 0
+AV.AKV  2 0
+AV.ANCK  16 0
+AV.AU22  36 0
+AV.AUCH  22 2
+AV.AUJA  77 2
+AV.AUL  20 0
+AV.AUQ  15 0
+AV.AUSB  55 2
+AV.AUSS  9 2 "clear Ps"
+AV.AUWS  13 0
+AV.CLCO  8 0
+AV.CLES  25 0
+AV.ILS  27 2
+AV.ILSW  62 1 "thin crust?"
+AV.ILW  6 0
+AV.ISLZ  13 0
+AV.IVE  23 0
+AV.KABU  135 2 double Ps?""
+AV.KAHG  1 0
+AV.KAKN  226 2
+AV.LVA  4 0
+AV.MAPS  64 2 "noisy"
+AV.MCIR  0 0
+AV.MGOD  31 0
+AV.MNAT  50 2
+AV.MSW  92 2 "noisy"
+AV.MTBL  0 0
+AV.NCT  64 1 "double Ps?"
+AV.OKCB  0 0
+AV.OKCD  0 0
+AV.OKCE  2 0
+AV.OKFG  76 2 "broad Ps"
+AV.OKNC  0 0
+AV.OKSO  50 2 "four pulses"
+AV.PN7A  0 0
+AV.PS1A  0 0
+AV.PS4A  1 0
+AV.RDDF  85 2
+AV.RDJH  194 1 "not clear Ps"
+AV.RDSO  35 2
+AV.RDT  0 0
+AV.RDW  0 0
+AV.RDWB  33 2
+AV.RED  136 2 "thick crust?"
+AV.SPBG  127 2 "two Ps"
+AV.SPCG  202 2 "noisy"
+AV.SPCN  2 0
+AV.SPCP  13 0
+AV.SPCR  225 2 "no clear Ps"
+AV.SPNN  27 2
+AV.SPU  1 0
+AV.SSBA  16 0
+AV.SSLN  1 0
+AV.SSLS  16 0 "typical bad and large A0"
+AV.STLK  0 0
+AV.WACK  7 0
+AV.WAZA  0 0
+AV.WEBT  2 0
+AV.WECS  2 0
+CN.BBB  400 1
+CN.BMBC  0 0
+CN.DAWY  113 1 "double Ps"
+CN.DLBC  0 0
+CN.FNBB  0 0
+CN.FNBC  0 0
+CN.INK  1768 1 "typical good"
+CN.MCMB1  0 0
+CN.MOBC  0 0
+CN.RUBB  0 0
+CN.WHY  1354 1
+DW.COL  0 0
+II.KDAK  566 1
+IM.IL31  1309 1 "Ps not very clear"
+IU.COL  488 1 "double Ps"
+IU.COLA  801 1 "double Ps"
+PN.CHSA  0 0
+PN.GCSA  0 0
+PN.NHSA  0 0
+PN.PPGRL  0 0
+PN.PPPPS  0 0
+PN.PPSA  0 0
+PN.PPSBE  0 0
+PN.SBEA  0 0
+PN.SKGA  0 0
+PO.CLVN  0 0
+PO.LDBN  0 0
+PO.NOWN  0 0
+PO.SMPN  0 0
+PP.GCSA  0 0
+TA.A19K  0 0
+TA.A21K  166 2 "double moho?"
+TA.A22K  1 0
+TA.A36M  118 1
+TA.B18K  0 0
+TA.B20K  1 0
+TA.B21K  1 0
+TA.B22K  2 0
+TA.C16K  1 0
+TA.C17K  0 0
+TA.C18K  0 0
+TA.C19K  0 0
+TA.C21K  1 0 "start at 2017-08-17"
+TA.C23K  52 2 "largest value not at zero"
+TA.C24K  66 2 "largest value not at zero"
+TA.C26K  70 2 "largest value not at zero"
+TA.C27K  86 1 
+TA.C36M  224 1 "broad first pulse"
+TA.D17K  0 0
+TA.D19K  1 0
+TA.D20K  1 0
+TA.D22K  2 0
+TA.D23K  89 1
+TA.D24K  58 2
+TA.D25K  98 1
+TA.D27M  1 0
+TA.D28M  0 0
+TA.E17K  0 0
+TA.E18K  7 0
+TA.E19K  13 0
+TA.E20K  2 0
+TA.E21K  2 0
+TA.E22K  98 1 "multiples"
+TA.E23K  88 1 "multiples"
+TA.E24K  92 1 "multiples"
+TA.E25K  87 1
+TA.E27K  96 1
+TA.E28M  1 0
+TA.E29M  1 0
+TA.EPYK  281 1
+TA.F14K  8 0
+TA.F15K  13 0
+TA.F17K  7 0
+TA.F18K  5 0
+TA.F19K  10 0
+TA.F20K  10 0
+TA.F21K  71 1
+TA.F22K  86 2
+TA.F24K  85 2
+TA.F25K  97 1
+TA.F26K  91 1
+TA.F28M  2 0
+TA.F30M  0 0
+TA.F31M  59 1
+TA.G15K  8 0
+TA.G16K  13 0
+TA.G17K  15 0
+TA.G18K  22 2
+TA.G19K  26 0
+TA.G21K  94 1
+TA.G22K  68 1
+TA.G23K  113 1
+TA.G24K  83 1
+TA.G25K  9 0
+TA.G26K  67 1
+TA.G27K  78 2
+TA.G29M  1 0
+TA.G30M  53 2
+TA.G31M  1 0
+TA.H16K  2 2
+TA.H17K  18 0
+TA.H18K  19 0
+TA.H19K  29 2
+TA.H20K  26 0
+TA.H21K  176 1
+TA.H22K  97 1 "weak Ps"
+TA.H23K  169 1 "double moho"
+TA.H24K  173 1
+TA.H25K  5 0
+TA.H25L  6 0
+TA.H27K  76 2
+TA.H29M  0 0
+TA.H31M  7 0
+TA.HARP  52 0
+TA.HDA  161 1
+TA.I17K  24 0
+TA.I20K  2 0
+TA.I21K  157 1
+TA.I23K  230 1
+TA.I26K  49 2 "no clear Ps"
+TA.I27K  80 2 "no clear Ps"
+TA.I28M  14 0
+TA.I29M  141 1
+TA.I30M  14 0
+TA.J14K  25 2
+TA.J16K  22 0
+TA.J17K  21 0
+TA.J18K  27 2
+TA.J19K  28 2
+TA.J20K  199 1
+TA.J25K  140 1
+TA.J26K  0 0
+TA.J26L  163 1
+TA.J29M  98 2 "no clear Ps"
+TA.J29N  0 0
+TA.J30M  11 0
+TA.K13K  22 0
+TA.K15K  27 2
+TA.K17K  23 2
+TA.K20K  185 1
+TA.K24K  34 0
+TA.K27K  241 1 "multiples"
+TA.K29M  68 2 "weak Ps"
+TA.L14K  26 0
+TA.L15K  27 0
+TA.L16K  31 2
+TA.L17K  31 0
+TA.L18K  24 0
+TA.L19K  148 1
+TA.L20K  135 2 "no clear Ps"
+TA.L26K  190 1
+TA.L27K  224 1
+TA.L29M  89 1
+TA.M11K  14 0
+TA.M13K  9 0
+TA.M14K  18 2
+TA.M15K  30 2
+TA.M16K  28 1
+TA.M17K  32 0
+TA.M18K  24 0
+TA.M19K  140 1
+TA.M20K  102 1
+TA.M22K  21 2
+TA.M23K  70 2
+TA.M24K  87 2 "looks similarly bad"
+TA.M26K  145 1
+TA.M27K  97 2
+TA.M29M  79 1
+TA.M30M  112 1
+TA.M31M  105 1
+TA.N14K  12 0
+TA.N15K  27 1
+TA.N16K  111 1 "weak Ps"
+TA.N17K  30 2
+TA.N18K  130 1
+TA.N19K  148 1
+TA.N20K  56 2
+TA.N25K  181 1
+TA.N30M  99 1
+TA.N31M  94 2 "no clear Ps"
+TA.N32M  67 2 "noisy"
+TA.O14K  23 2
+TA.O15K  0 0
+TA.O16K  86 0
+TA.O17K  98 1
+TA.O18K  141 1
+TA.O19K  146 1
+TA.O20K  33 0
+TA.O22K  9 0
+TA.O28M  39 0
+TA.O29M  54 2
+TA.O30N  92 1
+TA.P08K  0 0
+TA.P16K  4 0
+TA.P17K  22 0
+TA.P18K  116 1
+TA.P19K  65 2
+TA.P23K  23 0
+TA.P29M  24 0
+TA.P30M  73 1
+TA.P32M  72 1
+TA.P33M  130 1
+TA.POKR  421 1
+TA.Q16K  21 0
+TA.Q17K  39 2
+TA.Q18K  51 1
+TA.Q19K  3 0
+TA.Q20K  47 2
+TA.Q23K  13 0
+TA.Q32M  50 0
+TA.R16K  7 0
+TA.R17K  47 0
+TA.R18K  9 0
+TA.R31K  17 0
+TA.R32K  26 0
+TA.R33M  62 2
+TA.S12K  24 0
+TA.S14K  5 0
+TA.S31K  36 0
+TA.S32K  20 0
+TA.S34M  52 2
+TA.T33K  32 0
+TA.T35M  59 0
+TA.TCOL  406 1
+TA.TOLK  435 1 "thick crust"
+TA.U33K  32 0
+TA.U35K  3 0
+TA.V35K  39 0
+US.EGAK  371 1 "weak Ps"
+US.WRAK  197 1
+XE.AND  11 0
+XE.ANT  2 0
+XE.BSH  6 0
+XE.BYR  145 1
+XE.CAR  25 0
+XE.CZN  52 0
+XE.DH1  117 1
+XE.DH2  25 0
+XE.DH3  75 0
+XE.EFS  21 0
+XE.FID  8 0
+XE.GNR  67 2 "noisy"
+XE.GOO  10 0
+XE.HURN  135 1
+XE.MCK  46 0
+XE.MHR  60 1
+XE.NNA  163 1 "weak Ps"
+XE.PVE  9 0
+XE.PVW  64 2
+XE.PYY  26 0
+XE.RCK  30 2
+XE.RND  152 1 "weak Ps"
+XE.RND5  40 0 "similar to RND"
+XE.RNDE  44 0
+XE.RNDN  16 0
+XE.RNDR  43 0
+XE.RNDS  27 0 
+XE.SAN  5 0
+XE.SBL  32 0
+XE.SLM  26 0
+XE.SLT  5 0
+XE.SOB  10 0
+XE.TCE  6 0
+XE.TLKY  53 2
+XE.WOLF  25 0
+XE.WON  23 0
+XE.YAN  89 1
+XN.A01  9 0
+XN.A02  54 2 "largest value not at zero"
+XN.A03  54 2 "largest value not at zero"
+XN.A04  37 2 "largest value not at zero"
+XN.A05  20 2 "largest value not at zero"
+XN.A06  69 2 "broad first pulse"
+XN.A07  81 1
+XN.A08  84 1
+XN.B01  19 2 "strange but consistent"
+XN.B02  32 0
+XN.B03  29 0
+XN.B04  57 0
+XN.B05  26 0
+XN.B06  49 2
+XN.B07  13 0
+XN.B08  59 2
+XN.B09  22 0
+XN.B10  22 2
+XN.B11  34 0
+XN.B12  65 0
+XN.B13  32 0
+XN.B14  0 0
+XN.B15  52 2
+XN.C01  43 0
+XN.C02  24 0
+XN.C03  63 2 "noisy but consistent"
+XN.C04  31 0
+XN.C05  34 2 "noisy but clear Ps"
+XR.BMQ  258 1 "weak Ps"
+XR.CBM  172 1 "weak Ps"
+XR.CHS  205 1 "thin crust"
+XR.FRB  137 2 "broad first pulse"
+XR.GBN  166 1
+XR.GTM  209 1
+XR.ICT  142 2 "wide secondary pulse"
+XR.LMW  151 1
+XR.LVG  50 2
+XR.NOM  125 1
+XR.PRB  202 2 "strange but consistent"
+XR.RBY  118 1
+XR.SAG  188 1 "very large and consisten Ps"
+XR.TFS  163 1 "thick crust, large Ps"
+XR.WSM  232 1 "double Ps"
+XR.YRT  155 1
+XY.BN01  9 0
+XY.BN02  13 0
+XY.BN04  31 0
+XY.BN05  9 0
+XY.BN06  0 0
+XY.BN07  30 0
+XY.BN08  15 0
+XY.BN09  9 0
+XY.BN10  1 0
+XY.BN11  29 0 
+XY.BN12  25 0
+XY.BN13  0 0
+XY.BN13A  5 0
+XY.BN14  56 0
+XY.BN15  56 0
+XY.BN16  5 0
+XY.BN17  45 0
+XY.BN18  14 0
+XY.BN19  24 0
+XY.BN20  0 0
+XY.BN21  36 0
+XY.BN22  67 1
+XY.BN23  58 1
+XY.BS01  11 0
+XY.BS02  17 0
+XY.BS03  24 0
+XY.BS04  3 0
+XY.BS04M  22 0
+XY.BS05  18 0
+XY.BS06  16 0
+XY.BS07  27 2
+XY.BS09  0 0
+XY.BS10  24 0
+XY.BS11  3 0
+XY.BS12  3 0
+XY.BS12M  8 0
+XY.BS13  1 0
+XY.BS14  2 0
+XY.BS15  34 0
+XY.BS15A  42 0
+XY.BS16  42 0
+XY.BS17  54 2
+XY.BS18  63 0
+XY.BS19  44 2
+XY.BS21  38 0
+XY.BS22  59 2
+XZ.BAGL  253 1 "weak Ps"
+XZ.BARK  169 1
+XZ.BARN  342 1 "weak Ps"
+XZ.BERG  225 1
+XZ.BGLC  31 2
+XZ.GOAT  155 1 "weak Ps"
+XZ.GRIN  223 1 "weak Ps"
+XZ.GRNC  258 1 "weak Ps"
+XZ.ISLE  220 2 "weak Ps"
+XZ.KHIT  255 1
+XZ.KIAG  235 1 "multiples"
+XZ.KULT  200 1 "noisy Ps"
+XZ.LOGN  170 2 "thin crust?"
+XZ.MCAR  160 1 "weak Ps"
+XZ.MESA  188 1 "double Ps"
+XZ.NICH  125 1 "double Ps"
+XZ.PTPK  198 1 "thick crust"
+XZ.RKAV  196 1 "no clear Ps"
+XZ.SAMH  69 2 "thin crust?"
+XZ.SUCK  159 1 "thin crust"
+XZ.TABL  173 1 "weak Ps, thin crust"
+XZ.VRDI  321 1 "thick crust?"
+YE.PIC1  181 1
+YE.PIC2  68 0 "consistent with PIC1"
+YE.PIC3  82 0 "consistent with PIC1"
+YE.PIC4  105 0 "consistent with PIC1"
+YM.ALC3  0 0
+YM.BRG1  1 0
+YM.DH34  0 0
+YM.DH97  4 0
+YM.HARP  1 0
+YM.M110  0 0
+YM.MEN1  0 0
+YM.MLR  18 0
+YM.NEB1  0 0
+YM.NTW3  0 0
+YM.NTW4  2 0
+YM.TOK3  2 0
+YM.YAN2  2 0
+YV.ALPI  107 1 "double Ps"
+YV.AVAL  136 1 "no clear Ps"
+YV.BIGB  49 0
+YV.BING  16 0
+YV.BLAK  129 1
+YV.BYR  57 2 "double Ps"
+YV.CASW  20 0
+YV.CLRS  8 0
+YV.COOK  5 0
+YV.DEVL  142 1 "no clear Ps"
+YV.DIVI  42 2 "double Ps"
+YV.HEAD  126 1 "weak Ps, thick crust"
+YV.HOLG  41 2 "no clear Ps"
+YV.HOPE  112 2 "no clear Ps"
+YV.HOPJ  127 1 "weak Ps, thin crust"
+YV.INDI  70 2 "multiples"
+YV.KASH  7 0
+YV.KNIK  2 0
+YV.LSKI  26 0
+YV.LSUM  114 2 "no clear Ps"
+YV.MAIN  34 1
+YV.MCDC  84 2 "thick crust, multiples"
+YV.MOOP  44 0
+YV.MPEN  6 0
+YV.NANC  12 0
+YV.NSKI  10 0
+YV.PERI  81 1 "thick crust"
+YV.PORT  0 0
+YV.RUSS  90 1 "weak Ps"
+YV.SNUG  3 0
+YV.SOLD  11 0
+YV.TUPA  85 2 "thin crust?"
+YV.USKI  91 1 "thick crust"
+YV.WHIT  72 2 "multiples"

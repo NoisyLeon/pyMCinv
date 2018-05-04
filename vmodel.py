@@ -299,6 +299,8 @@ class model1d(object):
     
     def get_para_model(self, paraval, nmod=3, numbp=np.array([2, 4, 5]),\
                 mtype = np.array([4, 2, 2]), vpvs = np.array([2., 1.75, 1.75]), maxdepth=200.):
+        """
+        """
         self.isomod.init_arr(nmod=nmod)
         self.isomod.numbp           = numbp[:]
         self.isomod.mtype           = mtype[:]

@@ -206,8 +206,8 @@ c	  write(*,*) "before nevill: c1,c2 ",c1,c2
 c        write(*,*) 'cccc', ncount LF
 
         if(ncount.eq.1)then
-          PRINT 258
-258     format(1x,/22x,'Improper initial value. No zero found')
+c          PRINT 258
+c258     format(1x,/22x,'Improper initial value. No zero found')
         endif
                                                         goto 9999
 9997    continue

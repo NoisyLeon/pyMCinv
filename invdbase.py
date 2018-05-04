@@ -375,9 +375,19 @@ class invASDF(pyasdf.ASDFDataSet):
             self.add_auxiliary_data(data=data, data_type='ReferenceModel', path=staid_aux, parameters=header)
         return
     
-    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False):
+    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir'):
         if instafname is None:
             stalst  = self.waveforms.list()
+        else:
+            stalst  = []
+            with open(instafname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    if sline[2] == '1':
+                        stalst.append(sline[0])
+            # return stalst
+        ista    = 0
+        Nsta    = len(stalst)
         for staid in stalst:
             netcode, stacode    = staid.split('.')
             staid_aux           = netcode+'_'+stacode
@@ -421,12 +431,11 @@ class invASDF(pyasdf.ASDFDataSet):
             seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
             vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
             vpr.getpara()
-            if staid == 'AK.WRH':
-                return vpr
-    
-    
-        
             
-        
-        
-        
+            ista                += 1
+            print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
+            vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid)
+            # if staid == 'AK.COLD':
+            #     return vpr
+    
+    
