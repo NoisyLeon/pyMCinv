@@ -8,9 +8,9 @@ Module for results and postprocessing of MC inversion
     CIEI, Department of Physics, University of Colorado Boulder
     email: lili.feng@colorado.edu
 """
-import vmodel, modparam, data
+import vmodel, modparam, data, vprofile
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 class postvpr(object):
     """
@@ -28,6 +28,10 @@ class postvpr(object):
     def __init__(self, thresh=0.5):
         self.data       = data.data1d()
         self.thresh     = thresh
+        self.avg_model  = vmodel.model1d()
+        self.min_model  = vmodel.model1d()
+        self.init_model = vmodel.model1d()
+        self.vprfwd     = vprofile.vprofile1d()
         return
     
     def read_inv_data(self, infname, verbose=True):
@@ -43,6 +47,8 @@ class postvpr(object):
         self.ind_rej    = self.invdata[:, 0] == -1.
         self.misfit     = self.invdata[:, self.npara+3]
         self.min_misfit = self.misfit[self.ind_acc + self.ind_rej].min()
+        self.ind_min    = np.where(self.misfit == self.min_misfit)[0][0]
+        self.ind_thresh = np.where(self.ind_acc*(self.misfit<= self.min_misfit+ self.thresh))[0]
         self.numbacc    = np.where(self.ind_acc)[0].size
         self.numbrej    = np.where(self.ind_rej)[0].size
         if verbose:
@@ -53,6 +59,14 @@ class postvpr(object):
             print 'minimum misfit = '+str(self.min_misfit)
         return
     
+    def get_vmodel(self):
+        min_paraval         = self.invdata[self.ind_min, 2:(self.npara+2)]
+        self.min_model.get_para_model(paraval=min_paraval)
+        avg_paraval         = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        self.avg_model.get_para_model(paraval=avg_paraval)
+        self.vprfwd.model   = self.avg_model
+        return 
+        
     def read_data(self, infname):
         inarr           = np.load(infname)
         index           = inarr['arr_0']
@@ -82,6 +96,42 @@ class postvpr(object):
             indata      = indata.reshape(3, indata.size/3)
             self.data.rfr.get_rf(indata=indata)
         return
+    
+    def get_period(self):
+        """
+        get period array for forward modelling
+        """
+        if self.data.dispR.npper>0:
+            self.vprfwd.TRpiso  = self.data.dispR.pper.copy()
+        if self.data.dispR.ngper>0:
+            self.vprfwd.TRpiso  = self.data.dispR.gper.copy()
+        if self.data.dispL.npper>0:
+            self.vprfwd.TLpiso  = self.data.dispL.pper.copy()
+        if self.data.dispL.ngper>0:
+            self.vprfwd.TLpiso  = self.data.dispL.gper.copy()
+        return
+    
+    def plot_rf(self, obsrf=True, minrf=True, avgrf=True, assemrf=False, showfig=True):
+        plt.figure()
+        ax  = plt.subplot()
+        if obsrf:
+            plt.errorbar(self.data.rfr.to, self.data.rfr.rfo, yerr=self.data.rfr.stdrfo)
+        # continue here
+        if prediction:
+            plt.plot(self.to, self.rfp, 'r--', lw=3)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel('time (sec)', fontsize=30)
+        plt.ylabel('ampltude', fontsize=30)
+        plt.title('receiver function', fontsize=30)
+        if showfig:
+            plt.show()
+        if minrf:
+            rf_min  = self.rfpre[self.ind_min, :]
+        
+        return
+    
+    
     
     
     

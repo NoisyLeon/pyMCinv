@@ -890,14 +890,14 @@ class vprofile1d(object):
         np.savez_compressed(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
         outfname    = outdir+'/mc_data.'+pfx+'.npz'
         try:
-            np.savez(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            np.savez_compressed(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                     self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
                     self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
         except AttributeError:
             try:
-                np.savez(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                np.savez_compressed(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                         self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
             except AttributeError:
-                np.savez(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
                     self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
         return    

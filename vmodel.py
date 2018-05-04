@@ -297,6 +297,19 @@ class model1d(object):
                 return False
         return True
     
+    def get_para_model(self, paraval, nmod=3, numbp=np.array([2, 4, 5]),\
+                mtype = np.array([4, 2, 2]), vpvs = np.array([2., 1.75, 1.75]), maxdepth=200.):
+        self.isomod.init_arr(nmod=nmod)
+        self.isomod.numbp           = numbp[:]
+        self.isomod.mtype           = mtype[:]
+        self.isomod.vpvs            = vpvs[:]
+        self.isomod.get_paraind()
+        self.isomod.para.paraval[:] = paraval[:]
+        self.isomod.para2mod()
+        self.isomod.thickness[2]    = maxdepth - self.isomod.thickness[0] - self.isomod.thickness[1]
+        self.isomod.update()
+        self.get_iso_vmodel()
+        return
     
     
     
