@@ -31,6 +31,7 @@ from subprocess import call
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm
 import obspy
 import vprofile
+import time
 
 class invASDF(pyasdf.ASDFDataSet):
     """ An object to for MCMC inversion based on ASDF database
@@ -375,7 +376,7 @@ class invASDF(pyasdf.ASDFDataSet):
             self.add_auxiliary_data(data=data, data_type='ReferenceModel', path=staid_aux, parameters=header)
         return
     
-    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', wdisp=0.2, rffactor=40.,\
+    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
                    monoc=True, verbose=False, step4uwalk=2500, numbrun=10000):
         if instafname is None:
             stalst  = self.waveforms.list()
@@ -436,14 +437,14 @@ class invASDF(pyasdf.ASDFDataSet):
             ista                += 1
             if staid != 'AK.MCK': continue
             print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
-            vpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+            vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             # vpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
             #        monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             # if staid == 'AK.COLD':
             #     return vpr
             
-    def mc_inv_iso_mp(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', wdisp=0.2, rffactor=40.,\
+    def mc_inv_iso_mp(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
                    monoc=True, verbose=False, step4uwalk=2500, numbrun=10000, subsize=1000, nprocess=None):
         if instafname is None:
             stalst  = self.waveforms.list()
@@ -503,32 +504,35 @@ class invASDF(pyasdf.ASDFDataSet):
             seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
             vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
             vpr.getpara()
+            vpr.staid           = staid
             ista                += 1
             vpr_lst.append(vpr)
         #----------------------------------------
         # Joint inversion with multiprocessing
         #----------------------------------------
+        print 'Start MC joint inversion, '+time.ctime()
+        stime   = time.time()
         if Nsta > subsize:
             Nsub                = int(len(vpr_lst)/subsize)
             for isub in xrange(Nsub):
                 print 'Subset:', isub,'in',Nsub,'sets'
                 cvpr_lst        = vpr_lst[isub*subsize:(isub+1)*subsize]
-                MCINV           = partial(mc4mp, outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
-                                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+                MCINV           = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
                 pool            = multiprocessing.Pool(processes=nprocess)
                 pool.map(MCINV, cvpr_lst) #make our results with a map call
                 pool.close() #we are not adding any more processes
                 pool.join() #tell it to wait until all threads are done before going on
             cvpr_lst            = vpr_lst[(isub+1)*subsize:]
-            MCINV               = partial(mc4mp, outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
-                                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            MCINV               = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             pool                = multiprocessing.Pool(processes=nprocess)
             pool.map(MCINV, cvpr_lst) #make our results with a map call
             pool.close() #we are not adding any more processes
             pool.join() #tell it to wait until all threads are done before going on
         else:
-            MCINV               = partial(mc4mp, outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
-                                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            MCINV               = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             pool                = multiprocessing.Pool(processes=nprocess)
             pool.map(MCINV, vpr_lst) #make our results with a map call
             pool.close() #we are not adding any more processes
@@ -539,11 +543,15 @@ class invASDF(pyasdf.ASDFDataSet):
             # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid, rffactor=5., wdisp=0.1)
             # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid)
             # if staid == 'AK.COLD':
-            #     return vpr        
+            #     return vpr
+        print 'End MC joint inversion, '+time.ctime()
+        etime   = time.time()
+        print 'Elapsed time: '+str(etime-stime)+' secs'
     
 
-def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, step4uwalk, numbrun):
+def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, verbose, step4uwalk, numbrun):
+    print '--- Joint MC inversion for station: '+invpr.staid
     invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
-                   monoc=monoc, pfx=pfx, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+                   monoc=monoc, pfx=invpr.staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
     return 
     
