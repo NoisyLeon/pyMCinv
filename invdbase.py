@@ -375,7 +375,8 @@ class invASDF(pyasdf.ASDFDataSet):
             self.add_auxiliary_data(data=data, data_type='ReferenceModel', path=staid_aux, parameters=header)
         return
     
-    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir'):
+    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', wdisp=0.2, rffactor=40.,\
+                   monoc=True, verbose=False, step4uwalk=2500, numbrun=10000):
         if instafname is None:
             stalst  = self.waveforms.list()
         else:
@@ -433,9 +434,116 @@ class invASDF(pyasdf.ASDFDataSet):
             vpr.getpara()
             
             ista                += 1
+            if staid != 'AK.MCK': continue
             print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
-            vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid)
+            vpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                   monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            # vpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+            #        monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             # if staid == 'AK.COLD':
             #     return vpr
+            
+    def mc_inv_iso_mp(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', wdisp=0.2, rffactor=40.,\
+                   monoc=True, verbose=False, step4uwalk=2500, numbrun=10000, subsize=1000, nprocess=None):
+        if instafname is None:
+            stalst  = self.waveforms.list()
+        else:
+            stalst  = []
+            with open(instafname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    if sline[2] == '1':
+                        stalst.append(sline[0])
+        #-------------------------
+        # prepare data
+        #-------------------------
+        vpr_lst = []
+        ista    = 0
+        Nsta    = len(stalst)
+        for staid in stalst:
+            netcode, stacode    = staid.split('.')
+            staid_aux           = netcode+'_'+stacode
+            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+            #-----------------------------
+            # get data
+            #-----------------------------
+            vpr                 = vprofile.vprofile1d()
+            if phase:
+                try:
+                    indisp      = self.auxiliary_data['RayDISPcurve']['ray']['ph'][staid_aux].data.value
+                    vpr.get_disp(indata=indisp, dtype='ph', wtype='ray')
+                except KeyError:
+                    print 'WARNING: No phase dispersion data for station: '+staid
+            if group:
+                try:
+                    indisp      = self.auxiliary_data['RayDISPcurve']['ray']['gr'][staid_aux].data.value
+                    vpr.get_disp(indata=indisp, dtype='gr', wtype='ray')
+                except KeyError:
+                    print 'WARNING: No group dispersion data for station: '+staid
+            if vpr.data.dispR.npper == 0 and vpr.data.dispR.ngper == 0:
+                print 'WARNING: No dispersion data for station: '+staid 
+                continue
+            if ref:
+                try:
+                    inrf        = self.auxiliary_data['RefR'][staid_aux+'_P'].data.value
+                    N           = self.auxiliary_data['RefR'][staid_aux+'_P'].parameters['npts']
+                    dt          = self.auxiliary_data['RefR'][staid_aux+'_P'].parameters['delta']
+                    indata      = np.zeros((3, N))
+                    indata[0, :]= np.arange(N)*dt
+                    indata[1, :]= inrf[0, :]
+                    indata[2, :]= inrf[3, :]
+                    vpr.get_rf(indata = indata)
+                except KeyError:
+                    print 'WARNING: No phase dispersion data for station: '+staid
+            #-----------------------------
+            # initial model parameters
+            #-----------------------------
+            vsdata              = self.auxiliary_data['ReferenceModel'][staid_aux].data.value
+            mohodepth           = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
+            seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
+            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
+            vpr.getpara()
+            ista                += 1
+            vpr_lst.append(vpr)
+        #----------------------------------------
+        # Joint inversion with multiprocessing
+        #----------------------------------------
+        if Nsta > subsize:
+            Nsub                = int(len(vpr_lst)/subsize)
+            for isub in xrange(Nsub):
+                print 'Subset:', isub,'in',Nsub,'sets'
+                cvpr_lst        = vpr_lst[isub*subsize:(isub+1)*subsize]
+                MCINV           = partial(mc4mp, outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+                pool            = multiprocessing.Pool(processes=nprocess)
+                pool.map(MCINV, cvpr_lst) #make our results with a map call
+                pool.close() #we are not adding any more processes
+                pool.join() #tell it to wait until all threads are done before going on
+            cvpr_lst            = vpr_lst[(isub+1)*subsize:]
+            MCINV               = partial(mc4mp, outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            pool                = multiprocessing.Pool(processes=nprocess)
+            pool.map(MCINV, cvpr_lst) #make our results with a map call
+            pool.close() #we are not adding any more processes
+            pool.join() #tell it to wait until all threads are done before going on
+        else:
+            MCINV               = partial(mc4mp, outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            pool                = multiprocessing.Pool(processes=nprocess)
+            pool.map(MCINV, vpr_lst) #make our results with a map call
+            pool.close() #we are not adding any more processes
+            pool.join() #tell it to wait until all threads are done before going on
+
+            # if staid != 'AK.MCK': continue
+            # print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
+            # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid, rffactor=5., wdisp=0.1)
+            # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid)
+            # if staid == 'AK.COLD':
+            #     return vpr        
     
+
+def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, step4uwalk, numbrun):
+    invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                   monoc=monoc, pfx=pfx, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+    return 
     

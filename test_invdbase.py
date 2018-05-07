@@ -10,4 +10,6 @@ dset = invdbase.invASDF('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inver
 # dset.read_sediment_depth()
 # dset.read_CU_model()
 # vpr = dset.mc_inv_iso(instafname='ref_log')
-dset.mc_inv_iso(instafname='ref_log', outdir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results')
+# dset.mc_inv_iso(instafname='ref_log', outdir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results')
+
+dset.mc_inv_iso_mp(instafname='ref_log', outdir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results')
