@@ -154,6 +154,14 @@ class postvpr(object):
     def plot_rf(self, title='Receiver function', obsrf=True, minrf=True, avgrf=True, assemrf=True, showfig=True):
         """
         plot receiver functions
+        ==============================================================================================
+        ::: input :::
+        title   - title for the figure
+        obsrf   - plot observed receiver function or not
+        minrf   - plot minimum misfit receiver function or not
+        avgrf   - plot the receiver function corresponding to the average of accepted models or not 
+        assemrf - plot the receiver functions corresponding to the assemble of accepted models or not 
+        ==============================================================================================
         """
         plt.figure()
         ax  = plt.subplot()
@@ -184,6 +192,14 @@ class postvpr(object):
                   disptype='ph', showfig=True):
         """
         plot phase/group dispersion curves
+        =================================================================================================
+        ::: input :::
+        title       - title for the figure
+        obsdisp     - plot observed disersion curve or not
+        mindisp     - plot minimum misfit dispersion curve or not
+        avgdisp     - plot the dispersion curve corresponding to the average of accepted models or not 
+        assemdisp   - plot the dispersion curves corresponding to the assemble of accepted models or not 
+        =================================================================================================
         """
         plt.figure()
         ax  = plt.subplot()
@@ -229,6 +245,13 @@ class postvpr(object):
     def plot_profile(self, title='Vs profile', minvpr=True, avgvpr=True, assemvpr=True, showfig=True):
         """
         plot vs profiles
+        =================================================================================================
+        ::: input :::
+        title       - title for the figure
+        minvpr      - plot minimum misfit vs profile or not
+        avgvpr      - plot the the average of accepted models or not 
+        assemvpr    - plot the assemble of accepted models or not 
+        =================================================================================================
         """
         plt.figure()
         ax  = plt.subplot()
