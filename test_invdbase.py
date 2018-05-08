@@ -13,4 +13,4 @@ dset = invdbase.invASDF('/work3/leon/mc_inv_files/inversion_alaska.h5')
 # vpr = dset.mc_inv_iso(instafname='ref_log')
 # dset.mc_inv_iso(instafname='ref_log', outdir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results')
 
-dset.mc_inv_iso_mp(instafname='ref_log', outdir='/work3/leon/mc_inv_files/mc_results', nprocess=10, subsize=50)
+dset.mc_inv_iso_mp(instafname='ref_log', outdir='/work3/leon/mc_inv_files/mc_results_100000', nprocess=10, subsize=50, numbrun=100000)

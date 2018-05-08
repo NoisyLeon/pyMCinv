@@ -446,6 +446,8 @@ class invASDF(pyasdf.ASDFDataSet):
             
     def mc_inv_iso_mp(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
                    monoc=True, verbose=False, step4uwalk=2500, numbrun=10000, subsize=1000, nprocess=None):
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
         if instafname is None:
             stalst  = self.waveforms.list()
         else:
@@ -537,7 +539,7 @@ class invASDF(pyasdf.ASDFDataSet):
             pool.map(MCINV, vpr_lst) #make our results with a map call
             pool.close() #we are not adding any more processes
             pool.join() #tell it to wait until all threads are done before going on
-
+            
             # if staid != 'AK.MCK': continue
             # print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
             # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid, rffactor=5., wdisp=0.1)

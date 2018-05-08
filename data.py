@@ -161,7 +161,6 @@ class rf(object):
         if self.npts == 0:
             print 'No data for plotting!'
             return
-        # First illustrate basic pyplot interface, using defaults where possible.
         plt.figure()
         ax  = plt.subplot()
         plt.errorbar(self.to, self.rfo, yerr=self.stdrfo)
@@ -170,7 +169,7 @@ class rf(object):
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('time (sec)', fontsize=30)
-        plt.ylabel('ampltude', fontsize=30)
+        plt.ylabel('amplitude', fontsize=30)
         plt.title('receiver function', fontsize=30)
         if showfig:
             plt.show()

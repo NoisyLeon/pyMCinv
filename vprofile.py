@@ -538,6 +538,11 @@ class vprofile1d(object):
             except AttributeError:
                 np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
                     self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+        
+        del outmodarr
+        del outdisparr_ph
+        del outdisparr_gr
+        del outrfarr
         return
     
     
