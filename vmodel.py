@@ -300,6 +300,18 @@ class model1d(object):
     def get_para_model(self, paraval, nmod=3, numbp=np.array([2, 4, 5]),\
                 mtype = np.array([4, 2, 2]), vpvs = np.array([2., 1.75, 1.75]), maxdepth=200.):
         """
+        get an isotropic velocity model given a parameter array
+        ======================================================================================
+        ::: input parameters :::
+        paraval     - parameter array of numpy array type
+        nmod        - number of model groups (default - 3)
+        numbp       - number of control points/basis (1D int array with length nmod)
+                        2 - sediments; 4 - crust; 5 - mantle
+        mtype       - model parameterization types (1D int array with length nmod)
+                        4 - gradient layer in sediments; 2 - B spline in the crust and mantle
+        vpvs        - vp/vs ratio
+        maxdepth    - maximum depth ( unit - km)
+        ======================================================================================
         """
         self.isomod.init_arr(nmod=nmod)
         self.isomod.numbp           = numbp[:]

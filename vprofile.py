@@ -285,11 +285,11 @@ class vprofile1d(object):
     def compute_rftheo(self, slowness = 0.06, din=None, npts=None):
         """
         compute receiver function of isotropic model using theo
-        ===========================================================================================
+        =============================================================================================
         ::: input :::
         slowness- reference horizontal slowness (default - 0.06 s/km, 1./0.06=16.6667)
-        din     - incident angle in degree (default - None, din will be computed from slowness)
-        ===========================================================================================
+        din     - incident angle in degree      (default - None, din will be computed from slowness)
+        =============================================================================================
         """
         # initialize input model arrays
         hin         = np.zeros(100, dtype=np.float64)
@@ -350,11 +350,15 @@ class vprofile1d(object):
         ::: input :::
         outdir      - output directory
         disptype    - type of dispersion curves (ph/gr/both, default - ph)
-        wdisp       - weight of dispersion curve data
+        wdisp       - weight of dispersion curve data (0. ~ 1.)
         rffactor    - factor for downweighting the misfit for likelihood computation of rf
         monoc       - require monotonical increase in the crust or not
-        
-        
+        pfx         - prefix for output, typically station id
+        step4uwalk  - step interval for uniform random walk in the parameter space
+        numbrun     - total number of runs
+        init_run    - run and output prediction for inital model or not
+                        IMPORTANT NOTE: if False, no uniform random walk will perform !
+        savedata    - save data to npz binary file or not
         ========================================================================================================
         """
         if not os.path.isdir(outdir):
@@ -425,7 +429,7 @@ class vprofile1d(object):
         start       = time.time()
         while ( run ):
             inew    += 1
-            if ( inew > numbrun or iacc > 20000000):
+            if ( inew > numbrun ):
                 break
             if (np.fmod(inew, 500) == 0) and verbose:
                 print pfx, 'step =',inew, 'elasped time =', time.time()-start,' sec'
@@ -461,7 +465,7 @@ class vprofile1d(object):
             # inversion part
             #-------------------------------
             # sample the posterior distribution 
-            if (wdisp >= 0 and wdisp <=1):
+            if (wdisp >= 0. and wdisp <=1.):
                 newmod      = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(1)
                 newmod.para2mod()
@@ -483,9 +487,13 @@ class vprofile1d(object):
                 oldmod              = copy.deepcopy(self.model.isomod)
                 self.model.isomod   = newmod
                 self.get_vmodel()
+                #--------------------------------
                 # forward computation
-                self.compute_fsurf()
-                self.compute_rftheo()
+                #--------------------------------
+                if wdisp > 0.:
+                    self.compute_fsurf()
+                if wdisp < 1.:
+                    self.compute_rftheo()
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 newL                = self.data.L
                 newmisfit           = self.data.misfit
@@ -564,15 +572,32 @@ class vprofile1d(object):
                 except AttributeError:
                     np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
                         self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-        
         del outmodarr
         del outdisparr_ph
         del outdisparr_gr
         del outrfarr
         return
     
-    def mc_joint_inv_iso_mp(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
-                   monoc=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, subsize=1000, nprocess=None, merge=True):
+    def mc_joint_inv_iso_mp(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, \
+            pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, savedata=True, subsize=1000, nprocess=None, merge=True):
+        """
+        Parallelized version of mc_joint_inv_iso
+        ==================================================================================================================
+        ::: input :::
+        outdir      - output directory
+        disptype    - type of dispersion curves (ph/gr/both, default - ph)
+        wdisp       - weight of dispersion curve data (0. ~ 1.)
+        rffactor    - factor for downweighting the misfit for likelihood computation of rf
+        monoc       - require monotonical increase in the crust or not
+        pfx         - prefix for output, typically station id
+        step4uwalk  - step interval for uniform random walk in the parameter space
+        numbrun     - total number of runs
+        savedata    - save data to npz binary file or not
+        subsize     - size of subsets, used if the number of elements in the parallel list is too large to avoid deadlock
+        nprocess    - number of process
+        merge       - merge data into one single npz file or not
+        ==================================================================================================================
+        """
         #-------------------------
         # prepare data
         #-------------------------
@@ -589,7 +614,7 @@ class vprofile1d(object):
         # Joint inversion with multiprocessing
         #----------------------------------------
         if verbose:
-            print 'Start MC joint inversion: '+pfx+time.ctime()
+            print 'Start MC joint inversion: '+pfx+' '+time.ctime()
             stime   = time.time()
         if Nvpr > subsize:
             Nsub                = int(len(vpr_lst)/subsize)
@@ -616,13 +641,6 @@ class vprofile1d(object):
             pool.map(MCINV, vpr_lst) #make our results with a map call
             pool.close() #we are not adding any more processes
             pool.join() #tell it to wait until all threads are done before going on
-            
-            # if staid != 'AK.MCK': continue
-            # print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
-            # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid, rffactor=5., wdisp=0.1)
-            # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid)
-            # if staid == 'AK.COLD':
-            #     return vpr
         #----------------------------------------
         # Merge inversion results
         #----------------------------------------
@@ -646,26 +664,27 @@ class vprofile1d(object):
             outinvfname         = outdir+'/mc_inv.'+pfx+'.npz'
             np.savez_compressed(outinvfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
         # save data
-        outdatafname    = outdir+'/mc_data.'+pfx+'.npz'
-        try:
-            np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
-                    self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
-                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-        except AttributeError:
+        if savedata:
+            outdatafname    = outdir+'/mc_data.'+pfx+'.npz'
             try:
-                np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
                         self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
             except AttributeError:
-                np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
-                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+                try:
+                    np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                            self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+                except AttributeError:
+                    np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                        self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
         if verbose:
-            print 'End MC joint inversion: '+pfx+time.ctime()
+            print 'End MC joint inversion: '+pfx+' '+time.ctime()
             etime   = time.time()
             print 'Elapsed time: '+str(etime-stime)+' secs'
         return
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
-    print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
+    # print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\

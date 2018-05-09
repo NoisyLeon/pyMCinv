@@ -152,6 +152,9 @@ class para1d(object):
 
 @numba.jit(numba.float64[:, :](numba.int64, numba.int64, numba.float64, numba.float64, numba.int64, numba.int64))
 def bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts):
+    """
+    function that generate B spline basis
+    """
     #-------------------------------- 
     # defining the knot vector
     #--------------------------------

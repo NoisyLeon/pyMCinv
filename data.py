@@ -644,11 +644,22 @@ class data1d(object):
         ==========================================================================================
         ::: input :::
         wdisp       - relative weigh for dispersion data ( 0.~1. )
+                        wdisp == 0.: misfit of dispersion data is 0., likelihood is 1
+                        wdisp == 1.: misfit of receiver function data is 0., likelihood is 1
+                    
         rffactor    - factor for downweighting the misfit for likelihood computation of rf
         ==========================================================================================
         """
-        self.dispR.get_misfit()
-        self.rfr.get_misfit(rffactor = rffactor)
+        if wdisp > 0.:
+            self.dispR.get_misfit()
+        else:
+            self.dispR.misfit   = 0.
+            self.dispR.L        = 1.
+        if wdisp < 1.:
+            self.rfr.get_misfit(rffactor = rffactor)
+        else:
+            self.rfr.misfit     = 0.
+            self.rfr.L          = 1.
         # compute combined misfit and likelihood
         self.misfit = wdisp*self.dispR.misfit + (1.-wdisp)*self.rfr.misfit
         self.L      = ((self.dispR.L)**wdisp)*((self.rfr.L)**(1.-wdisp))
