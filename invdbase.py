@@ -377,7 +377,7 @@ class invASDF(pyasdf.ASDFDataSet):
         return
     
     def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
-                   monoc=True, verbose=False, step4uwalk=2500, numbrun=10000):
+                   monoc=True, verbose=False, step4uwalk=1500, numbrun=10000, subsize=1000, nprocess=None, parallel=True):
         if instafname is None:
             stalst  = self.waveforms.list()
         else:
@@ -437,7 +437,11 @@ class invASDF(pyasdf.ASDFDataSet):
             ista                += 1
             if staid != 'AK.MCK': continue
             print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
-            vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+            if parallel:
+                vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                   monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, subsize=subsize, nprocess=nprocess)
+            else:
+                vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
                    monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             # vpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
             #        monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)

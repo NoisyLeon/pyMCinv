@@ -343,7 +343,7 @@ class vprofile1d(object):
     #-------------------------------------------------
     
     def mc_joint_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
-                   monoc=True, pfx='MC', verbose=False, step4uwalk=2500, numbrun=10000):
+                   monoc=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=10000, init_run=True, savedata=True):
         """
         Bayesian Monte Carlo joint inversion of receiver function and surface wave data for an isotropic model
         ========================================================================================================
@@ -365,38 +365,64 @@ class vprofile1d(object):
         self.get_period()
         self.update_mod(mtype = 'iso')
         self.get_vmodel(mtype = 'iso')
-        # initial run
-        self.compute_fsurf()
-        self.compute_rftheo()
-        self.get_misfit(wdisp=wdisp, rffactor=rffactor)
-        # write initial model
-        outmod      = outdir+'/'+pfx+'.mod'
-        self.model.write_model(outfname=outmod, isotropic=True)
-        # write initial predicted data
-        if dispdtype != 'both':
-            outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
-            self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
-        else:
-            outdisp = outdir+'/'+pfx+'.ph.disp'
-            self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
-            outdisp = outdir+'/'+pfx+'.gr.disp'
-            self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
-        outrf       = outdir+'/'+pfx+'.rf'
-        self.data.rfr.writerftxt(outfname=outrf)
-        # convert initial model to para
-        self.model.isomod.mod2para()
-        # likelihood/misfit
-        oldL        = self.data.L
-        oldmisfit   = self.data.misfit
-        run         = True     # the key that controls the sampling
-        inew        = 0     # count step (or new paras)
-        iacc        = 1     # count acceptance model
-        start       = time.time()
         # output arrays
         outmodarr       = np.zeros((numbrun, self.model.isomod.para.npara+9))
         outdisparr_ph   = np.zeros((numbrun, self.data.dispR.npper))
         outdisparr_gr   = np.zeros((numbrun, self.data.dispR.ngper))
         outrfarr        = np.zeros((numbrun, self.data.rfr.npts))
+        # initial run
+        if init_run:
+            self.compute_fsurf()
+            self.compute_rftheo()
+            self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+            # write initial model
+            outmod      = outdir+'/'+pfx+'.mod'
+            self.model.write_model(outfname=outmod, isotropic=True)
+            # write initial predicted data
+            if dispdtype != 'both':
+                outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
+                self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
+            else:
+                outdisp = outdir+'/'+pfx+'.ph.disp'
+                self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
+                outdisp = outdir+'/'+pfx+'.gr.disp'
+                self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
+            outrf       = outdir+'/'+pfx+'.rf'
+            self.data.rfr.writerftxt(outfname=outrf)
+            # convert initial model to para
+            self.model.isomod.mod2para()
+        else:
+            self.model.isomod.mod2para()
+            newmod      = copy.deepcopy(self.model.isomod)
+            newmod.para.new_paraval(0)
+            newmod.para2mod()
+            newmod.update()
+            # loop to find the "good" model,
+            # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+            igood       = 0
+            while ( not newmod.isgood(0, 1, 1, 0)):
+                igood   += igood + 1
+                newmod  = copy.deepcopy(self.model.isomod)
+                newmod.para.new_paraval(0)
+                newmod.para2mod()
+                newmod.update()
+            # assign new model to old ones
+            self.model.isomod   = newmod
+            self.get_vmodel(mtype = 'iso')
+            # forward computation
+            self.compute_fsurf()
+            self.compute_rftheo()
+            self.get_misfit(wdisp=wdisp, rffactor=rffactor)
+            if verbose:
+                print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
+            self.model.isomod.mod2para()
+        # likelihood/misfit
+        oldL        = self.data.L
+        oldmisfit   = self.data.misfit
+        run         = True     # the key that controls the sampling
+        inew        = 0     # count step (or new paras)
+        iacc        = 0     # count acceptance model
+        start       = time.time()
         while ( run ):
             inew    += 1
             if ( inew > numbrun or iacc > 20000000):
@@ -404,9 +430,9 @@ class vprofile1d(object):
             if (np.fmod(inew, 500) == 0) and verbose:
                 print pfx, 'step =',inew, 'elasped time =', time.time()-start,' sec'
             #------------------------------------------------------------------------------------------
-            # every 2500 step, perform a random walk with uniform random value in the paramerter space
+            # every step4uwalk step, perform a random walk with uniform random value in the paramerter space
             #------------------------------------------------------------------------------------------
-            if ( np.fmod(inew, step4uwalk+1) == step4uwalk ):
+            if ( np.fmod(inew, step4uwalk+1) == step4uwalk and init_run ):
                 newmod      = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(0)
                 newmod.para2mod()
@@ -429,7 +455,6 @@ class vprofile1d(object):
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 oldL                = self.data.L
                 oldmisfit           = self.data.misfit
-                iacc                += 1
                 if verbose:
                     print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
             #-------------------------------
@@ -526,24 +551,130 @@ class vprofile1d(object):
         #-----------------------------------
         outfname    = outdir+'/mc_inv.'+pfx+'.npz'
         np.savez_compressed(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
-        outfname    = outdir+'/mc_data.'+pfx+'.npz'
-        try:
-            np.savez_compressed(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
-                    self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
-                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-        except AttributeError:
+        if savedata:
+            outfname    = outdir+'/mc_data.'+pfx+'.npz'
             try:
-                np.savez_compressed(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                np.savez_compressed(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
                         self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
             except AttributeError:
-                np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
-                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+                try:
+                    np.savez_compressed(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                            self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+                except AttributeError:
+                    np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                        self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
         
         del outmodarr
         del outdisparr_ph
         del outdisparr_gr
         del outrfarr
         return
+    
+    def mc_joint_inv_iso_mp(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\
+                   monoc=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, subsize=1000, nprocess=None, merge=True):
+        #-------------------------
+        # prepare data
+        #-------------------------
+        vpr_lst = []
+        Nvpr    = int(numbrun/step4uwalk)
+        if Nvpr*step4uwalk != numbrun:
+            print 'WARNING: number of runs changes: '+str(numbrun)+' --> '+str(Nvpr*step4uwalk)
+            numbrun     = Nvpr*step4uwalk
+        for i in range(Nvpr):
+            temp_vpr            = copy.deepcopy(self)
+            temp_vpr.process_id = i
+            vpr_lst.append(temp_vpr)
+        #----------------------------------------
+        # Joint inversion with multiprocessing
+        #----------------------------------------
+        if verbose:
+            print 'Start MC joint inversion: '+pfx+time.ctime()
+            stime   = time.time()
+        if Nvpr > subsize:
+            Nsub                = int(len(vpr_lst)/subsize)
+            for isub in xrange(Nsub):
+                print 'Subset:', isub,'in',Nsub,'sets'
+                cvpr_lst        = vpr_lst[isub*subsize:(isub+1)*subsize]
+                MCINV           = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, pfx=pfx, verbose=verbose, numbrun=step4uwalk)
+                pool            = multiprocessing.Pool(processes=nprocess)
+                pool.map(MCINV, cvpr_lst) #make our results with a map call
+                pool.close() #we are not adding any more processes
+                pool.join() #tell it to wait until all threads are done before going on
+            cvpr_lst            = vpr_lst[(isub+1)*subsize:]
+            MCINV               = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, pfx=pfx, verbose=verbose, numbrun=step4uwalk)
+            pool                = multiprocessing.Pool(processes=nprocess)
+            pool.map(MCINV, cvpr_lst) #make our results with a map call
+            pool.close() #we are not adding any more processes
+            pool.join() #tell it to wait until all threads are done before going on
+        else:
+            MCINV               = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
+                                    monoc=monoc, pfx=pfx, verbose=verbose, numbrun=step4uwalk)
+            pool                = multiprocessing.Pool(processes=nprocess)
+            pool.map(MCINV, vpr_lst) #make our results with a map call
+            pool.close() #we are not adding any more processes
+            pool.join() #tell it to wait until all threads are done before going on
+            
+            # if staid != 'AK.MCK': continue
+            # print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
+            # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid, rffactor=5., wdisp=0.1)
+            # vpr.mc_joint_inv_iso(outdir=outdir, pfx = staid)
+            # if staid == 'AK.COLD':
+            #     return vpr
+        #----------------------------------------
+        # Merge inversion results
+        #----------------------------------------
+        if merge:
+            outmodarr           = np.array([])
+            outdisparr_ph       = np.array([])
+            outdisparr_gr       = np.array([])
+            outrfarr            = np.array([])
+            for i in range(Nvpr):
+                invfname        = outdir+'/mc_inv.'+pfx+'_'+str(i)+'.npz'
+                inarr           = np.load(invfname)
+                outmodarr       = np.append(outmodarr, inarr['arr_0'])
+                outdisparr_ph   = np.append(outdisparr_ph, inarr['arr_1'])
+                outdisparr_gr   = np.append(outdisparr_gr, inarr['arr_2'])
+                outrfarr        = np.append(outrfarr, inarr['arr_3'])
+                os.remove(invfname)
+            outmodarr           = outmodarr.reshape(numbrun, outmodarr.size/numbrun)
+            outdisparr_ph       = outdisparr_ph.reshape(numbrun, outdisparr_ph.size/numbrun)
+            outdisparr_gr       = outdisparr_gr.reshape(numbrun, outdisparr_gr.size/numbrun)
+            outrfarr            = outrfarr.reshape(numbrun, outrfarr.size/numbrun)
+            outinvfname         = outdir+'/mc_inv.'+pfx+'.npz'
+            np.savez_compressed(outinvfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
+        # save data
+        outdatafname    = outdir+'/mc_data.'+pfx+'.npz'
+        try:
+            np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                    self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
+                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+        except AttributeError:
+            try:
+                np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            except AttributeError:
+                np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                    self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+        if verbose:
+            print 'End MC joint inversion: '+pfx+time.ctime()
+            etime   = time.time()
+            print 'Elapsed time: '+str(etime-stime)+' secs'
+        return
+        
+def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
+    print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
+    pfx     = pfx +'_'+str(invpr.process_id)
+    if invpr.process_id == 0:
+        invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                       monoc=monoc, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
+    else:
+        invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+                       monoc=monoc, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
+    return 
+    
     
     
     # def mc_inv_iso_old(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC'):
