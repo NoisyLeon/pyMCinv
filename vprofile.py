@@ -684,7 +684,7 @@ class vprofile1d(object):
         return
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
-    # print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
+    print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\

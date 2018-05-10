@@ -80,7 +80,7 @@ class rf(object):
         self.fs         = 1./(self.to[1] - self.to[0])
         return True
   
-    def writerftxt(self, outfname, tf=10.):
+    def writerftxt(self, outfname, tf=10., prerf=True, obsrf=True):
         """
         Write receiver function data to a txt file
         ==========================================================================
@@ -96,13 +96,27 @@ class rf(object):
             return False
         nout    = int(self.fs*tf)+1
         nout    = min(nout, self.npts)
-        outArr  = np.append(self.tp[:nout], self.rfp[:nout])
-        outArr  = np.append(outArr, self.to[:nout])
-        outArr  = np.append(outArr, self.rfo[:nout])
-        outArr  = np.append(outArr, self.stdrfo[:nout])
-        outArr  = outArr.reshape((5, nout))    
+        if prerf:
+            outArr  = np.append(self.tp[:nout], self.rfp[:nout])
+        else:
+            outArr  = np.array([])
+        if obsrf:
+            outArr  = np.append(outArr, self.to[:nout])
+            outArr  = np.append(outArr, self.rfo[:nout])
+            outArr  = np.append(outArr, self.stdrfo[:nout])
+        Ncolumn     = 0
+        if prerf:
+            Ncolumn += 2
+        if obsrf:
+            Ncolumn += 3
+        outArr  = outArr.reshape((Ncolumn, nout))    
         outArr  = outArr.T
-        header  = 'tp rfp to rfo stdrfo'
+        if Ncolumn == 5:
+            header  = 'tp rfp to rfo stdrfo'
+        elif Ncolumn == 2:
+            header  = 'tp rfp'
+        elif Ncolumn == 3:
+            header  = 'to rfo stdrfo'
         np.savetxt(outfname, outArr, fmt='%g', header = header)
         return True
     
@@ -163,9 +177,9 @@ class rf(object):
             return
         plt.figure()
         ax  = plt.subplot()
-        plt.errorbar(self.to, self.rfo, yerr=self.stdrfo)
+        plt.errorbar(self.to, self.rfo, yerr=self.stdrfo, lw=1)
         if prediction:
-            plt.plot(self.to, self.rfp, 'r--', lw=3)
+            plt.plot(self.tp, self.rfp, 'r-', lw=3)
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('time (sec)', fontsize=30)
@@ -312,7 +326,7 @@ class disp(object):
             raise ValueError('Unexpected dtype: '+dtype)
         return True
     
-    def writedisptxt(self, outfname, dtype='ph'):
+    def writedisptxt(self, outfname, dtype='ph', predisp=True, obsdisp=True):
         """
         Write dispersion curve to a txt file
         ==========================================================================
@@ -327,12 +341,29 @@ class disp(object):
             if not self.isphase:
                 print 'phase velocity data is not stored!'
                 return False
-            outArr  = np.append(self.pper, self.pvelp)
-            outArr  = np.append(outArr, self.pvelo)
-            outArr  = np.append(outArr, self.stdpvelo)
-            outArr  = outArr.reshape((4, self.npper))
+            if predisp:
+                outArr  = np.append(self.pper, self.pvelp)
+            else:
+                outArr = self.pper.copy()
+            if obsdisp:
+                outArr  = np.append(outArr, self.pvelo)
+                outArr  = np.append(outArr, self.stdpvelo)
+            if predisp and not obsdisp:
+                Ncolumn = 2
+            elif not predisp and obsdisp:
+                Ncolumn = 3
+            elif predisp and obsdisp:
+                Ncolumn = 4
+            else:
+                raise ValueError('At least one of predisp/obsdisp must be True!')
+            outArr  = outArr.reshape((Ncolumn, self.npper))
             outArr  = outArr.T
-            header  = 'pper pvelp pvelo stdpvelo'
+            if Ncolumn == 4:
+                header  = 'pper pvelp pvelo stdpvelo'
+            elif Ncolumn == 3:
+                header  = 'pper pvelo stdpvelo'
+            elif Ncolumn == 2:
+                header  = 'pper pvelp'
             np.savetxt(outfname, outArr, fmt='%g', header=header)
         elif dtype == 'gr' or dtype == 'group':
             if not self.isgroup:

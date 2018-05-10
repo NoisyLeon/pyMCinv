@@ -11,7 +11,19 @@ Module for results and postprocessing of MC inversion
 import vmodel, modparam, data, vprofile
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+import matplotlib
 
+def to_percent(y, position):
+    # Ignore the passed in position. This has the effect of scaling the default
+    # tick locations.
+    s = str(100. * y)
+    # The percent symbol needs escaping in latex
+    if matplotlib.rcParams['text.usetex'] is True:
+        return s + r'$\%$'
+    else:
+        return s + '%'
+    
 class postvpr(object):
     """
     An object for post data processing of 1D velocity profile inversion
@@ -38,6 +50,7 @@ class postvpr(object):
     avg_model       - average model object
     min_model       - minimum misfit model object
     init_model      - inital model object
+    real_model      - real model object, used for synthetic test only
     temp_model      - temporary model object, used for analysis of the full assemble of the finally accepted models
     vprfwrd         - vprofile1d object for forward modelling of the average model
     =====================================================================================================================
@@ -48,6 +61,7 @@ class postvpr(object):
         self.avg_model  = vmodel.model1d()
         self.min_model  = vmodel.model1d()
         self.init_model = vmodel.model1d()
+        self.real_model = vmodel.model1d()
         self.temp_model = vmodel.model1d()
         self.vprfwrd    = vprofile.vprofile1d()
         return
@@ -86,10 +100,12 @@ class postvpr(object):
         """
         min_paraval         = self.invdata[self.ind_min, 2:(self.npara+2)]
         self.min_model.get_para_model(paraval=min_paraval)
+        self.min_model.isomod.mod2para()
         avg_paraval         = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
         self.avg_model.get_para_model(paraval=avg_paraval)
         self.vprfwrd.model  = self.avg_model
-        return 
+        self.avg_model.isomod.mod2para()
+        return
         
     def read_data(self, infname):
         """
@@ -173,7 +189,7 @@ class postvpr(object):
             plt.errorbar(self.data.rfr.to, self.data.rfr.rfo, yerr=self.data.rfr.stdrfo, label='observed')
         if minrf:
             rf_min      = self.rfpre[self.ind_min, :]
-            plt.plot(self.data.rfr.to, rf_min, 'k--', lw=3, label='min model')
+            plt.plot(self.data.rfr.to, rf_min, 'k--', lw=1, label='min model')
         if avgrf:
             self.vprfwrd.npts   = self.rfpre.shape[1]
             self.run_avg_fwrd()
@@ -242,7 +258,7 @@ class postvpr(object):
             plt.show()
         return
     
-    def plot_profile(self, title='Vs profile', minvpr=True, avgvpr=True, assemvpr=True, showfig=True):
+    def plot_profile(self, title='Vs profile', minvpr=True, avgvpr=True, assemvpr=True, realvpr=False, showfig=True):
         """
         plot vs profiles
         =================================================================================================
@@ -250,7 +266,8 @@ class postvpr(object):
         title       - title for the figure
         minvpr      - plot minimum misfit vs profile or not
         avgvpr      - plot the the average of accepted models or not 
-        assemvpr    - plot the assemble of accepted models or not 
+        assemvpr    - plot the assemble of accepted models or not
+        realvpr     - plot the real models or not, used for synthetic test only
         =================================================================================================
         """
         plt.figure()
@@ -264,6 +281,8 @@ class postvpr(object):
             plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'r-', lw=3, label='min model')
         if avgvpr:
             plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'b-', lw=3, label='avg model')
+        if realvpr:
+            plt.plot(self.real_model.VsvArr, self.real_model.zArr, 'g-', lw=3, label='real model')
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('Vs (km/s)', fontsize=30)
@@ -278,6 +297,43 @@ class postvpr(object):
             plt.legend(fontsize=20)
             plt.show()
         return
+    
+    def plot_hist(self, pindex=0, bins=50, title='', xlabel='', showfig=True):
+        """
+        Plot a histogram of one specified model parameter
+        =================================================================================================
+        ::: input :::
+        pindex  - parameter index in the paraval array
+        bins    - integer or sequence or ‘auto’, optional
+                    If an integer is given, bins + 1 bin edges are calculated and returned,
+                        consistent with numpy.histogram().
+                    If bins is a sequence, gives bin edges, including left edge of first bin and
+                        right edge of last bin. In this case, bins is returned unmodified.
+        title   - title for the figure
+        xlabel  - x axis label for the figure
+        =================================================================================================
+        """
+        ax      = plt.subplot()
+        paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex]
+        weights = np.ones_like(paraval)/float(paraval.size)
+        plt.hist(paraval, bins=bins, weights=weights, alpha=0.5, color='r')
+        formatter = FuncFormatter(to_percent)
+        # Set the formatter
+        plt.gca().yaxis.set_major_formatter(formatter)
+        plt.xlabel(xlabel, fontsize=30)
+        plt.ylabel('Percentage', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.title(title, fontsize=35)
+        min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
+        avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        plt.axvline(x=min_paraval[pindex], c='k', linestyle='-.', label='min misfit value')
+        plt.axvline(x=avg_paraval[pindex], c='b', label='average value')
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+
     
     
     
