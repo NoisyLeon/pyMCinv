@@ -333,6 +333,100 @@ class postvpr(object):
         if showfig:
             plt.show()
         return
+    
+    def plot_hist_two_group(self, x1min, x1max, x2min, x2max, ind_s, ind_p, bins1=50, bins2=50,  title='', xlabel='', showfig=True):
+        """
+        Plot a histogram of one specified model parameter
+        =================================================================================================
+        ::: input :::
+        pindex  - parameter index in the paraval array
+        bins    - integer or sequence or ‘auto’, optional
+                    If an integer is given, bins + 1 bin edges are calculated and returned,
+                        consistent with numpy.histogram().
+                    If bins is a sequence, gives bin edges, including left edge of first bin and
+                        right edge of last bin. In this case, bins is returned unmodified.
+        title   - title for the figure
+        xlabel  - x axis label for the figure
+        =================================================================================================
+        """
+        ax      = plt.subplot()
+        paraval0= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, ind_p]
+        index1  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x1min)\
+                    * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x1max))[0]
+        paraval1= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index1, ind_p]
+        weights1= np.ones_like(paraval1)/float(paraval0.size)
+        index2  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x2min)\
+                    * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x2max))[0]
+        paraval2= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index2, ind_p]
+        weights2= np.ones_like(paraval2)/float(paraval0.size)
+        plt.hist(paraval1, bins=bins1, weights=weights1, alpha=0.5, color='r')
+        plt.hist(paraval2, bins=bins2, weights=weights2, alpha=0.5, color='b')
+        formatter = FuncFormatter(to_percent)
+        # Set the formatter
+        plt.gca().yaxis.set_major_formatter(formatter)
+        plt.xlabel(xlabel, fontsize=30)
+        plt.ylabel('Percentage', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.title(title, fontsize=35)
+        min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
+        avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        plt.axvline(x=min_paraval[pindex], c='k', linestyle='-.', label='min misfit value')
+        plt.axvline(x=avg_paraval[pindex], c='b', label='average value')
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
+    def plot_hist_three_group(self, x1min, x1max, x2min, x2max, x3min, x3max, ind_s, ind_p, bins1=50, bins2=50, bins3=50, title='', xlabel='', showfig=True):
+        """
+        Plot a histogram of one specified model parameter
+        =================================================================================================
+        ::: input :::
+        pindex  - parameter index in the paraval array
+        bins    - integer or sequence or ‘auto’, optional
+                    If an integer is given, bins + 1 bin edges are calculated and returned,
+                        consistent with numpy.histogram().
+                    If bins is a sequence, gives bin edges, including left edge of first bin and
+                        right edge of last bin. In this case, bins is returned unmodified.
+        title   - title for the figure
+        xlabel  - x axis label for the figure
+        =================================================================================================
+        """
+        ax      = plt.subplot()
+        paraval0= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, ind_p]
+        index1  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x1min)\
+                    * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x1max))[0]
+        paraval1= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index1, ind_p]
+        weights1= np.ones_like(paraval1)/float(paraval0.size)
+        index2  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x2min)\
+                    * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x2max))[0]
+        paraval2= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index2, ind_p]
+        weights2= np.ones_like(paraval2)/float(paraval0.size)
+        index3  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x3min)\
+                    * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x3max))[0]
+        paraval3= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index3, ind_p]
+        weights3= np.ones_like(paraval3)/float(paraval0.size)
+        plt.hist(paraval1, bins=bins1, weights=weights1, alpha=0.5, color='r')
+        plt.hist(paraval2, bins=bins2, weights=weights2, alpha=0.5, color='b')
+        plt.hist(paraval3, bins=bins3, weights=weights3, alpha=0.5, color='g')
+        formatter = FuncFormatter(to_percent)
+        # Set the formatter
+        plt.gca().yaxis.set_major_formatter(formatter)
+        plt.xlabel(xlabel, fontsize=30)
+        plt.ylabel('Percentage', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.title(title, fontsize=35)
+        min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
+        # avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        plt.axvline(x=min_paraval[ind_p], c='k', linestyle='-.', label='min misfit value')
+        # plt.axvline(x=avg_paraval[pindex], c='b', label='average value')
+        plt.legend(loc=0, fontsize=15)
+        if showfig:
+            plt.show()
+        return
+    
 
     
     
