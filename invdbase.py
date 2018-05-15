@@ -435,7 +435,8 @@ class invASDF(pyasdf.ASDFDataSet):
             vpr.getpara()
             
             ista                += 1
-            # if staid != 'AK.MCK': continue
+            # # # if staid != 'AK.HDA': continue
+            # # # return vpr
             print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
             if parallel:
                 vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\

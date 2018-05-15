@@ -184,12 +184,12 @@ class postvpr(object):
         if assemrf:
             for i in self.ind_thresh:
                 rf_temp = self.rfpre[i, :]
-                plt.plot(self.data.rfr.to, rf_temp, '-',color='grey',  alpha=0.05, lw=3)
+                plt.plot(self.data.rfr.to, rf_temp, '-',color='grey',  alpha=0.01, lw=3)
         if obsrf:
-            plt.errorbar(self.data.rfr.to, self.data.rfr.rfo, yerr=self.data.rfr.stdrfo, label='observed')
+            plt.errorbar(self.data.rfr.to, self.data.rfr.rfo, yerr=self.data.rfr.stdrfo, color='b', label='observed')
         if minrf:
             rf_min      = self.rfpre[self.ind_min, :]
-            plt.plot(self.data.rfr.to, rf_min, 'k--', lw=1, label='min model')
+            plt.plot(self.data.rfr.to, rf_min, 'y--', lw=3, label='min model')
         if avgrf:
             self.vprfwrd.npts   = self.rfpre.shape[1]
             self.run_avg_fwrd()
@@ -197,7 +197,7 @@ class postvpr(object):
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('time (sec)', fontsize=30)
-        plt.ylabel('ampltude', fontsize=30)
+        plt.ylabel('amplitude', fontsize=30)
         plt.title(title, fontsize=30)
         plt.legend(loc=0, fontsize=20)
         if showfig:
@@ -229,24 +229,24 @@ class postvpr(object):
                     plt.plot(self.data.dispR.gper, disp_temp, '-',color='grey',  alpha=0.01, lw=3)                
         if obsdisp:
             if disptype == 'ph':
-                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo, lw=3, label='observed')
+                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=3, label='observed')
             else:
-                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo, lw=3, label='observed')
+                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='b', lw=3, label='observed')
         if mindisp:
             if disptype == 'ph':
                 disp_min    = self.disppre_ph[self.ind_min, :]
-                plt.plot(self.data.dispR.pper, disp_min, 'r--', lw=3, label='min model')
+                plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=3, ms=10, label='min model')
             else:
                 disp_min    = self.disppre_gr[self.ind_min, :]
-                plt.plot(self.data.dispR.gper, disp_min, 'r--', lw=3, label='min model')
+                plt.plot(self.data.dispR.gper, disp_min, 'yo-', lw=3, ms=10, label='min model')
         if avgdisp:
             self.run_avg_fwrd()
             if disptype == 'ph':
                 disp_avg    = self.vprfwrd.data.dispR.pvelp
-                plt.plot(self.data.dispR.pper, disp_avg, 'k--', lw=3, label='avg model')
+                plt.plot(self.data.dispR.pper, disp_avg, 'r^-', lw=3, ms=10, label='avg model')
             else:
                 disp_avg    = self.vprfwrd.data.dispR.gvelp
-                plt.plot(self.data.dispR.gper, disp_avg, 'k--', lw=3, label='avg model')
+                plt.plot(self.data.dispR.gper, disp_avg, 'r^-', lw=3, ms=10, label='avg model')
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('Period (sec)', fontsize=30)
@@ -280,7 +280,7 @@ class postvpr(object):
         if minvpr:
             plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'r-', lw=3, label='min model')
         if avgvpr:
-            plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'b-', lw=3, label='avg model')
+            plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'y-', lw=3, label='avg model')
         if realvpr:
             plt.plot(self.real_model.VsvArr, self.real_model.zArr, 'g-', lw=3, label='real model')
         ax.tick_params(axis='x', labelsize=20)
@@ -314,7 +314,10 @@ class postvpr(object):
         =================================================================================================
         """
         ax      = plt.subplot()
-        paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex]
+        if pindex == -1:
+            paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex] + (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, -2]
+        else:
+            paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex]
         weights = np.ones_like(paraval)/float(paraval.size)
         plt.hist(paraval, bins=bins, weights=weights, alpha=0.5, color='r')
         formatter = FuncFormatter(to_percent)
@@ -327,8 +330,12 @@ class postvpr(object):
         plt.title(title, fontsize=35)
         min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
         avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
-        plt.axvline(x=min_paraval[pindex], c='k', linestyle='-.', label='min misfit value')
-        plt.axvline(x=avg_paraval[pindex], c='b', label='average value')
+        if pindex == -1:
+            plt.axvline(x=min_paraval[pindex]+min_paraval[-2], c='r', linestyle='-.', label='min misfit value')
+            plt.axvline(x=avg_paraval[pindex]+avg_paraval[-2], c='y', label='average value')
+        else:
+            plt.axvline(x=min_paraval[pindex], c='r', linestyle='-.', label='min misfit value')
+            plt.axvline(x=avg_paraval[pindex], c='y', label='average value')
         plt.legend(loc=0, fontsize=15)
         if showfig:
             plt.show()

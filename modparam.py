@@ -630,6 +630,11 @@ class isomod(object):
                 else:
                     valmin  = val - val*self.para.paraindex[2, i]/100.
                     valmax  = val + val*self.para.paraindex[2, i]/100.
+                ###
+                # # # if self.para.paraindex[0, i] == 1 and i == 12:
+                # # #     valmin  = 0.
+                # # #     valmax  = 5.
+                ###
                 valmin      = max (0.,valmin)
                 valmax      = max (valmin + 0.0001, valmax)
                 if (int(self.para.paraindex[0, i]) == 0 and i == 0 \
