@@ -100,6 +100,16 @@ class invASDF(pyasdf.ASDFDataSet):
         return
     
     def read_ref_dbase(self, inasdfname, phase='P', reftype='R'):
+        """
+        read receiver function data from input ASDF file
+        ==========================================================================
+        ::: input :::
+        inasdfname  - input ASDF file name
+        phase       - default - P, P receiver function
+        ::: output :::
+        a txt file contains predicted and observed dispersion data
+        ==========================================================================
+        """
         indset      = pyasdf.ASDFDataSet(inasdfname)
         #--------------------
         # station inventory
