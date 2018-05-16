@@ -55,7 +55,7 @@ class postvpr(object):
     vprfwrd         - vprofile1d object for forward modelling of the average model
     =====================================================================================================================
     """
-    def __init__(self, thresh=0.5):
+    def __init__(self, thresh=0.5, waterdepth=-1., vpwater=1.475):
         self.data       = data.data1d()
         self.thresh     = thresh
         self.avg_model  = vmodel.model1d()
@@ -64,6 +64,8 @@ class postvpr(object):
         self.real_model = vmodel.model1d()
         self.temp_model = vmodel.model1d()
         self.vprfwrd    = vprofile.vprofile1d()
+        self.waterdepth = waterdepth
+        self.vpwater    = vpwater
         return
     
     def read_inv_data(self, infname, verbose=True):
@@ -99,10 +101,18 @@ class postvpr(object):
         get the minimum misfit and average model from the inversion data array
         """
         min_paraval         = self.invdata[self.ind_min, 2:(self.npara+2)]
-        self.min_model.get_para_model(paraval=min_paraval)
+        if self.waterdepth <= 0.:
+            self.min_model.get_para_model(paraval=min_paraval)
+        else:
+            self.min_model.get_para_model(paraval=min_paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
+                numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
         self.min_model.isomod.mod2para()
         avg_paraval         = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
-        self.avg_model.get_para_model(paraval=avg_paraval)
+        if self.waterdepth <= 0.:
+            self.avg_model.get_para_model(paraval=avg_paraval)
+        else:
+            self.avg_model.get_para_model(paraval=avg_paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
+                numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
         self.vprfwrd.model  = self.avg_model
         self.avg_model.isomod.mod2para()
         return
@@ -113,27 +123,38 @@ class postvpr(object):
         """
         inarr           = np.load(infname)
         index           = inarr['arr_0']
-        if index[0] == 1:
+        if index[0] == 1 and index[1] == 0 and index[2] == 0:
             indata      = np.append(inarr['arr_1'], inarr['arr_2'])
             indata      = np.append(indata, inarr['arr_3'])
             indata      = indata.reshape(3, indata.size/3)
             self.data.dispR.get_disp(indata=indata, dtype='ph')
-        if index[0] == 0:
+        if index[0] == 1 and index[1] == 1 and index[2] == 1:
             indata      = np.append(inarr['arr_1'], inarr['arr_2'])
             indata      = np.append(indata, inarr['arr_3'])
             indata      = indata.reshape(3, indata.size/3)
-            self.data.dispR.get_disp(indata=indata, dtype='gr')
-        if index[0] == 1 and index[1] == 1:
+            self.data.dispR.get_disp(indata=indata, dtype='ph')
             indata      = np.append(inarr['arr_4'], inarr['arr_5'])
             indata      = np.append(indata, inarr['arr_6'])
             indata      = indata.reshape(3, indata.size/3)
             self.data.dispR.get_disp(indata=indata, dtype='gr')
-        if (index[0] * index[1]) == 1:
             indata      = np.append(inarr['arr_7'], inarr['arr_8'])
             indata      = np.append(indata, inarr['arr_9'])
             indata      = indata.reshape(3, indata.size/3)
             self.data.rfr.get_rf(indata=indata)
-        else:
+        if index[0] == 0 and index[1] == 1 and index[2] == 1:
+            indata      = np.append(inarr['arr_1'], inarr['arr_2'])
+            indata      = np.append(indata, inarr['arr_3'])
+            indata      = indata.reshape(3, indata.size/3)
+            self.data.dispR.get_disp(indata=indata, dtype='gr')
+            indata      = np.append(inarr['arr_4'], inarr['arr_5'])
+            indata      = np.append(indata, inarr['arr_6'])
+            indata      = indata.reshape(3, indata.size/3)
+            self.data.rfr.get_rf(indata=indata)
+        if index[0] == 1 and index[1] == 0 and index[2] == 1:
+            indata      = np.append(inarr['arr_1'], inarr['arr_2'])
+            indata      = np.append(indata, inarr['arr_3'])
+            indata      = indata.reshape(3, indata.size/3)
+            self.data.dispR.get_disp(indata=indata, dtype='ph')
             indata      = np.append(inarr['arr_4'], inarr['arr_5'])
             indata      = np.append(indata, inarr['arr_6'])
             indata      = indata.reshape(3, indata.size/3)
@@ -223,30 +244,30 @@ class postvpr(object):
             for i in self.ind_thresh:
                 if disptype == 'ph':
                     disp_temp   = self.disppre_ph[i, :]
-                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=0.01, lw=3)
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=0.05, lw=1)
                 else:
                     disp_temp   = self.disppre_gr[i, :]
-                    plt.plot(self.data.dispR.gper, disp_temp, '-',color='grey',  alpha=0.01, lw=3)                
+                    plt.plot(self.data.dispR.gper, disp_temp, '-',color='grey',  alpha=0.05, lw=1)                
         if obsdisp:
             if disptype == 'ph':
-                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=3, label='observed')
+                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=1, label='observed')
             else:
-                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='b', lw=3, label='observed')
+                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='b', lw=1, label='observed')
         if mindisp:
             if disptype == 'ph':
                 disp_min    = self.disppre_ph[self.ind_min, :]
-                plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=3, ms=10, label='min model')
+                plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=1, ms=10, label='min model')
             else:
                 disp_min    = self.disppre_gr[self.ind_min, :]
-                plt.plot(self.data.dispR.gper, disp_min, 'yo-', lw=3, ms=10, label='min model')
+                plt.plot(self.data.dispR.gper, disp_min, 'yo-', lw=1, ms=10, label='min model')
         if avgdisp:
             self.run_avg_fwrd()
             if disptype == 'ph':
                 disp_avg    = self.vprfwrd.data.dispR.pvelp
-                plt.plot(self.data.dispR.pper, disp_avg, 'r^-', lw=3, ms=10, label='avg model')
+                plt.plot(self.data.dispR.pper, disp_avg, 'r^-', lw=1, ms=10, label='avg model')
             else:
                 disp_avg    = self.vprfwrd.data.dispR.gvelp
-                plt.plot(self.data.dispR.gper, disp_avg, 'r^-', lw=3, ms=10, label='avg model')
+                plt.plot(self.data.dispR.gper, disp_avg, 'r^-', lw=1, ms=10, label='avg model')
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('Period (sec)', fontsize=30)
@@ -275,7 +296,11 @@ class postvpr(object):
         if assemvpr:
             for i in self.ind_thresh:
                 paraval     = self.invdata[i, 2:(self.npara+2)]
-                self.temp_model.get_para_model(paraval=paraval)
+                if self.waterdepth <= 0.:
+                    self.temp_model.get_para_model(paraval=paraval)
+                else:
+                    self.temp_model.get_para_model(paraval=paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
+                        numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
                 plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=0.01, lw=3)               
         if minvpr:
             plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'r-', lw=3, label='min model')

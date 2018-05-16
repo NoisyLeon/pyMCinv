@@ -297,7 +297,7 @@ class model1d(object):
                 return False
         return True
     
-    def get_para_model(self, paraval, nmod=3, numbp=np.array([2, 4, 5]),\
+    def get_para_model(self, paraval, waterdepth=-1., vpwater=1.475, nmod=3, numbp=np.array([2, 4, 5]),\
                 mtype = np.array([4, 2, 2]), vpvs = np.array([2., 1.75, 1.75]), maxdepth=200.):
         """
         get an isotropic velocity model given a parameter array
@@ -308,7 +308,9 @@ class model1d(object):
         numbp       - number of control points/basis (1D int array with length nmod)
                         2 - sediments; 4 - crust; 5 - mantle
         mtype       - model parameterization types (1D int array with length nmod)
-                        4 - gradient layer in sediments; 2 - B spline in the crust and mantle
+                        2   - B spline in the crust and mantle
+                        4   - gradient layer in sediments
+                        5   - water layer
         vpvs        - vp/vs ratio
         maxdepth    - maximum depth ( unit - km)
         ======================================================================================
@@ -319,8 +321,13 @@ class model1d(object):
         self.isomod.vpvs            = vpvs[:]
         self.isomod.get_paraind()
         self.isomod.para.paraval[:] = paraval[:]
+        if self.isomod.mtype[0] == 5:
+            if waterdepth <= 0.:
+                raise ValueError('Water depth for water layer should be non-zero!')
+            self.isomod.cvel[0, 0]  = vpwater
+            self.isomod.thickness[0]= waterdepth
         self.isomod.para2mod()
-        self.isomod.thickness[2]    = maxdepth - self.isomod.thickness[0] - self.isomod.thickness[1]
+        self.isomod.thickness[-1]   = maxdepth - (self.isomod.thickness[:-1]).sum()
         self.isomod.update()
         self.get_iso_vmodel()
         return

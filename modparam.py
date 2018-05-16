@@ -374,11 +374,11 @@ class isomod(object):
 
     def update(self):
         """
-        Update model (vs and hArr arrays)
+        Update model (vs and hArr arrays), from the thickness, cvel
         """
         for i in range(self.nmod):
             if self.nlay[i] > self.maxlay:
-                printf('number of layers is too large, need change default maxlay!')
+                print ('number of layers is too large, need change default maxlay!')
                 return False
             # layered model
             if self.mtype[i] == 1:
@@ -563,12 +563,20 @@ class isomod(object):
         """
         numbp_sum   = self.numbp.sum()
         npara       = numbp_sum  + self.nmod - 1
+        # water layer, added May 15, 2018
+        if self.mtype[0] == 5:
+            npara   -= 2
+        #
         self.para.init_arr(npara)
         ipara       = 0
         for i in range(self.nmod):
+            # water layer, added May 15, 2018
+            if self.mtype[i] == 5:
+                continue
+            #--------------------------------
             for j in range(self.numbp[i]):
                 self.para.paraindex[0, ipara]   = 0
-                if i == 0:
+                if i == 0 or (i == 1 and self.mtype[0] == 5): # water layer, added May 15, 2018
                     # sediment, cvel space is +- 1 km/s, different from Shen et al. 2012
                     self.para.paraindex[1, ipara]   = 1
                     self.para.paraindex[2, ipara]   = 1.
@@ -587,7 +595,10 @@ class isomod(object):
             self.para.paraindex[1, ipara]   = -1
             self.para.paraindex[2, ipara]   = 100.
             self.para.paraindex[3, ipara]   = 0.1
-            self.para.paraindex[4, ipara]   = 0
+            if self.mtype[0] == 5: # water layer, added May 15, 2018
+                self.para.paraindex[4, ipara]   = 1
+            else:
+                self.para.paraindex[4, ipara]   = 0
             ipara                           += 1
         # crustal thickness
         self.para.paraindex[0, ipara]       = 1
@@ -595,7 +606,10 @@ class isomod(object):
         self.para.paraindex[2, ipara]       = 20.
         self.para.paraindex[3, ipara]       = 1.
         if self.nmod >= 3:
-            self.para.paraindex[4, ipara]   = 1.
+            if self.mtype[0] == 5: # water layer, added May 15, 2018
+                self.para.paraindex[4, ipara]   = 2.
+            else:
+                self.para.paraindex[4, ipara]   = 1.
         else:
             self.para.paraindex[4, ipara]   = 0.
         return
@@ -631,9 +645,9 @@ class isomod(object):
                     valmin  = val - val*self.para.paraindex[2, i]/100.
                     valmax  = val + val*self.para.paraindex[2, i]/100.
                 ###
-                # # # if self.para.paraindex[0, i] == 1 and i == 12:
-                # # #     valmin  = 0.
-                # # #     valmax  = 5.
+                # if self.para.paraindex[0, i] == 1 and i == 12:
+                #     valmin  = 0.
+                #     valmax  = 5.
                 ###
                 valmin      = max (0.,valmin)
                 valmax      = max (valmin + 0.0001, valmax)
@@ -666,6 +680,7 @@ class isomod(object):
                 self.vpvs[ig]       = val
             else:
                 print('Unexpected value in paraindex!')
+        self.thickness[-1]          = 200. - self.thickness[:-1].sum()
         return
     
     def isgood(self, m0, m1, g0, g1):

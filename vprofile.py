@@ -376,23 +376,27 @@ class vprofile1d(object):
         outrfarr        = np.zeros((numbrun, self.data.rfr.npts))
         # initial run
         if init_run:
-            self.compute_fsurf()
-            self.compute_rftheo()
+            if wdisp > 0.:
+                self.compute_fsurf()
+            if wdisp < 1.:
+                self.compute_rftheo()
             self.get_misfit(wdisp=wdisp, rffactor=rffactor)
             # write initial model
             outmod      = outdir+'/'+pfx+'.mod'
             self.model.write_model(outfname=outmod, isotropic=True)
             # write initial predicted data
-            if dispdtype != 'both':
-                outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
-                self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
-            else:
-                outdisp = outdir+'/'+pfx+'.ph.disp'
-                self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
-                outdisp = outdir+'/'+pfx+'.gr.disp'
-                self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
-            outrf       = outdir+'/'+pfx+'.rf'
-            self.data.rfr.writerftxt(outfname=outrf)
+            if wdisp > 0.:
+                if dispdtype != 'both':
+                    outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
+                    self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
+                else:
+                    outdisp = outdir+'/'+pfx+'.ph.disp'
+                    self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
+                    outdisp = outdir+'/'+pfx+'.gr.disp'
+                    self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
+            if wdisp < 1.:
+                outrf       = outdir+'/'+pfx+'.rf'
+                self.data.rfr.writerftxt(outfname=outrf)
             # convert initial model to para
             self.model.isomod.mod2para()
         else:
@@ -402,9 +406,14 @@ class vprofile1d(object):
             newmod.para2mod()
             newmod.update()
             # loop to find the "good" model,
-            # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+            # satisfying the constraint (3), (4) and (5) in Shen et al., 2012
+            m0  = 0
+            m1  = 1
+            if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
+                m0  += 1
+                m1  += 1
             igood       = 0
-            while ( not newmod.isgood(0, 1, 1, 0)):
+            while ( not newmod.isgood(m0, m1, 1, 0)):
                 igood   += igood + 1
                 newmod  = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(0)
@@ -414,8 +423,10 @@ class vprofile1d(object):
             self.model.isomod   = newmod
             self.get_vmodel(mtype = 'iso')
             # forward computation
-            self.compute_fsurf()
-            self.compute_rftheo()
+            if wdisp > 0.:
+                self.compute_fsurf()
+            if wdisp < 1.:
+                self.compute_rftheo()
             self.get_misfit(wdisp=wdisp, rffactor=rffactor)
             if verbose:
                 print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
@@ -442,9 +453,14 @@ class vprofile1d(object):
                 newmod.para2mod()
                 newmod.update()
                 # loop to find the "good" model,
-                # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                # satisfying the constraint (3), (4) and (5) in Shen et al., 2012
+                m0  = 0
+                m1  = 1
+                if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
+                    m0  += 1
+                    m1  += 1
                 igood       = 0
-                while ( not newmod.isgood(0, 1, 1, 0)):
+                while ( not newmod.isgood(m0, m1, 1, 0)):
                     igood   += igood + 1
                     newmod  = copy.deepcopy(self.model.isomod)
                     newmod.para.new_paraval(0)
@@ -454,8 +470,10 @@ class vprofile1d(object):
                 self.model.isomod   = newmod
                 self.get_vmodel()
                 # forward computation
-                self.compute_fsurf()
-                self.compute_rftheo()
+                if wdisp > 0.:
+                    self.compute_fsurf()
+                if wdisp < 1.:
+                    self.compute_rftheo()
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 oldL                = self.data.L
                 oldmisfit           = self.data.misfit
@@ -473,14 +491,19 @@ class vprofile1d(object):
                 if monoc:
                     # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
                     # loop to find the "good" model, added on May 3rd, 2018
+                    m0  = 0
+                    m1  = 1
+                    if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
+                        m0  += 1
+                        m1  += 1
                     itemp   = 0
-                    while (not newmod.isgood(0, 1, 1, 0)) and itemp < 100:
+                    while (not newmod.isgood(m0, m1, 1, 0)) and itemp < 100:
                         itemp       += 1
                         newmod      = copy.deepcopy(self.model.isomod)
                         newmod.para.new_paraval(1)
                         newmod.para2mod()
                         newmod.update()
-                    if not newmod.isgood(0, 1, 1, 0):
+                    if not newmod.isgood(m0, m1, 1, 0):
                         print 'No good model found!'
                         continue
                 # assign new model to old ones
@@ -526,12 +549,14 @@ class vprofile1d(object):
                 outmodarr[inew-1, newmod.para.npara+7]      = self.data.dispR.misfit
                 outmodarr[inew-1, newmod.para.npara+8]      = time.time()-start
                 # predicted dispersion data
-                if dispdtype == 'ph' or dispdtype == 'both':
-                    outdisparr_ph[inew-1, :]    = self.data.dispR.pvelp[:]
-                if dispdtype == 'gr' or dispdtype == 'both':
-                    outdisparr_gr[inew-1, :]    = self.data.dispR.gvelp[:]
+                if wdisp > 0.:
+                    if dispdtype == 'ph' or dispdtype == 'both':
+                        outdisparr_ph[inew-1, :]    = self.data.dispR.pvelp[:]
+                    if dispdtype == 'gr' or dispdtype == 'both':
+                        outdisparr_gr[inew-1, :]    = self.data.dispR.gvelp[:]
                 # predicted receiver function data
-                outrfarr[inew-1, :]             = self.data.rfr.rfp[:]
+                if wdisp < 1.:
+                    outrfarr[inew-1, :]             = self.data.rfr.rfp[:]
                 # assign likelihood/misfit
                 oldL        = newL
                 oldmisfit   = newmisfit
@@ -675,8 +700,11 @@ class vprofile1d(object):
                     np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
                 except AttributeError:
-                    np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
-                        self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+                    try:
+                        np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                            self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+                    except AttributeError:
+                        np.savez_compressed(outdatafname, np.array([1, 0, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo)
         if verbose:
             print 'End MC joint inversion: '+pfx+' '+time.ctime()
             etime   = time.time()
