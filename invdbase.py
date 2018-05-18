@@ -251,7 +251,7 @@ class invASDF(pyasdf.ASDFDataSet):
         indset.close()
         return
     
-    def read_moho_depth(self, infname='crsthk.xyz'):
+    def read_moho_depth(self, infname='crsthk.xyz', source='crust_1.0'):
         """
         read crust thickness from a txt file (crust 1.0 model)
         """
@@ -281,7 +281,7 @@ class invASDF(pyasdf.ASDFDataSet):
             if abs(lon-stlo) > 1. or abs(lat - stla) > 1.:
                 print 'ERROR!',lon,lat,stlo,stla
             depth   = depthArr[ind_lat, ind_lon]
-            header  = {'moho_depth': depth, 'data_source': 'crust_1.0'}
+            header  = {'moho_depth': depth, 'data_source': source}
             self.add_auxiliary_data(data=np.array([]), data_type='MohoDepth', path=staid_aux, parameters=header)
         return
     
@@ -578,6 +578,7 @@ class invhdf5(h5py.File):
         dtype       - data type (ph or gr)
         wtype       - wave type (ray or lov)
         Tmin, Tmax  - minimum and maximum period to extract from the tomographic results
+        res         - resolution for grid points, default is LD, low-definition
         =================================================================================
         """
         if dtype is not 'ph' and dtype is not 'gr':
@@ -610,6 +611,10 @@ class invhdf5(h5py.File):
         dlat_interp     = org_grp.attrs['dlat'+sfx]
         dlon            = org_grp.attrs['dlon']
         dlat            = org_grp.attrs['dlat']
+        if sfx == '':
+            mask        = indset[dataid+'/mask1']
+        else:
+            mask        = indset[dataid+'/mask'+sfx]
         if create_header:
             self.attrs.create(name = 'minlon', data=minlon, dtype='f')
             self.attrs.create(name = 'maxlon', data=maxlon, dtype='f')
@@ -618,74 +623,37 @@ class invhdf5(h5py.File):
             self.attrs.create(name = 'dlon', data=dlon_interp)
             self.attrs.create(name = 'dlat', data=dlon_interp)
         self._get_lon_lat_arr()
-        
-        
-        
-        
-        
-        
-        self._get_lon_lat_arr(path='raytomo', hd=True)
-        for staid in stalst:
-            netcode, stacode    = staid.split('.')
-            staid_aux           = netcode+'_'+stacode
-            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
-            if stlo < 0.:
-                stlo            += 360.
-            if stla > maxlat or stla < minlat or stlo > maxlon or stlo < minlon:
-                print 'WARNING: station: '+ staid+', lat = '+str(stla)+' lon = '+str(stlo)+', out of the range of tomograpic maps!'
-                continue
-            disp_v              = np.array([])
-            disp_un             = np.array([])
-            T                   = np.array([])
-            #-----------------------------
-            # determine the indices
-            #-----------------------------
-            ind_lon             = np.where(stlo<=self.lons)[0][0]
-            find_lon            = ind_lon            
-            ind_lat             = np.where(stla<=self.lats)[0][0]
-            find_lat            = ind_lat
-            # point 1
-            distmin, az, baz    = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat], self.lons[ind_lon]) # distance is in m
-            # point 2
-            dist, az, baz       = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat], self.lons[ind_lon-1]) # distance is in m
-            if dist < distmin:
-                find_lon        = ind_lon-1
-                distmin         = dist
-            # point 3
-            dist, az, baz       = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat-1], self.lons[ind_lon]) # distance is in m
-            if dist < distmin:
-                find_lat        = ind_lat-1
-                distmin         = dist
-            # point 4
-            dist, az, baz       = obspy.geodetics.gps2dist_azimuth(stla, stlo, self.lats[ind_lat-1], self.lons[ind_lon-1]) # distance is in m
-            if dist < distmin:
-                find_lat        = ind_lat-1
-                find_lon        = ind_lon-1
-                distmin         = dist
-            for per in pers:
-                if per < Tmin or per > Tmax:
-                    continue
-                try:
-                    pergrp      = grp['%g_sec'%( per )]
-                    vel         = pergrp['vel_iso_HD'].value
-                    vel_sem     = pergrp['vel_sem_HD'].value
-                except KeyError:
-                    if verbose:
-                        print 'No data for T = '+str(per)+' sec'
-                    continue
-                T               = np.append(T, per)
-                disp_v          = np.append(disp_v, vel[find_lat, find_lon])
-                disp_un         = np.append(disp_un, vel_sem[find_lat, find_lon])
-            data                = np.zeros((3, T.size))
-            data[0, :]          = T[:]
-            data[1, :]          = disp_v[:]
-            data[2, :]          = disp_un[:]
-            disp_header         = {'Np': T.size}
-            self.add_auxiliary_data(data=data, data_type='RayDISPcurve', path=wtype+'/'+dtype+'/'+staid_aux, parameters=disp_header)
+        self.attrs.create(name='mask', data = mask)
+        for ilat in range(self.Nlat):
+            for ilon in range(self.Nlon):
+                data_str    = str(self.lons[ilon])+'_'+str(self.lats[ilat])
+                group       = self.create_group( name = data_str )
+                disp_v      = np.array([])
+                disp_un     = np.array([])
+                T           = np.array([])
+                for per in pers:
+                    if per < Tmin or per > Tmax:
+                        continue
+                    try:
+                        pergrp      = grp['%g_sec'%( per )]
+                        vel         = pergrp['vel_iso'+sfx].value
+                        vel_sem     = pergrp['vel_sem'+sfx].value
+                    except KeyError:
+                        if verbose:
+                            print 'No data for T = '+str(per)+' sec'
+                        continue
+                    T               = np.append(T, per)
+                    disp_v          = np.append(disp_v, vel[ilat, ilon])
+                    disp_un         = np.append(disp_un, vel_sem[ilat, ilon])
+                data                = np.zeros((3, T.size))
+                data[0, :]          = T[:]
+                data[1, :]          = disp_v[:]
+                data[2, :]          = disp_un[:]
+                group.create_dataset(name='disp_'+dtype+'_'+wtype, data=data)
         indset.close()
         return
     
-    def read_moho_depth(self, infname='crsthk.xyz'):
+    def read_moho_depth(self, infname='crsthk.xyz', source='crust_1.0'):
         """
         read crust thickness from a txt file (crust 1.0 model)
         """
@@ -696,61 +664,55 @@ class invhdf5(h5py.File):
         latArr      = latArr.reshape(latArr.size/360, 360)
         depthArr    = inArr[:, 2]
         depthArr    = depthArr.reshape(depthArr.size/360, 360)
-        stalst      = self.waveforms.list()
-        if len(stalst) == 0:
-            print 'Inversion with surface wave datasets only, not added yet!'
-            return
-        for staid in stalst:
-            netcode, stacode    = staid.split('.')
-            staid_aux           = netcode+'_'+stacode
-            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
-            if stlo > 180.:
-                stlo            -= 360.
-            whereArr= np.where((lonArr>=stlo)*(latArr>=stla))
+        for grp_id in self.keys():
+            grp     = self[grp_id]
+            split_id= grp_id.split('_')
+            grd_lon = float(split_id[0])
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
+            whereArr= np.where((lonArr>=grd_lon)*(latArr>=grd_lat))
             ind_lat = whereArr[0][-1]
             ind_lon = whereArr[1][0]
             # check
             lon     = lonArr[ind_lat, ind_lon]
             lat     = latArr[ind_lat, ind_lon]
-            if abs(lon-stlo) > 1. or abs(lat - stla) > 1.:
-                print 'ERROR!',lon,lat,stlo,stla
+            if abs(lon-grd_lon) > 1. or abs(lat - grd_lat) > 1.:
+                print 'ERROR!', lon, lat, grd_lon, grd_lat
             depth   = depthArr[ind_lat, ind_lon]
-            header  = {'moho_depth': depth, 'data_source': 'crust_1.0'}
-            self.add_auxiliary_data(data=np.array([]), data_type='MohoDepth', path=staid_aux, parameters=header)
+            grp.attrs.create(name='crust_thk', data=depth)
+            grp.attrs.create(name='crust_thk_source', data=source)
         return
     
-    def read_sediment_depth(self, infname='sedthk.xyz'):
+    def read_sediment_depth(self, infname='sedthk.xyz', source='crust_1.0'):
         """
         read sediment thickness from a txt file (crust 1.0 model)
         """
-        inArr   = np.loadtxt(infname)
-        lonArr  = inArr[:, 0]
-        lonArr  = lonArr.reshape(lonArr.size/360, 360)
-        latArr  = inArr[:, 1]
-        latArr  = latArr.reshape(latArr.size/360, 360)
-        depthArr= inArr[:, 2]
-        depthArr= depthArr.reshape(depthArr.size/360, 360)
-        stalst                  = self.waveforms.list()
-        if len(stalst) == 0:
-            print 'Inversion with surface wave datasets only, not added yet!'
-            return
-        for staid in stalst:
-            netcode, stacode    = staid.split('.')
-            staid_aux           = netcode+'_'+stacode
-            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
-            if stlo > 180.:
-                stlo            -= 360.
-            whereArr= np.where((lonArr>=stlo)*(latArr>=stla))
+        inArr       = np.loadtxt(infname)
+        lonArr      = inArr[:, 0]
+        lonArr      = lonArr.reshape(lonArr.size/360, 360)
+        latArr      = inArr[:, 1]
+        latArr      = latArr.reshape(latArr.size/360, 360)
+        depthArr    = inArr[:, 2]
+        depthArr    = depthArr.reshape(depthArr.size/360, 360)
+        for grp_id in self.keys():
+            grp     = self[grp_id]
+            split_id= grp_id.split('_')
+            grd_lon = float(split_id[0])
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
+            whereArr= np.where((lonArr>=grd_lon)*(latArr>=grd_lat))
             ind_lat = whereArr[0][-1]
             ind_lon = whereArr[1][0]
             # check
             lon     = lonArr[ind_lat, ind_lon]
             lat     = latArr[ind_lat, ind_lon]
-            if abs(lon-stlo) > 1. or abs(lat - stla) > 1.:
-                print 'ERROR!',lon,lat,stlo,stla
+            if abs(lon-grd_lon) > 1. or abs(lat - grd_lat) > 1.:
+                print 'ERROR!', lon, lat, grd_lon, grd_lat
             depth   = depthArr[ind_lat, ind_lon]
-            header  = {'sedi_depth': depth, 'data_source': 'crust_1.0'}
-            self.add_auxiliary_data(data=np.array([]), data_type='SediDepth', path=staid_aux, parameters=header)
+            grp.attrs.create(name='sedi_thk', data=depth)
+            grp.attrs.create(name='sedi_thk_source', data=source)
         return
     
     def read_CU_model(self, infname='CU_SDT1.0.mod.h5'):
@@ -760,97 +722,91 @@ class invhdf5(h5py.File):
         indset      = h5py.File(infname)
         lons        = np.mgrid[0.:359.:2.]
         lats        = np.mgrid[-88.:89.:2.]
-        stalst                  = self.waveforms.list()
-        if len(stalst) == 0:
-            print 'Inversion with surface wave datasets only, not added yet!'
-            return
-        for staid in stalst:
-            netcode, stacode    = staid.split('.')
-            staid_aux           = netcode+'_'+stacode
-            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
-            if stlo < 0.:
-                stlo            += 360.
+        for grp_id in self.keys():
+            grp         = self[grp_id]
+            split_id    = grp_id.split('_')
+            grd_lon     = float(split_id[0])
+            if grd_lon < 0.:
+                grd_lon += 360.
+            grd_lat = float(split_id[1])
             try:
-                ind_lon         = np.where(lons>=stlo)[0][0]
+                ind_lon         = np.where(lons>=grd_lon)[0][0]
             except:
                 ind_lon         = lons.size - 1
             try:
-                ind_lat         = np.where(lats>=stla)[0][0]
+                ind_lat         = np.where(lats>=grd_lat)[0][0]
             except:
                 ind_lat         = lats.size - 1
-            pind                = 0
-            while(True):
-                if pind == 0:
-                    data        = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat])].value
-                    if data[0, 1] != 0:
-                        outlon  = lons[ind_lon]
-                        outlat  = lats[ind_lat]
-                        break
-                    pind        += 1
-                    continue
-                data            = indset[str(lons[ind_lon+pind])+'_'+str(lats[ind_lat])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon+pind]
-                    outlat      = lats[ind_lat]
-                    break
-                data            = indset[str(lons[ind_lon-pind])+'_'+str(lats[ind_lat])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon-pind]
-                    outlat      = lats[ind_lat]
-                    break
-                data            = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat+pind])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon]
-                    outlat      = lats[ind_lat+pind]
-                    break
-                data            = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat-pind])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon]
-                    outlat      = lats[ind_lat-pind]
-                    break
-                data            = indset[str(lons[ind_lon-pind])+'_'+str(lats[ind_lat-pind])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon-pind]
-                    outlat      = lats[ind_lat-pind]
-                    break
-                data            = indset[str(lons[ind_lon-pind])+'_'+str(lats[ind_lat+pind])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon-pind]
-                    outlat      = lats[ind_lat+pind]
-                    break
-                data            = indset[str(lons[ind_lon+pind])+'_'+str(lats[ind_lat-pind])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon+pind]
-                    outlat      = lats[ind_lat-pind]
-                    break
-                data            = indset[str(lons[ind_lon+pind])+'_'+str(lats[ind_lat+pind])].value
-                if data[0, 1] != 0:
-                    outlon      = lons[ind_lon+pind]
-                    outlat      = lats[ind_lat+pind]
-                    break
-                pind            += 1
-            if pind >= 5:
-                print 'WARNING: Large differences in the finalized points: lon = '+str(outlon)+', lat = '+str(outlat)\
-                    + ', station: '+staid+' stlo = '+str(stlo) + ', stla = '+str(stla)
-            # print outlon, outlat, stlo, stla, pind
-            header  = {'data_source': 'CU_SDT',\
-                       'depth': 0, 'vs': 1, 'vsv': 2, 'vsh': 3, 'vsmin': 4, 'vsvmin': 5, 'vshmin': 6, \
-                       'vsmax': 7, 'vsvmax': 8, 'vshmax': 9}
-            self.add_auxiliary_data(data=data, data_type='ReferenceModel', path=staid_aux, parameters=header)
+            if lons[ind_lon] - grd_lon > 1. and ind_lon > 0:
+                ind_lon         -= 1
+            if lats[ind_lat] - grd_lat > 1. and ind_lat > 0:
+                ind_lat         -= 1
+            if abs(lons[ind_lon] - grd_lon) > 1. or abs(lats[ind_lat] - grd_lat) > 1.:
+                print 'ERROR!', lons[ind_lon], lats[ind_lat] , grd_lon, grd_lat
+            data        = indset[str(lons[ind_lon])+'_'+str(lats[ind_lat])].value
+            grp.create_dataset(name='reference_vs', data=data)
+        indset.close()
         return
     
-    def mc_inv_iso(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', wdisp=0.2, rffactor=40.,\
+    def read_etopo(self, infname='../ETOPO2v2g_f4.nc', download=True, delete=True, source='etopo2'):
+        """
+        read topography data from etopo2 
+        """
+        from netCDF4 import Dataset
+        try:
+            etopodbase  = Dataset(infname)
+        except IOError:
+            if download:
+                url     = 'https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2/ETOPO2v2-2006/ETOPO2v2g/netCDF/ETOPO2v2g_f4_netCDF.zip'
+                os.system('wget '+url)
+                os.system('unzip ETOPO2v2g_f4_netCDF.zip')
+                if delete:
+                    os.remove('ETOPO2v2g_f4_netCDF.zip')
+                etopodbase  = Dataset('./ETOPO2v2g_f4.nc')
+            else:
+                print 'No etopo data!'
+                return
+        etopo       = etopodbase.variables['z'][:]
+        lons        = etopodbase.variables['x'][:]
+        lats        = etopodbase.variables['y'][:]
+        for grp_id in self.keys():
+            grp     = self[grp_id]
+            split_id= grp_id.split('_')
+            grd_lon = float(split_id[0])
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
+            try:
+                ind_lon         = np.where(lons>=grd_lon)[0][0]
+            except:
+                ind_lon         = lons.size - 1
+            try:
+                ind_lat         = np.where(lats>=grd_lat)[0][0]
+            except:
+                ind_lat         = lats.size - 1
+            if lons[ind_lon] - grd_lon > (1./60.):
+                ind_lon         -= 1
+            if lats[ind_lat] - grd_lat > (1./60.):
+                ind_lat         -= 1
+            if abs(lons[ind_lon] - grd_lon) > 1./60. or abs(lats[ind_lat] - grd_lat) > 1./60.:
+                print 'ERROR!', lons[ind_lon], lats[ind_lat] , grd_lon, grd_lat
+            z                   = etopo[ind_lat, ind_lon]/1000. # convert to km
+            grp.attrs.create(name='topo', data=z)
+            grp.attrs.create(name='etopo_source', data=source)
+        if delete and os.path.isfile('./ETOPO2v2g_f4.nc'):
+            os.remove('./ETOPO2v2g_f4.nc')
+        return
+    
+    def mc_inv_iso(self, ingrdfname=None, phase=True, group=False, outdir='./workingdir', vp_water=1.5,
                    monoc=True, verbose=False, step4uwalk=1500, numbrun=10000, subsize=1000, nprocess=None, parallel=True):
         """
-        Bayesian Monte Carlo joint inversion of receiver function and surface wave data for an isotropic model
+        Bayesian Monte Carlo inversion of surface wave data for an isotropic model
         ==================================================================================================================
         ::: input :::
         instafname  - input station list file indicating the stations for joint inversion
-        ref         - include receiver function data or not
         phase/group - include phase/group velocity dispersion data or not
         outdir      - output directory
-        wdisp       - weight of dispersion curve data (0. ~ 1.)
-        rffactor    - factor for downweighting the misfit for likelihood computation of rf
+        vp_water    - P wave velocity in water layer (default - 1.5 km/s)
         monoc       - require monotonical increase in the crust or not
         step4uwalk  - step interval for uniform random walk in the parameter space
         numbrun     - total number of runs
@@ -861,26 +817,28 @@ class invhdf5(h5py.File):
         """
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
-        if instafname is None:
-            stalst  = self.waveforms.list()
+        if ingrdfname is None:
+            grdlst  = self.keys()
         else:
-            stalst  = []
-            with open(instafname, 'r') as fid:
+            grdlst  = []
+            with open(ingrdfname, 'r') as fid:
                 for line in fid.readlines():
                     sline   = line.split()
+                    lon     = float(sline[0])
+                    if lon < 0.:
+                        lon += 360.
                     if sline[2] == '1':
-                        stalst.append(sline[0])
-        if not ref and wdisp != 1.:
-            wdisp   = 1.
-            print 'wdisp is forced to be 1. for inversion without receiver function data'
+                        grdlst.append(str(lon)+'_'+sline[1])
         if phase and group:
             dispdtype   = 'both'
         elif phase and not group:
             dispdtype   = 'ph'
         else:
             dispdtype   = 'gr'
-        ista        = 0
-        Nsta        = len(stalst)
+        igrd        = 0
+        Ngrd        = len(grdlst)
+
+
         for staid in stalst:
             netcode, stacode    = staid.split('.')
             staid_aux           = netcode+'_'+stacode
