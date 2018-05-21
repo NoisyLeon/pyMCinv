@@ -641,7 +641,7 @@ class vprofile1d(object):
         # Joint inversion with multiprocessing
         #----------------------------------------
         if verbose:
-            print 'Start MC joint inversion: '+pfx+' '+time.ctime()
+            print 'Start MC inversion: '+pfx+' '+time.ctime()
             stime   = time.time()
         if Nvpr > subsize:
             Nsub                = int(len(vpr_lst)/subsize)
@@ -708,13 +708,13 @@ class vprofile1d(object):
                     except AttributeError:
                         np.savez_compressed(outdatafname, np.array([1, 0, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo)
         if verbose:
-            print 'End MC joint inversion: '+pfx+' '+time.ctime()
+            print 'End MC inversion: '+pfx+' '+time.ctime()
             etime   = time.time()
             print 'Elapsed time: '+str(etime-stime)+' secs'
         return
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
-    print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
+    # print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\

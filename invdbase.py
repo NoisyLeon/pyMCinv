@@ -251,7 +251,7 @@ class invASDF(pyasdf.ASDFDataSet):
         indset.close()
         return
     
-    def read_moho_depth(self, infname='crsthk.xyz', source='crust_1.0'):
+    def read_crust_thickness(self, infname='crsthk.xyz', source='crust_1.0'):
         """
         read crust thickness from a txt file (crust 1.0 model)
         """
@@ -285,7 +285,7 @@ class invASDF(pyasdf.ASDFDataSet):
             self.add_auxiliary_data(data=np.array([]), data_type='MohoDepth', path=staid_aux, parameters=header)
         return
     
-    def read_sediment_depth(self, infname='sedthk.xyz'):
+    def read_sediment_thickness(self, infname='sedthk.xyz'):
         """
         read sediment thickness from a txt file (crust 1.0 model)
         """
@@ -654,10 +654,11 @@ class invhdf5(h5py.File):
                 data[1, :]          = disp_v[:]
                 data[2, :]          = disp_un[:]
                 group.create_dataset(name='disp_'+dtype+'_'+wtype, data=data)
+                group.attrs.create(name='mask', data = mask[ilat, ilon])
         indset.close()
         return
     
-    def read_moho_depth(self, infname='crsthk.xyz', source='crust_1.0'):
+    def read_crust_thickness(self, infname='crsthk.xyz', source='crust_1.0'):
         """
         read crust thickness from a txt file (crust 1.0 model)
         """
@@ -688,7 +689,7 @@ class invhdf5(h5py.File):
             grp.attrs.create(name='crust_thk_source', data=source)
         return
     
-    def read_sediment_depth(self, infname='sedthk.xyz', source='crust_1.0'):
+    def read_sediment_thickness(self, infname='sedthk.xyz', source='crust_1.0'):
         """
         read sediment thickness from a txt file (crust 1.0 model)
         """
@@ -801,8 +802,8 @@ class invhdf5(h5py.File):
             os.remove('./ETOPO2v2g_f4.nc')
         return
     
-    def mc_inv_iso(self, ingrdfname=None, phase=True, group=False, outdir='./workingdir', vp_water=1.5,
-                   monoc=True, verbose=False, step4uwalk=1500, numbrun=10000, subsize=1000, nprocess=None, parallel=True):
+    def mc_inv_iso(self, ingrdfname=None, phase=True, group=False, outdir='./workingdir', vp_water=1.5, monoc=True,
+            verbose=False, step4uwalk=1500, numbrun=15000, subsize=1000, nprocess=None, parallel=True, skipmask=True):
         """
         Bayesian Monte Carlo inversion of surface wave data for an isotropic model
         ==================================================================================================================
@@ -816,7 +817,8 @@ class invhdf5(h5py.File):
         numbrun     - total number of runs
         subsize     - size of subsets, used if the number of elements in the parallel list is too large to avoid deadlock
         nprocess    - number of process
-        parallel    - run the inversion in parallel or not 
+        parallel    - run the inversion in parallel or not
+        skipmask    - skip masked grid points or not
         ==================================================================================================================
         """
         if not os.path.isdir(outdir):
@@ -847,6 +849,10 @@ class invhdf5(h5py.File):
             if grd_lon > 180.:
                 grd_lon     -= 360.
             grd_lat = float(split_id[1])
+            igrd    += 1
+            if self[grd_id].attrs['mask'] and skipmask:
+                print '--- Skip MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                continue
             #-----------------------------
             # get data
             #-----------------------------
@@ -877,22 +883,21 @@ class invhdf5(h5py.File):
             vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk,\
                             topovalue=topovalue, maxdepth=200., vp_water=vp_water)
             vpr.getpara()
-            igrd                += 1
             # # # if np.random.rand() > 0.9 and topovalue<0.:
             # # #     print grd_id
             # # #     return vpr, vsdata
             # # # else:
             # # #     continue
-            if not (np.random.rand() > 0.9 and topovalue<0.):
-                continue
-            print '--- Joint MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+' '+str(igrd)+'/'+str(Ngrd)
+            # # # if not (np.random.rand() > 0.9 and topovalue<0.):
+            # # #     continue
+            print '--- MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
             if parallel:
                 vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=1.,\
                    monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, subsize=subsize, nprocess=nprocess)
             else:
                 vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=1., \
                    monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
-            return
+            # # # return
         return
     
 # # #             
