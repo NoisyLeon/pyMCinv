@@ -44,7 +44,9 @@ class postvpr(object):
     npara           - number of parameters for inversion
     min_misfit      - minimum misfit value
     ind_min         - index of the minimum misfit
-    thresh          - threshhold value for selecting  the finalized model (misfit < min_misfit + thresh)
+    factor          - factor to determine the threshhold value for selectingthe finalized model
+    thresh          - threshhold value for selecting the finalized model
+                        misfit < min_misfit*factor + thresh
     : --- object --- :
     data            - data object storing obsevred data
     avg_model       - average model object
@@ -55,8 +57,9 @@ class postvpr(object):
     vprfwrd         - vprofile1d object for forward modelling of the average model
     =====================================================================================================================
     """
-    def __init__(self, thresh=0.5, waterdepth=-1., vpwater=1.475):
+    def __init__(self, factor=1., thresh=0.5, waterdepth=-1., vpwater=1.5):
         self.data       = data.data1d()
+        self.factor     = factor
         self.thresh     = thresh
         self.avg_model  = vmodel.model1d()
         self.min_model  = vmodel.model1d()
@@ -85,7 +88,8 @@ class postvpr(object):
         self.misfit     = self.invdata[:, self.npara+3]
         self.min_misfit = self.misfit[self.ind_acc + self.ind_rej].min()
         self.ind_min    = np.where(self.misfit == self.min_misfit)[0][0]
-        self.ind_thresh = np.where(self.ind_acc*(self.misfit<= self.min_misfit+ self.thresh))[0]
+        thresh_val      = self.min_misfit*self.factor+ self.thresh
+        self.ind_thresh = np.where(self.ind_acc*(self.misfit<= thresh_val))[0]
         self.numbacc    = np.where(self.ind_acc)[0].size
         self.numbrej    = np.where(self.ind_rej)[0].size
         if verbose:
@@ -93,6 +97,7 @@ class postvpr(object):
             print 'Number of accepted models = '+str(self.numbacc)
             print 'Number of rejected models = '+str(self.numbrej)
             print 'Number of invalid models = '+str(self.numbrun - self.numbacc - self.numbrej)
+            print 'Number of finally accepted models = '+str(self.ind_thresh.size)
             print 'minimum misfit = '+str(self.min_misfit)
         return
     
@@ -185,7 +190,8 @@ class postvpr(object):
         self.vprfwrd.update_mod(mtype = 'iso')
         self.vprfwrd.get_vmodel(mtype = 'iso')
         self.vprfwrd.compute_fsurf()
-        self.vprfwrd.compute_rftheo()
+        if self.waterdepth < 0.:
+            self.vprfwrd.compute_rftheo()
         return
     
     def plot_rf(self, title='Receiver function', obsrf=True, minrf=True, avgrf=True, assemrf=True, showfig=True):

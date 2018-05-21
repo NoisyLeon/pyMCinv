@@ -291,6 +291,8 @@ class vprofile1d(object):
         din     - incident angle in degree      (default - None, din will be computed from slowness)
         =============================================================================================
         """
+        if self.model.isomod.mtype[0] == 5:
+            raise ValueError('receiver function cannot be computed in water!')
         # initialize input model arrays
         hin         = np.zeros(100, dtype=np.float64)
         vsin        = np.zeros(100, dtype=np.float64)

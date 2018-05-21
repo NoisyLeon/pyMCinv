@@ -486,13 +486,17 @@ class invASDF(pyasdf.ASDFDataSet):
             # initial model parameters
             #-----------------------------
             vsdata              = self.auxiliary_data['ReferenceModel'][staid_aux].data.value
-            mohodepth           = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
-            seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
-            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
+            crtthk              = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
+            sedthk              = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
+            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk, maxdepth=200.)
             vpr.getpara()
             ista                += 1
             # if staid != 'AK.HDA': continue
-            # return vpr
+            # # # if np.random.rand() > 0.9:
+            # # #     print staid
+            # # #     return vpr, vsdata
+            # # # else:
+            # # #     continue
             print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
             if parallel:
                 vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
@@ -803,7 +807,7 @@ class invhdf5(h5py.File):
         Bayesian Monte Carlo inversion of surface wave data for an isotropic model
         ==================================================================================================================
         ::: input :::
-        instafname  - input station list file indicating the stations for joint inversion
+        ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
         phase/group - include phase/group velocity dispersion data or not
         outdir      - output directory
         vp_water    - P wave velocity in water layer (default - 1.5 km/s)
@@ -837,65 +841,58 @@ class invhdf5(h5py.File):
             dispdtype   = 'gr'
         igrd        = 0
         Ngrd        = len(grdlst)
-
-
-        for staid in stalst:
-            netcode, stacode    = staid.split('.')
-            staid_aux           = netcode+'_'+stacode
-            stla, elev, stlo    = self.waveforms[staid].coordinates.values()
+        for grd_id in grdlst:
+            split_id= grd_id.split('_')
+            grd_lon = float(split_id[0])
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
             #-----------------------------
             # get data
             #-----------------------------
             vpr                 = vprofile.vprofile1d()
             if phase:
                 try:
-                    indisp      = self.auxiliary_data['RayDISPcurve']['ray']['ph'][staid_aux].data.value
+                    indisp      = self[grd_id+'/disp_ph_ray'].value
                     vpr.get_disp(indata=indisp, dtype='ph', wtype='ray')
                 except KeyError:
-                    print 'WARNING: No phase dispersion data for station: '+staid
+                    print 'WARNING: No phase dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
             if group:
                 try:
-                    indisp      = self.auxiliary_data['RayDISPcurve']['ray']['gr'][staid_aux].data.value
+                    indisp      = self[grd_id+'/disp_gr_ray'].value
                     vpr.get_disp(indata=indisp, dtype='gr', wtype='ray')
                 except KeyError:
-                    print 'WARNING: No group dispersion data for station: '+staid
+                    print 'WARNING: No group dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
             if vpr.data.dispR.npper == 0 and vpr.data.dispR.ngper == 0:
-                print 'WARNING: No dispersion data for station: '+staid 
+                print 'WARNING: No dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
                 continue
-            if ref:
-                try:
-                    inrf        = self.auxiliary_data['RefR'][staid_aux+'_P'].data.value
-                    N           = self.auxiliary_data['RefR'][staid_aux+'_P'].parameters['npts']
-                    dt          = self.auxiliary_data['RefR'][staid_aux+'_P'].parameters['delta']
-                    indata      = np.zeros((3, N))
-                    indata[0, :]= np.arange(N)*dt
-                    indata[1, :]= inrf[0, :]
-                    indata[2, :]= inrf[3, :]
-                    vpr.get_rf(indata = indata)
-                except KeyError:
-                    print 'WARNING: No receiver function data for station: '+staid
             #-----------------------------
             # initial model parameters
             #-----------------------------
-            vsdata              = self.auxiliary_data['ReferenceModel'][staid_aux].data.value
-            mohodepth           = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
-            seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
-            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
+            vsdata              = self[grd_id+'/reference_vs'].value
+            crtthk              = self[grd_id].attrs['crust_thk']
+            sedthk              = self[grd_id].attrs['sedi_thk']
+            topovalue           = self[grd_id].attrs['topo']
+            
+            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk,\
+                            topovalue=topovalue, maxdepth=200., vp_water=vp_water)
             vpr.getpara()
-            ista                += 1
-            # if staid != 'AK.HDA': continue
-            # return vpr
-            print '--- Joint MC inversion for station: '+staid+' '+str(ista)+'/'+str(Nsta)
+            igrd                += 1
+            # # # if np.random.rand() > 0.9 and topovalue<0.:
+            # # #     print grd_id
+            # # #     return vpr, vsdata
+            # # # else:
+            # # #     continue
+            if not (np.random.rand() > 0.9 and topovalue<0.):
+                continue
+            print '--- Joint MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+' '+str(igrd)+'/'+str(Ngrd)
             if parallel:
-                vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
-                   monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, subsize=subsize, nprocess=nprocess)
+                vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=1.,\
+                   monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, subsize=subsize, nprocess=nprocess)
             else:
-                vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
-                   monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
-            # vpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
-            #        monoc=monoc, pfx=staid, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
-            # if staid == 'AK.COLD':
-            #     return vpr
+                vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=1., \
+                   monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            return
         return
     
 # # #             
@@ -957,9 +954,9 @@ class invhdf5(h5py.File):
 # # #             # initial model parameters
 # # #             #-----------------------------
 # # #             vsdata              = self.auxiliary_data['ReferenceModel'][staid_aux].data.value
-# # #             mohodepth           = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
-# # #             seddepth            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
-# # #             vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], mohodepth=mohodepth, seddepth=seddepth, maxdepth=200.)
+# # #             crtthk           = self.auxiliary_data['MohoDepth'][staid_aux].parameters['moho_depth']
+# # #             sedthk            = self.auxiliary_data['SediDepth'][staid_aux].parameters['sedi_depth']
+# # #             vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk, maxdepth=200.)
 # # #             vpr.getpara()
 # # #             vpr.staid           = staid
 # # #             ista                += 1

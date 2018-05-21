@@ -297,7 +297,7 @@ class model1d(object):
                 return False
         return True
     
-    def get_para_model(self, paraval, waterdepth=-1., vpwater=1.475, nmod=3, numbp=np.array([2, 4, 5]),\
+    def get_para_model(self, paraval, waterdepth=-1., vpwater=1.5, nmod=3, numbp=np.array([2, 4, 5]),\
                 mtype = np.array([4, 2, 2]), vpvs = np.array([2., 1.75, 1.75]), maxdepth=200.):
         """
         get an isotropic velocity model given a parameter array

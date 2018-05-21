@@ -461,14 +461,14 @@ class isomod(object):
                 self.nlay[i]            = 1
         return True
     
-    def parameterize_input(self, zarr, vsarr, mohodepth, seddepth, maxdepth=200.):
+    def parameterize_input(self, zarr, vsarr, crtthk, sedthk, topovalue=1., maxdepth=200., vp_water=1.5):
         """
-        paramerization of a refernce input model
+        paramerization of a reference input model
         ===============================================================================
         ::: input :::
         zarr, vsarr - input depth/vs array, must be the same size (unit - km, km/s)
-        mohodepth   - input moho depth (unit - km)
-        seddepth    - input sediment depth (unit - km)
+        crtthk      - input crustal thickness (unit - km)
+        sedthk      - input sediment thickness (unit - km)
         maxdepth    - maximum depth for the 1-D profile (default - 200 km)
         ::: output :::
         self.thickness  
@@ -477,79 +477,125 @@ class isomod(object):
         self.vpvs       - [2., 1.75, 1.75]
         self.spl
         self.cvel       - determined from input vs profile
+        ::: history :::
+        05/19/2018  - added the capability of parameterize model with water layer
         ===============================================================================
         """
         if zarr.size != vsarr.size:
             raise ValueError('Inconsistent input 1-D profile depth and vs arrays!')
-        self.init_arr(3)
-        self.thickness[:]   = np.array([seddepth, mohodepth - seddepth, maxdepth - mohodepth])
-        self.numbp[:]       = np.array([2, 4, 5])
-        self.mtype[:]       = np.array([4, 2, 2])
-        self.vpvs[:]        = np.array([2., 1.75, 1.75])
+        if topovalue < 0.:
+            self.init_arr(4)
+            self.thickness[:]   = np.array([-topovalue, sedthk, crtthk - sedthk, maxdepth - crtthk + topovalue])
+            self.numbp[:]       = np.array([1, 2, 4, 5])
+            self.mtype[:]       = np.array([5, 4, 2, 2])
+            self.vpvs[:]        = np.array([0., 2., 1.75, 1.75])
+        else:
+            self.init_arr(3)
+            self.thickness[:]   = np.array([sedthk, crtthk - sedthk, maxdepth - crtthk])
+            self.numbp[:]       = np.array([2, 4, 5])
+            self.mtype[:]       = np.array([4, 2, 2])
+            self.vpvs[:]        = np.array([2., 1.75, 1.75])
         self.update_depth()
         hArr                = np.append(self.hArr[:self.nlay[0], 0], self.hArr[:self.nlay[1], 1])
         hArr                = np.append(hArr, self.hArr[:self.nlay[2], 2])
-        zinterp             = hArr.cumsum()
+        if topovalue < 0.:
+            hArr            = np.append(hArr, self.hArr[:self.nlay[3], 3])
+        #--------------------------------------------
+        # interpolation input vs to the grid points
+        #--------------------------------------------
+        # get grid points
+        nlay_total          = self.nlay.sum()
+        indlay              = np.arange(nlay_total, dtype=np.int32)
+        indgrid0            = indlay*2
+        indgrid1            = indlay*2+1
+        indlay2             = np.arange(nlay_total-1, dtype=np.int32)
+        indgrid2            = indlay2*2+2
+        depth               = hArr.cumsum()
+        zinterp             = np.zeros(2*nlay_total)
+        zinterp[indgrid1]   = depth
+        zinterp[indgrid2]   = depth[:-1] # grid points
         ind_max             = np.where(zarr >= maxdepth)[0][0]
-        zarr                = zarr[:(ind_max+1)]
+        zarr                = zarr[:(ind_max+1)] 
         vsarr               = vsarr[:(ind_max+1)]
+        # remove water layer
+        try:
+            ind_zero        = np.where(vsarr == 0.)[0][-1]
+            zarr            = zarr[(ind_zero+1):]
+            vsarr           = vsarr[(ind_zero+1):]
+        except IndexError:
+            pass
+        # make necessary change to the input vs profile to enforce a monotonical increase in the crust
         if vsarr[0] > vsarr[1]:
             vs_temp         = vsarr[0]
             vsarr[0]        = vsarr[1]
             vsarr[1]        = vs_temp
-        ind_crust           = np.where(zarr >= mohodepth)[0][0]
+        ind_crust           = np.where(zarr >= crtthk)[0][0]
         vs_crust            = vsarr[:(ind_crust+1)]  
         if not np.all(vs_crust[1:] >= vs_crust[:-1]):
             print 'WARNING: sort the input vs array to make it monotonically increases with depth in the crust'
             vs_crust        = np.sort(vs_crust)
             vsarr           = np.append(vs_crust, vsarr[(ind_crust+1):])
-        # interpolation
-        vsinterp            = np.interp(zinterp, zarr, vsarr)    
+        vsinterp            = np.interp(zinterp, zarr, vsarr)
+        # convert to layerized model
+        indz0               = np.arange(nlay_total, dtype = np.int32)*2
+        indz1               = np.arange(nlay_total, dtype = np.int32)*2 + 1
+        #
+        # debug
+        z0                  = zinterp[indz0]
+        z1                  = zinterp[indz1]
+        h                   = z1 - z0
+        if not np.allclose(h, hArr):
+            raise ValueError('Debug layer array!')
+        # END debug
+        indlay              = np.arange(nlay_total, dtype = np.int32)*2 + 1
+        vsinterp            = vsinterp[indlay]
         #------------------------------------
         # determine self.cvel arrays
         #------------------------------------
+        # water layer
+        if topovalue < 0.:
+            self.cvel[0, 0] = vp_water
+            vsinterp[0]     = 0.
         # sediments
-        self.cvel[0, 0]     = vsinterp[0]
-        self.cvel[1, 0]     = vsinterp[self.nlay[0]-1]
-        # # # crust
-        # # self.cvel[0, 1]     = vsinterp[self.nlay[0]]
-        # # spl                 = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
-        # # ind_max2            = spl[:, 1].argmax()
-        # # ind_max3            = spl[:, 2].argmax()
-        # # self.cvel[3, 1]     = vsinterp[self.nlay[0]+self.nlay[1] - 1]
-        # # self.cvel[1, 1]     = self.cvel[0, 1] + (self.cvel[3, 1] - self.cvel[0, 1])*ind_max2/self.nlay[1]
-        # # self.cvel[2, 1]     = self.cvel[0, 1] + (self.cvel[3, 1] - self.cvel[0, 1])*ind_max3/self.nlay[1]
-        # # # mantle
-        # # self.cvel[0, 2]     = vsinterp[self.nlay[0]+self.nlay[1]]
-        # # self.cvel[4, 2]     = vsinterp[-1]
+        if topovalue >= 0.:
+            self.cvel[0, 0] = vsinterp[0]
+            self.cvel[1, 0] = vsinterp[self.nlay[0]-1]
+        else:
+            self.cvel[0, 1] = vsinterp[self.nlay[0]]
+            self.cvel[1, 1] = vsinterp[self.nlay[0] + self.nlay[1]-1]
         #---------------------------------
         # inversion with lsq_linear
         #---------------------------------
-        # crust
-        A                   = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
-        b                   = vsinterp[self.nlay[0]:(self.nlay[0]+self.nlay[1])]
-        vs0                 = max(vsinterp[self.nlay[0]], 3.0)
-        vs1                 = min(vsinterp[self.nlay[0]+self.nlay[1] - 1], 4.2)
-        x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
-        self.cvel[:4, 1]    = x[:]
-        # mantle
-        A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
-        b                   = vsinterp[(self.nlay[0]+self.nlay[1]):]
-        vs0                 = max(vsinterp[(self.nlay[0]+self.nlay[1]):].min(), 4.0)
-        vs1                 = min(vsinterp[(self.nlay[0]+self.nlay[1]):].max(), vsarr.max())
-        x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
-        self.cvel[:5, 2]    = x[:]
-        # # # inversion with numpy
-        # # # crust
-        # # A                   = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
-        # # b                   = vsinterp[self.nlay[0]:(self.nlay[0]+self.nlay[1])]
-        # # x                   = np.linalg.lstsq(A, b)[0]
-        # # self.cvel[:4, 1]    = x[:]
-        # # # mantle
-        # # A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
-        # # b                   = vsinterp[(self.nlay[0]+self.nlay[1]):]
-        # # x                   = np.linalg.lstsq(A, b)[0]
-        # # self.cvel[:5, 2]    = x[:]
+        if topovalue >= 0.:
+            # crust
+            A                   = (self.spl[:self.numbp[1], :self.nlay[1], 1]).T
+            b                   = vsinterp[self.nlay[0]:(self.nlay[0]+self.nlay[1])]
+            vs0                 = max(vsinterp[self.nlay[0]], 3.0)
+            vs1                 = min(vsinterp[self.nlay[0]+self.nlay[1] - 1], 4.2)
+            x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
+            self.cvel[:4, 1]    = x[:]
+            # mantle
+            A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
+            b                   = vsinterp[(self.nlay[0]+self.nlay[1]):]
+            vs0                 = max(vsinterp[(self.nlay[0]+self.nlay[1]):].min(), 4.0)
+            vs1                 = min(vsinterp[(self.nlay[0]+self.nlay[1]):].max(), vsarr.max())
+            x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
+            self.cvel[:5, 2]    = x[:]
+        else:
+            # crust
+            A                   = (self.spl[:self.numbp[2], :self.nlay[2], 2]).T
+            b                   = vsinterp[(self.nlay[0]+self.nlay[1]):(self.nlay[0]+self.nlay[1]+self.nlay[2])]
+            vs0                 = max(vsinterp[self.nlay[0]+self.nlay[1]], 3.0)
+            vs1                 = min(vsinterp[self.nlay[0]+self.nlay[1]+self.nlay[2] - 1], 4.2)
+            x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
+            self.cvel[:4, 2]    = x[:]
+            # mantle
+            A                   = (self.spl[:self.numbp[3], :self.nlay[3], 3]).T
+            b                   = vsinterp[(self.nlay[0]+self.nlay[1]+self.nlay[2]):]
+            vs0                 = max(vsinterp[(self.nlay[0]+self.nlay[1]+self.nlay[2]):].min(), 4.0)
+            vs1                 = min(vsinterp[(self.nlay[0]+self.nlay[1]+self.nlay[2]):].max(), vsarr.max())
+            x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
+            self.cvel[:5, 3]    = x[:]
         return
 
     def get_paraind(self):
