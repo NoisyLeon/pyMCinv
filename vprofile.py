@@ -291,6 +291,9 @@ class vprofile1d(object):
         din     - incident angle in degree      (default - None, din will be computed from slowness)
         =============================================================================================
         """
+        if self.data.rfr.npts == 0:
+            raise ValueError('npts of receiver function is 0!')
+            return
         if self.model.isomod.mtype[0] == 5:
             raise ValueError('receiver function cannot be computed in water!')
         # initialize input model arrays
@@ -313,7 +316,7 @@ class vprofile1d(object):
         fs          = self.fs
         # # # ntimes      = 1000
         if npts is None:
-            ntimes  = self.npts
+            ntimes  = self.data.rfr.npts
         else:
             ntimes  = npts
         # incident angle
@@ -322,8 +325,8 @@ class vprofile1d(object):
         # solve for receiver function using theo
         rx 	        = theo.theo(nl, vsin, hin, vpvs, qpin, qsin, fs, din, 2.5, 0.005, 0, ntimes)
         # store the predicted receiver function (ONLY radial component) to the data object
-        self.data.rfr.rfp   = rx[:self.npts]
-        self.data.rfr.tp    = np.arange(self.npts, dtype=np.float64)*1./self.fs
+        self.data.rfr.rfp   = rx[:self.data.rfr.npts]
+        self.data.rfr.tp    = np.arange(self.data.rfr.npts, dtype=np.float64)*1./self.fs
         return
     #-------------------------------------------------
     # computing misfit
@@ -714,7 +717,7 @@ class vprofile1d(object):
         return
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
-    # print '--- Joint MC inversion for station: '+pfx+', process id: '+str(invpr.process_id)
+    # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\

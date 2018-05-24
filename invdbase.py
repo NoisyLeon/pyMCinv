@@ -30,7 +30,7 @@ import multiprocessing
 from subprocess import call
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm
 import obspy
-import vprofile
+import vprofile, mcpost
 import time
 
 class invASDF(pyasdf.ASDFDataSet):
@@ -899,6 +899,425 @@ class invhdf5(h5py.File):
                    monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
             # # # return
         return
+    
+    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5):
+        if ingrdfname is None:
+            grdlst  = self.keys()
+        else:
+            grdlst  = []
+            with open(ingrdfname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    lon     = float(sline[0])
+                    if lon < 0.:
+                        lon += 360.
+                    if sline[2] == '1':
+                        grdlst.append(str(lon)+'_'+sline[1])
+        if phase and group:
+            dispdtype   = 'both'
+        elif phase and not group:
+            dispdtype   = 'ph'
+        else:
+            dispdtype   = 'gr'
+        igrd        = 0
+        Ngrd        = len(grdlst)
+        for grd_id in grdlst:
+            split_id= grd_id.split('_')
+            grd_lon = float(split_id[0])
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
+            igrd    += 1
+            grp     = self[grd_id]
+            if grp.attrs['mask'] and skipmask:
+                print '--- Skip reading inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                continue
+            invfname = datadir+'/mc_inv.'+ grd_id+'.npz'
+            datafname= datadir+'/mc_data.'+grd_id+'.npz'
+            if not (os.path.isfile(invfname) and os.path.isfile(datafname)):
+                raise ValueError('No inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd))
+            topovalue   = grp.attrs['topo']
+            vpr         = mcpost.postvpr(waterdepth=-topovalue, factor=factor, thresh=thresh)
+            vpr.read_inv_data(infname = invfname, verbose=False)
+            vpr.read_data(infname = datafname)
+            vpr.get_paraval()
+            vpr.run_avg_frwd(wdisp=1.)
+            #------------------------------------------
+            # store inversion results in the database
+            #------------------------------------------
+            grp.create_dataset(name = 'avg_paraval', data = vpr.avg_paraval)
+            grp.create_dataset(name = 'min_paraval', data = vpr.min_paraval)
+            grp.attrs.create(name = 'avg_misfit', data = vpr.vprfwrd.data.misfit)
+            grp.attrs.create(name = 'min_misfit', data = vpr.min_misfit)
+            
+        return
+    
+    def _get_basemap(self, projection='lambert', geopolygons=None, resolution='i'):
+        """Get basemap for plotting results
+        """
+        # fig=plt.figure(num=None, figsize=(12, 12), dpi=80, facecolor='w', edgecolor='k')
+        plt.figure()
+        minlon      = self.attrs['minlon']
+        maxlon      = self.attrs['maxlon']
+        minlat      = self.attrs['minlat']
+        maxlat      = self.attrs['maxlat']
+        lat_centre  = (maxlat+minlat)/2.0
+        lon_centre  = (maxlon+minlon)/2.0
+        if projection=='merc':
+            m       = Basemap(projection='merc', llcrnrlat=minlat-5., urcrnrlat=maxlat+5., llcrnrlon=minlon-5.,
+                      urcrnrlon=maxlon+5., lat_ts=20, resolution=resolution, epsg = 4269)
+            # m.drawparallels(np.arange(minlat,maxlat,dlat), labels=[1,0,0,1])
+            # m.drawmeridians(np.arange(minlon,maxlon,dlon), labels=[1,0,0,1])
+            m.drawparallels(np.arange(-80.0,80.0,5.0), labels=[1,0,0,1])
+            m.drawmeridians(np.arange(-170.0,170.0,5.0), labels=[1,0,0,1])
+            m.drawstates(color='g', linewidth=2.)
+        elif projection=='global':
+            m       = Basemap(projection='ortho',lon_0=lon_centre, lat_0=lat_centre, resolution=resolution)
+            # m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,1])
+            # m.drawmeridians(np.arange(-170.0,170.0,10.0), labels=[1,0,0,1])
+        elif projection=='regional_ortho':
+            m1      = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution='l')
+            m       = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution=resolution,\
+                        llcrnrx=0., llcrnry=0., urcrnrx=m1.urcrnrx/mapfactor, urcrnry=m1.urcrnry/3.5)
+            m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,0],  linewidth=2,  fontsize=20)
+            # m.drawparallels(np.arange(-90.0,90.0,30.0),labels=[1,0,0,0], dashes=[10, 5], linewidth=2,  fontsize=20)
+            # m.drawmeridians(np.arange(10,180.0,30.0), dashes=[10, 5], linewidth=2)
+            m.drawmeridians(np.arange(-170.0,170.0,10.0),  linewidth=2)
+        elif projection=='lambert':
+            distEW, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, minlat, maxlon) # distance is in m
+            distNS, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, maxlat+2., minlon) # distance is in m
+            m       = Basemap(width=distEW, height=distNS, rsphere=(6378137.00,6356752.3142), resolution='h', projection='lcc',\
+                        lat_1=minlat, lat_2=maxlat, lon_0=lon_centre, lat_0=lat_centre+1)
+            m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=1, dashes=[2,2], labels=[1,1,0,0], fontsize=20)
+            m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=1, dashes=[2,2], labels=[0,0,1,0], fontsize=20)
+            # m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=0.5, dashes=[2,2], labels=[1,0,0,0], fontsize=5)
+            # m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=0.5, dashes=[2,2], labels=[0,0,0,1], fontsize=5)
+        m.drawcoastlines(linewidth=1.0)
+        m.drawcountries(linewidth=1.)
+        # # m.drawmapboundary(fill_color=[1.0,1.0,1.0])
+        # m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        # # m.drawlsmask(land_color='0.8', ocean_color='#99ffff')
+        # m.drawmapboundary(fill_color="white")
+        # m.shadedrelief(scale=1., origin='lower')
+        try:
+            geopolygons.PlotPolygon(inbasemap=m)
+        except:
+            pass
+        return m
+    
+    def get_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
+        self._get_lon_lat_arr()
+        data        = np.zeros(self.latArr.shape)
+        mask        = np.ones(self.latArr.shape, dtype=bool)
+        if ingrdfname is None:
+            grdlst  = self.keys()
+        else:
+            grdlst  = []
+            with open(ingrdfname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    lon     = float(sline[0])
+                    if lon < 0.:
+                        lon += 360.
+                    if sline[2] == '1':
+                        grdlst.append(str(lon)+'_'+sline[1])
+        igrd        = 0
+        Ngrd        = len(grdlst)
+        for grd_id in grdlst:
+            split_id= grd_id.split('_')
+            grd_lon = float(split_id[0])
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
+            igrd    += 1
+            grp     = self[grd_id]
+            try:
+                ind_lon = np.where(grd_lon==self.lons)[0][0]
+                ind_lat = np.where(grd_lat==self.lats)[0][0]
+            except IndexError:
+                print 'WARNING: grid data N/A at: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                continue
+            try:
+                paraval             = grp[dtype+'_paraval'].value
+            except KeyError:
+                print 'WARNING: no data at grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                continue
+            data[ind_lat, ind_lon]  = paraval[pindex]
+            if isthk:
+                topovalue               = grp.attrs['topo']
+                data[ind_lat, ind_lon]  = 
+            mask[ind_lat, ind_lon]  = False
+        return data, mask
+        
+    
+    def plot_paraval(self, pindex):
+        mask        = self.attrs['mask']
+        # vdict       = {'ph': 'C', 'gr': 'U'}
+        # datatype    = datatype.lower()
+        rundict     = {0: 'smooth_run', 1: 'qc_run'}
+        dataid      = rundict[runtype]+'_'+str(runid)
+        self._get_lon_lat_arr(dataid)
+        try:
+            ingroup     = self['reshaped_'+dataid]
+        except KeyError:
+            try:
+                self.creat_reshape_data(runtype=runtype, runid=runid)
+                ingroup = self['reshaped_'+dataid]
+            except KeyError:
+                raise KeyError(dataid+ ' not exists!')
+        pers        = self.attrs['period_array']
+        if not period in pers:
+            raise KeyError('period = '+str(period)+' not included in the database')
+        pergrp  = ingroup['%g_sec'%( period )]
+        if runtype == 1:
+            isotropic   = ingroup.attrs['isotropic']
+        else:
+            isotropic   = True
+        if datatype == 'vel' or datatype=='velocity' or datatype == 'v':
+            if isotropic:
+                datatype    = 'velocity'
+            else:
+                datatype    = 'vel_iso'
+        if datatype == 'un' or datatype=='sem' or datatype == 'vel_sem':
+            datatype        = 'vel_sem'
+        try:
+            data    = pergrp[datatype].value
+        except:
+            outstr      = ''
+            for key in pergrp.keys():
+                outstr  +=key
+                outstr  +=', '
+            outstr      = outstr[:-1]
+            raise KeyError('Unexpected datatype: '+datatype+\
+                           ', available datatypes are: '+outstr)
+        if datatype == 'amp2':
+            data    = data*100.
+        if datatype == 'vel_sem':
+            data    = data*1000.
+        if not isotropic:
+            if datatype == 'cone_radius' or datatype == 'gauss_std' or datatype == 'max_resp' or datatype == 'ncone' or \
+                         datatype == 'ngauss' or datatype == 'vel_sem':
+                mask    = ingroup['mask2']
+            else:
+                mask    = ingroup['mask1']
+            mdata       = ma.masked_array(data, mask=mask )
+        else:
+            mdata       = data.copy()
+        #-----------
+        # plot data
+        #-----------
+        m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
+        x, y        = m(self.lonArr, self.latArr)
+        # shapefname  = '/projects/life9360/geological_maps/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='blue')
+        # shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='blue')
+        shapefname  = '../AKfaults/qfaults'
+        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        # shapefname  = '/projects/life9360/AK_sediments/Cook_Inlet_sediments_WGS84'
+        # m.readshapefile(shapefname, 'faultline', linewidth=1, color='blue')
+        
+        if cmap == 'ses3d':
+            cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
+                            0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
+        elif cmap == 'cv':
+            import pycpt
+            cmap    = pycpt.load.gmtColormap('./cv.cpt')
+        else:
+            try:
+                if os.path.isfile(cmap):
+                    import pycpt
+                    cmap    = pycpt.load.gmtColormap(cmap)
+            except:
+                pass
+        ################################3
+        if hillshade:
+            from netCDF4 import Dataset
+            from matplotlib.colors import LightSource
+        
+            etopodata   = Dataset('/projects/life9360/station_map/grd_dir/ETOPO2v2g_f4.nc')
+            etopo       = etopodata.variables['z'][:]
+            lons        = etopodata.variables['x'][:]
+            lats        = etopodata.variables['y'][:]
+            ls          = LightSource(azdeg=315, altdeg=45)
+            # nx          = int((m.xmax-m.xmin)/40000.)+1; ny = int((m.ymax-m.ymin)/40000.)+1
+            etopo,lons  = shiftgrid(180.,etopo,lons,start=False)
+            # topodat,x,y = m.transform_scalar(etopo,lons,lats,nx,ny,returnxy=True)
+            ny, nx      = etopo.shape
+            topodat,xtopo,ytopo = m.transform_scalar(etopo,lons,lats,nx, ny, returnxy=True)
+            m.imshow(ls.hillshade(topodat, vert_exag=1., dx=1., dy=1.), cmap='gray')
+            mycm1=pycpt.load.gmtColormap('/projects/life9360/station_map/etopo1.cpt')
+            mycm2=pycpt.load.gmtColormap('/projects/life9360/station_map/bathy1.cpt')
+            mycm2.set_over('w',0)
+            m.imshow(ls.shade(topodat, cmap=mycm1, vert_exag=1., dx=1., dy=1., vmin=0, vmax=8000))
+            m.imshow(ls.shade(topodat, cmap=mycm2, vert_exag=1., dx=1., dy=1., vmin=-11000, vmax=-0.5))
+        ###################################################################
+        if hillshade:
+            m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
+        else:
+            m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        if hillshade:
+            im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax, alpha=.5)
+        else:
+            im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
+        cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
+        cb.set_label(clabel, fontsize=12, rotation=0)
+        plt.suptitle(str(period)+' sec', fontsize=20)
+        cb.ax.tick_params(labelsize=15)
+        cb.set_alpha(1)
+        cb.draw_all()
+        print 'plotting data from '+dataid
+        # # cb.solids.set_rasterized(True)
+        cb.solids.set_edgecolor("face")
+        m.shadedrelief(scale=1., origin='lower')
+        if showfig:
+            plt.show()
+        return
+    
+    def plot(self, runtype, runid, datatype, period, shpfx=None, clabel='', cmap='cv', projection='lambert', hillshade=False,\
+             geopolygons=None, vmin=None, vmax=None, showfig=True):
+        """plot maps from the tomographic inversion
+        =================================================================================================================
+        ::: input parameters :::
+        runtype         - type of run (0 - smooth run, 1 - quality controlled run)
+        runid           - id of run
+        datatype        - datatype for plotting
+        period          - period of data
+        clabel          - label of colorbar
+        cmap            - colormap
+        projection      - projection type
+        geopolygons     - geological polygons for plotting
+        vmin, vmax      - min/max value of plotting
+        showfig         - show figure or not
+        =================================================================================================================
+        """
+        # vdict       = {'ph': 'C', 'gr': 'U'}
+        # datatype    = datatype.lower()
+        rundict     = {0: 'smooth_run', 1: 'qc_run'}
+        dataid      = rundict[runtype]+'_'+str(runid)
+        self._get_lon_lat_arr(dataid)
+        try:
+            ingroup     = self['reshaped_'+dataid]
+        except KeyError:
+            try:
+                self.creat_reshape_data(runtype=runtype, runid=runid)
+                ingroup = self['reshaped_'+dataid]
+            except KeyError:
+                raise KeyError(dataid+ ' not exists!')
+        pers        = self.attrs['period_array']
+        if not period in pers:
+            raise KeyError('period = '+str(period)+' not included in the database')
+        pergrp  = ingroup['%g_sec'%( period )]
+        if runtype == 1:
+            isotropic   = ingroup.attrs['isotropic']
+        else:
+            isotropic   = True
+        if datatype == 'vel' or datatype=='velocity' or datatype == 'v':
+            if isotropic:
+                datatype    = 'velocity'
+            else:
+                datatype    = 'vel_iso'
+        if datatype == 'un' or datatype=='sem' or datatype == 'vel_sem':
+            datatype        = 'vel_sem'
+        try:
+            data    = pergrp[datatype].value
+        except:
+            outstr      = ''
+            for key in pergrp.keys():
+                outstr  +=key
+                outstr  +=', '
+            outstr      = outstr[:-1]
+            raise KeyError('Unexpected datatype: '+datatype+\
+                           ', available datatypes are: '+outstr)
+        if datatype == 'amp2':
+            data    = data*100.
+        if datatype == 'vel_sem':
+            data    = data*1000.
+        if not isotropic:
+            if datatype == 'cone_radius' or datatype == 'gauss_std' or datatype == 'max_resp' or datatype == 'ncone' or \
+                         datatype == 'ngauss' or datatype == 'vel_sem':
+                mask    = ingroup['mask2']
+            else:
+                mask    = ingroup['mask1']
+            mdata       = ma.masked_array(data, mask=mask )
+        else:
+            mdata       = data.copy()
+        #-----------
+        # plot data
+        #-----------
+        m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
+        x, y        = m(self.lonArr, self.latArr)
+        # shapefname  = '/projects/life9360/geological_maps/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='blue')
+        # shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='blue')
+        shapefname  = '../AKfaults/qfaults'
+        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        # shapefname  = '/projects/life9360/AK_sediments/Cook_Inlet_sediments_WGS84'
+        # m.readshapefile(shapefname, 'faultline', linewidth=1, color='blue')
+        
+        if cmap == 'ses3d':
+            cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
+                            0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
+        elif cmap == 'cv':
+            import pycpt
+            cmap    = pycpt.load.gmtColormap('./cv.cpt')
+        else:
+            try:
+                if os.path.isfile(cmap):
+                    import pycpt
+                    cmap    = pycpt.load.gmtColormap(cmap)
+            except:
+                pass
+        ################################3
+        if hillshade:
+            from netCDF4 import Dataset
+            from matplotlib.colors import LightSource
+        
+            etopodata   = Dataset('/projects/life9360/station_map/grd_dir/ETOPO2v2g_f4.nc')
+            etopo       = etopodata.variables['z'][:]
+            lons        = etopodata.variables['x'][:]
+            lats        = etopodata.variables['y'][:]
+            ls          = LightSource(azdeg=315, altdeg=45)
+            # nx          = int((m.xmax-m.xmin)/40000.)+1; ny = int((m.ymax-m.ymin)/40000.)+1
+            etopo,lons  = shiftgrid(180.,etopo,lons,start=False)
+            # topodat,x,y = m.transform_scalar(etopo,lons,lats,nx,ny,returnxy=True)
+            ny, nx      = etopo.shape
+            topodat,xtopo,ytopo = m.transform_scalar(etopo,lons,lats,nx, ny, returnxy=True)
+            m.imshow(ls.hillshade(topodat, vert_exag=1., dx=1., dy=1.), cmap='gray')
+            mycm1=pycpt.load.gmtColormap('/projects/life9360/station_map/etopo1.cpt')
+            mycm2=pycpt.load.gmtColormap('/projects/life9360/station_map/bathy1.cpt')
+            mycm2.set_over('w',0)
+            m.imshow(ls.shade(topodat, cmap=mycm1, vert_exag=1., dx=1., dy=1., vmin=0, vmax=8000))
+            m.imshow(ls.shade(topodat, cmap=mycm2, vert_exag=1., dx=1., dy=1., vmin=-11000, vmax=-0.5))
+        ###################################################################
+        if hillshade:
+            m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
+        else:
+            m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        if hillshade:
+            im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax, alpha=.5)
+        else:
+            im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
+        cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
+        cb.set_label(clabel, fontsize=12, rotation=0)
+        plt.suptitle(str(period)+' sec', fontsize=20)
+        cb.ax.tick_params(labelsize=15)
+        cb.set_alpha(1)
+        cb.draw_all()
+        print 'plotting data from '+dataid
+        # # cb.solids.set_rasterized(True)
+        cb.solids.set_edgecolor("face")
+        m.shadedrelief(scale=1., origin='lower')
+        if showfig:
+            plt.show()
+        return
+    # def plot_paraval(self, pindex):
+        
     
 # # #             
 # # #     def mc_inv_iso_mp(self, instafname=None, ref=True, phase=True, group=False, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40.,\

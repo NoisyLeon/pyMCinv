@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import matplotlib
+import copy
 
 def to_percent(y, position):
     # Ignore the passed in position. This has the effect of scaling the default
@@ -61,11 +62,13 @@ class postvpr(object):
         self.data       = data.data1d()
         self.factor     = factor
         self.thresh     = thresh
+        # models
         self.avg_model  = vmodel.model1d()
         self.min_model  = vmodel.model1d()
         self.init_model = vmodel.model1d()
         self.real_model = vmodel.model1d()
         self.temp_model = vmodel.model1d()
+        #
         self.vprfwrd    = vprofile.vprofile1d()
         self.waterdepth = waterdepth
         self.vpwater    = vpwater
@@ -80,7 +83,7 @@ class postvpr(object):
         self.disppre_ph = inarr['arr_1']
         self.disppre_gr = inarr['arr_2']
         self.rfpre      = inarr['arr_3']
-        #
+        # 
         self.numbrun    = self.invdata.shape[0]
         self.npara      = self.invdata.shape[1] - 9
         self.ind_acc    = self.invdata[:, 0] == 1.
@@ -88,8 +91,7 @@ class postvpr(object):
         self.misfit     = self.invdata[:, self.npara+3]
         self.min_misfit = self.misfit[self.ind_acc + self.ind_rej].min()
         self.ind_min    = np.where(self.misfit == self.min_misfit)[0][0]
-        thresh_val      = self.min_misfit*self.factor+ self.thresh
-        self.ind_thresh = np.where(self.ind_acc*(self.misfit<= thresh_val))[0]
+        self.get_thresh_model()
         self.numbacc    = np.where(self.ind_acc)[0].size
         self.numbrej    = np.where(self.ind_rej)[0].size
         if verbose:
@@ -101,18 +103,41 @@ class postvpr(object):
             print 'minimum misfit = '+str(self.min_misfit)
         return
     
+    def get_thresh_model(self, factor=1., thresh=0.5):
+        """
+        get the index for the finalized accepted model
+        ===================================================================================
+        ::: input :::
+        factor  - factor to determine the threshhold value for selectingthe finalized model
+        thresh  - threshhold value for selecting the finalized model
+                misfit < min_misfit*factor + thresh
+        ===================================================================================
+        """
+        thresh_val      = self.min_misfit*self.factor+ self.thresh
+        self.ind_thresh = np.where(self.ind_acc*(self.misfit<= thresh_val))[0]
+        return
+    
+    def get_paraval(self):
+        """
+        get the parameter array for the minimum misfit model and the average of the accepted model
+        """
+        self.min_paraval    = self.invdata[self.ind_min, 2:(self.npara+2)]
+        self.avg_paraval    = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        return
+    
     def get_vmodel(self):
         """
         get the minimum misfit and average model from the inversion data array
         """
-        min_paraval         = self.invdata[self.ind_min, 2:(self.npara+2)]
+        self.get_paraval()
+        min_paraval         = self.min_paraval
         if self.waterdepth <= 0.:
             self.min_model.get_para_model(paraval=min_paraval)
         else:
             self.min_model.get_para_model(paraval=min_paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
                 numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
         self.min_model.isomod.mod2para()
-        avg_paraval         = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        avg_paraval         = self.avg_paraval
         if self.waterdepth <= 0.:
             self.avg_model.get_para_model(paraval=avg_paraval)
         else:
@@ -180,18 +205,28 @@ class postvpr(object):
             self.vprfwrd.TLpiso = self.data.dispL.gper.copy()
         return
     
-    def run_avg_fwrd(self):
+    def run_avg_fwrd(self, wdisp=0.2):
         """
         run and store receiver functions and surface wave dispersion for the average model
         """
         self.get_period()
         self.get_vmodel()
-        self.vprfwrd.npts   = self.rfpre.shape[1]
         self.vprfwrd.update_mod(mtype = 'iso')
         self.vprfwrd.get_vmodel(mtype = 'iso')
-        self.vprfwrd.compute_fsurf()
-        if self.waterdepth < 0.:
+        self.vprfwrd.data   = copy.deepcopy(self.data)
+        # # # self.vprfwrd.data.rfr.npts  = self.rfpre.shape[1]
+        if self.vprfwrd.data.dispR.npper == 0 and self.vprfwrd.data.dispR.ngper == 0:
+            wdisp   = 0.
+        if self.vprfwrd.data.rfr.npts == 0:
+            if wdisp == 0.:
+                print 'No data, do not run forward modelling of average model'
+                return
+            wdisp   = 1.
+        if wdisp > 0.:
+            self.vprfwrd.compute_fsurf()
+        if self.waterdepth < 0. and wdisp < 1.:
             self.vprfwrd.compute_rftheo()
+        self.vprfwrd.get_misfit(wdisp=wdisp)
         return
     
     def plot_rf(self, title='Receiver function', obsrf=True, minrf=True, avgrf=True, assemrf=True, showfig=True):
@@ -309,9 +344,9 @@ class postvpr(object):
                         numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
                 plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=0.01, lw=3)               
         if minvpr:
-            plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'r-', lw=3, label='min model')
+            plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'y-', lw=3, label='min model')
         if avgvpr:
-            plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'y-', lw=3, label='avg model')
+            plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'r-', lw=3, label='avg model')
         if realvpr:
             plt.plot(self.real_model.VsvArr, self.real_model.zArr, 'g-', lw=3, label='real model')
         ax.tick_params(axis='x', labelsize=20)
