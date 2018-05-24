@@ -123,6 +123,8 @@ class postvpr(object):
         """
         self.min_paraval    = self.invdata[self.ind_min, 2:(self.npara+2)]
         self.avg_paraval    = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
+        # standard error of the mean
+        self.sem_paraval    = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).std(axis=0) / np.sqrt((self.invdata[self.ind_thresh, 2:(self.npara+2)]).size)
         return
     
     def get_vmodel(self):

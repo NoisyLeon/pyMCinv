@@ -28,10 +28,12 @@ import os, shutil
 from functools import partial
 import multiprocessing
 from subprocess import call
-from mpl_toolkits.basemap import Basemap, shiftgrid, cm
+from mpl_toolkits.basemap import Basemap, shiftgrid, cm, interp
 import obspy
 import vprofile, mcpost
 import time
+import numpy.ma as ma
+# # # import field2d_earth
 
 class invASDF(pyasdf.ASDFDataSet):
     """ An object to for MCMC inversion based on ASDF database
@@ -900,7 +902,7 @@ class invhdf5(h5py.File):
             # # # return
         return
     
-    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5):
+    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5, skipmask=True):
         if ingrdfname is None:
             grdlst  = self.keys()
         else:
@@ -913,12 +915,6 @@ class invhdf5(h5py.File):
                         lon += 360.
                     if sline[2] == '1':
                         grdlst.append(str(lon)+'_'+sline[1])
-        if phase and group:
-            dispdtype   = 'both'
-        elif phase and not group:
-            dispdtype   = 'ph'
-        else:
-            dispdtype   = 'gr'
         igrd        = 0
         Ngrd        = len(grdlst)
         for grd_id in grdlst:
@@ -930,8 +926,9 @@ class invhdf5(h5py.File):
             igrd    += 1
             grp     = self[grd_id]
             if grp.attrs['mask'] and skipmask:
-                print '--- Skip reading inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                print '--- Skipping inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
+            print '--- Reading inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
             invfname = datadir+'/mc_inv.'+ grd_id+'.npz'
             datafname= datadir+'/mc_data.'+grd_id+'.npz'
             if not (os.path.isfile(invfname) and os.path.isfile(datafname)):
@@ -941,12 +938,13 @@ class invhdf5(h5py.File):
             vpr.read_inv_data(infname = invfname, verbose=False)
             vpr.read_data(infname = datafname)
             vpr.get_paraval()
-            vpr.run_avg_frwd(wdisp=1.)
+            vpr.run_avg_fwrd(wdisp=1.)
             #------------------------------------------
             # store inversion results in the database
             #------------------------------------------
             grp.create_dataset(name = 'avg_paraval', data = vpr.avg_paraval)
             grp.create_dataset(name = 'min_paraval', data = vpr.min_paraval)
+            grp.create_dataset(name = 'sem_paraval', data = vpr.sem_paraval)
             grp.attrs.create(name = 'avg_misfit', data = vpr.vprfwrd.data.misfit)
             grp.attrs.create(name = 'min_misfit', data = vpr.min_misfit)
             
@@ -1021,101 +1019,123 @@ class invhdf5(h5py.File):
                         lon += 360.
                     if sline[2] == '1':
                         grdlst.append(str(lon)+'_'+sline[1])
-        igrd        = 0
-        Ngrd        = len(grdlst)
+        igrd            = 0
+        Ngrd            = len(grdlst)
         for grd_id in grdlst:
-            split_id= grd_id.split('_')
-            grd_lon = float(split_id[0])
-            if grd_lon > 180.:
-                grd_lon     -= 360.
-            grd_lat = float(split_id[1])
-            igrd    += 1
-            grp     = self[grd_id]
+            split_id    = grd_id.split('_')
+            grd_lon     = float(split_id[0])
+            grd_lat     = float(split_id[1])
+            igrd        += 1
+            grp         = self[grd_id]
             try:
+                
                 ind_lon = np.where(grd_lon==self.lons)[0][0]
                 ind_lat = np.where(grd_lat==self.lats)[0][0]
             except IndexError:
-                print 'WARNING: grid data N/A at: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                # print 'WARNING: grid data N/A at: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
             try:
                 paraval             = grp[dtype+'_paraval'].value
             except KeyError:
-                print 'WARNING: no data at grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                # print 'WARNING: no data at grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
             data[ind_lat, ind_lon]  = paraval[pindex]
             if isthk:
                 topovalue               = grp.attrs['topo']
-                data[ind_lat, ind_lon]  = 
-            mask[ind_lat, ind_lon]  = False
+                data[ind_lat, ind_lon]  = data[ind_lat, ind_lon] - topovalue
+            mask[ind_lat, ind_lon]      = False
         return data, mask
+    
+    def interp_surface_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
+        return
+    
+    def smooth_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
+        data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
+        data_smooth = np.zeros(data.shape)
+        
+        #- Loop over subvolumes.---------------------------------------------------
+        for n in np.arange(self.nsubvol):
+            if modelname == 'dvsv':
+                v_filtered = self.m[n].dvsv 
+            if modelname == 'dvsh':
+                v_filtered = self.m[n].dvsh 
+            if modelname == 'drho':
+                v_filtered = self.m[n].drho 
+            if modelname == 'dvp':
+                v_filtered = self.m[n].dvp
+            v = np.copy(v_filtered)
+            #- Size of the array.
+            nx=len(self.m[n].lat)-1
+            ny=len(self.m[n].lon)-1
+            nz=len(self.m[n].r)-1
+            #- Gaussian smoothing. --------------------------------------------------
+            if filter_type=='gauss':
+                #- Estimate element width.
+                r=np.mean(self.m[n].r)
+                dx=r*np.pi*(self.m[n].lat[0]-self.m[n].lat[1])/180.0
+                #- Colat and lon fields for the small Gaussian.
+                dn=3*np.ceil(sigma/dx)
+                nx_min=np.round(float(nx)/2.0)-dn
+                nx_max=np.round(float(nx)/2.0)+dn
+                ny_min=np.round(float(ny)/2.0)-dn
+                ny_max=np.round(float(ny)/2.0)+dn
+                lon,colat=np.meshgrid(self.m[n].lon[ny_min:ny_max],90.0-self.m[n].lat[nx_min:nx_max])
+                colat=np.pi*colat/180.0
+                lon=np.pi*lon/180.0
+                #- Volume element.
+                dy=r*np.pi*np.sin(colat)*(self.m[n].lon[1]-self.m[n].lon[0])/180.0
+                dV=dx*dy
+                #- Unit vector field.
+                x=np.cos(lon)*np.sin(colat)
+                y=np.sin(lon)*np.sin(colat)
+                z=np.cos(colat)
+                #- Make a Gaussian centred in the middle of the grid. -----------------
+                i=np.round(float(nx)/2.0)-1
+                j=np.round(float(ny)/2.0)-1
+                colat_i=np.pi*(90.0-self.m[n].lat[i])/180.0
+                lon_j=np.pi*self.m[n].lon[j]/180.0
+                x_i=np.cos(lon_j)*np.sin(colat_i)
+                y_j=np.sin(lon_j)*np.sin(colat_i)
+                z_k=np.cos(colat_i)
+                #- Compute the Gaussian.
+                G=x*x_i+y*y_j+z*z_k
+                G=G/np.max(np.abs(G))
+                G=r*np.arccos(G)
+                G=np.exp(-0.5*G**2/sigma**2)/(2.0*np.pi*sigma**2)
+                #- Move the Gaussian across the field. --------------------------------
+                for i in np.arange(dn+1,nx-dn-1):
+                    for j in np.arange(dn+1,ny-dn-1):
+                        for k in np.arange(nz):
+                            v_filtered[i,j,k]=np.sum(v[i-dn:i+dn,j-dn:j+dn,k]*G*dV)
+            #- Smoothing by averaging over neighbouring cells. ----------------------
+            elif filter_type=='neighbour':
+                for iteration in np.arange(int(sigma)):
+                    for i in np.arange(1,nx-1):
+                        for j in np.arange(1,ny-1):
+                            v_filtered[i,j,:]=(v[i,j,:]+v[i+1,j,:]+v[i-1,j,:]+v[i,j+1,:]+v[i,j-1,:])/5.0
+        
         
     
-    def plot_paraval(self, pindex):
-        mask        = self.attrs['mask']
-        # vdict       = {'ph': 'C', 'gr': 'U'}
-        # datatype    = datatype.lower()
-        rundict     = {0: 'smooth_run', 1: 'qc_run'}
-        dataid      = rundict[runtype]+'_'+str(runid)
-        self._get_lon_lat_arr(dataid)
-        try:
-            ingroup     = self['reshaped_'+dataid]
-        except KeyError:
-            try:
-                self.creat_reshape_data(runtype=runtype, runid=runid)
-                ingroup = self['reshaped_'+dataid]
-            except KeyError:
-                raise KeyError(dataid+ ' not exists!')
-        pers        = self.attrs['period_array']
-        if not period in pers:
-            raise KeyError('period = '+str(period)+' not included in the database')
-        pergrp  = ingroup['%g_sec'%( period )]
-        if runtype == 1:
-            isotropic   = ingroup.attrs['isotropic']
-        else:
-            isotropic   = True
-        if datatype == 'vel' or datatype=='velocity' or datatype == 'v':
-            if isotropic:
-                datatype    = 'velocity'
-            else:
-                datatype    = 'vel_iso'
-        if datatype == 'un' or datatype=='sem' or datatype == 'vel_sem':
-            datatype        = 'vel_sem'
-        try:
-            data    = pergrp[datatype].value
-        except:
-            outstr      = ''
-            for key in pergrp.keys():
-                outstr  +=key
-                outstr  +=', '
-            outstr      = outstr[:-1]
-            raise KeyError('Unexpected datatype: '+datatype+\
-                           ', available datatypes are: '+outstr)
-        if datatype == 'amp2':
-            data    = data*100.
-        if datatype == 'vel_sem':
-            data    = data*1000.
-        if not isotropic:
-            if datatype == 'cone_radius' or datatype == 'gauss_std' or datatype == 'max_resp' or datatype == 'ncone' or \
-                         datatype == 'ngauss' or datatype == 'vel_sem':
-                mask    = ingroup['mask2']
-            else:
-                mask    = ingroup['mask1']
-            mdata       = ma.masked_array(data, mask=mask )
-        else:
-            mdata       = data.copy()
+    def plot_paraval(self, pindex, org_mask=False, dtype='avg', ingrdfname=None, isthk=False, shpfx=None,\
+            clabel='', cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
+        # # # mask        = self.attrs['mask']
+        data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
+        if org_mask:
+            mask    = self.attrs['mask']
+        mdata       = ma.masked_array(data, mask=mask )
         #-----------
         # plot data
         #-----------
-        m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
+        m           = self._get_basemap(projection=projection)
         x, y        = m(self.lonArr, self.latArr)
-        # shapefname  = '/projects/life9360/geological_maps/qfaults'
-        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='blue')
-        # shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='blue')
-        shapefname  = '../AKfaults/qfaults'
+        shapefname  = '/projects/life9360/geological_maps/qfaults'
         m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
-        shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
         m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        # shapefname  = '../AKfaults/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        # shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
         # shapefname  = '/projects/life9360/AK_sediments/Cook_Inlet_sediments_WGS84'
         # m.readshapefile(shapefname, 'faultline', linewidth=1, color='blue')
         
@@ -1164,14 +1184,12 @@ class invhdf5(h5py.File):
             im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
         cb.set_label(clabel, fontsize=12, rotation=0)
-        plt.suptitle(str(period)+' sec', fontsize=20)
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)
         cb.draw_all()
-        print 'plotting data from '+dataid
         # # cb.solids.set_rasterized(True)
         cb.solids.set_edgecolor("face")
-        m.shadedrelief(scale=1., origin='lower')
+        # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()
         return
