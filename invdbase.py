@@ -33,7 +33,8 @@ import obspy
 import vprofile, mcpost
 import time
 import numpy.ma as ma
-# # # import field2d_earth
+import field2d_earth
+from pyproj import Geod
 
 class invASDF(pyasdf.ASDFDataSet):
     """ An object to for MCMC inversion based on ASDF database
@@ -950,59 +951,6 @@ class invhdf5(h5py.File):
             
         return
     
-    def _get_basemap(self, projection='lambert', geopolygons=None, resolution='i'):
-        """Get basemap for plotting results
-        """
-        # fig=plt.figure(num=None, figsize=(12, 12), dpi=80, facecolor='w', edgecolor='k')
-        plt.figure()
-        minlon      = self.attrs['minlon']
-        maxlon      = self.attrs['maxlon']
-        minlat      = self.attrs['minlat']
-        maxlat      = self.attrs['maxlat']
-        lat_centre  = (maxlat+minlat)/2.0
-        lon_centre  = (maxlon+minlon)/2.0
-        if projection=='merc':
-            m       = Basemap(projection='merc', llcrnrlat=minlat-5., urcrnrlat=maxlat+5., llcrnrlon=minlon-5.,
-                      urcrnrlon=maxlon+5., lat_ts=20, resolution=resolution, epsg = 4269)
-            # m.drawparallels(np.arange(minlat,maxlat,dlat), labels=[1,0,0,1])
-            # m.drawmeridians(np.arange(minlon,maxlon,dlon), labels=[1,0,0,1])
-            m.drawparallels(np.arange(-80.0,80.0,5.0), labels=[1,0,0,1])
-            m.drawmeridians(np.arange(-170.0,170.0,5.0), labels=[1,0,0,1])
-            m.drawstates(color='g', linewidth=2.)
-        elif projection=='global':
-            m       = Basemap(projection='ortho',lon_0=lon_centre, lat_0=lat_centre, resolution=resolution)
-            # m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,1])
-            # m.drawmeridians(np.arange(-170.0,170.0,10.0), labels=[1,0,0,1])
-        elif projection=='regional_ortho':
-            m1      = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution='l')
-            m       = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution=resolution,\
-                        llcrnrx=0., llcrnry=0., urcrnrx=m1.urcrnrx/mapfactor, urcrnry=m1.urcrnry/3.5)
-            m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,0],  linewidth=2,  fontsize=20)
-            # m.drawparallels(np.arange(-90.0,90.0,30.0),labels=[1,0,0,0], dashes=[10, 5], linewidth=2,  fontsize=20)
-            # m.drawmeridians(np.arange(10,180.0,30.0), dashes=[10, 5], linewidth=2)
-            m.drawmeridians(np.arange(-170.0,170.0,10.0),  linewidth=2)
-        elif projection=='lambert':
-            distEW, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, minlat, maxlon) # distance is in m
-            distNS, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, maxlat+2., minlon) # distance is in m
-            m       = Basemap(width=distEW, height=distNS, rsphere=(6378137.00,6356752.3142), resolution='h', projection='lcc',\
-                        lat_1=minlat, lat_2=maxlat, lon_0=lon_centre, lat_0=lat_centre+1)
-            m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=1, dashes=[2,2], labels=[1,1,0,0], fontsize=20)
-            m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=1, dashes=[2,2], labels=[0,0,1,0], fontsize=20)
-            # m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=0.5, dashes=[2,2], labels=[1,0,0,0], fontsize=5)
-            # m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=0.5, dashes=[2,2], labels=[0,0,0,1], fontsize=5)
-        m.drawcoastlines(linewidth=1.0)
-        m.drawcountries(linewidth=1.)
-        # # m.drawmapboundary(fill_color=[1.0,1.0,1.0])
-        # m.fillcontinents(lake_color='#99ffff',zorder=0.2)
-        # # m.drawlsmask(land_color='0.8', ocean_color='#99ffff')
-        # m.drawmapboundary(fill_color="white")
-        # m.shadedrelief(scale=1., origin='lower')
-        try:
-            geopolygons.PlotPolygon(inbasemap=m)
-        except:
-            pass
-        return m
-    
     def get_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
         self._get_lon_lat_arr()
         data        = np.zeros(self.latArr.shape)
@@ -1028,7 +976,6 @@ class invhdf5(h5py.File):
             igrd        += 1
             grp         = self[grd_id]
             try:
-                
                 ind_lon = np.where(grd_lon==self.lons)[0][0]
                 ind_lat = np.where(grd_lat==self.lats)[0][0]
             except IndexError:
@@ -1044,10 +991,158 @@ class invhdf5(h5py.File):
                 topovalue               = grp.attrs['topo']
                 data[ind_lat, ind_lon]  = data[ind_lat, ind_lon] - topovalue
             mask[ind_lat, ind_lon]      = False
+        if not np.allclose(mask, self.attrs['mask']):
+            print 'WARNING: check the mask array!'
         return data, mask
     
-    def interp_surface_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
-        return
+    def get_filled_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
+        minlon      = self.attrs['minlon']
+        maxlon      = self.attrs['maxlon']
+        minlat      = self.attrs['minlat']
+        maxlat      = self.attrs['maxlat']
+        data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
+        ind_valid   = np.logical_not(mask)
+        data_out    = data.copy()
+        g           = Geod(ellps='WGS84')
+        vlonArr     = self.lonArr[ind_valid]
+        vlatArr     = self.latArr[ind_valid]
+        vdata       = data[ind_valid]
+        L           = vlonArr.size
+        for ilat in range(self.Nlat):
+            for ilon in range(self.Nlon):
+                if not mask[ilat, ilon]:
+                    continue
+                clonArr         = np.ones(L, dtype=float)*self.lons[ilon]
+                clatArr         = np.ones(L, dtype=float)*self.lats[ilat]
+                az, baz, dist   = g.inv(clonArr, clatArr, vlonArr, vlatArr)
+                ind_min         = dist.argmin()
+                data_out[ilat, ilon] \
+                                = vdata[ind_min]
+        return data_out
+    
+    def fill_paraval(self, dtype='avg'):
+        grp                 = self.create_group( name = dtype+'_paraval' )
+        for pindex in range(13):
+            if pindex == 11 or pindex == 12:
+                data_out    = self.get_filled_paraval(dtype=dtype, isthk=True)
+            else:
+                data_out    = self.get_filled_paraval(dtype=dtype, isthk=False)
+        
+        #         
+        #         
+        #         imin = dist.argmin(); mindist = dist[imin]
+        #         elat = elatArr[imin]; elon = elonArr[imin]
+        #         cname = '%g'%(elon) + '_%g' %(elat)
+        #         cArr = self[outname][cname][...]
+        #         if mindist < Dref: outArr=((Dref-mindist)*cArr+mindist*avgArr)/Dref
+        #             # outArr=npr.evaluate ( '((Dref-mindist)*cArr+mindist*avgArr)/Dref ')
+        #         else: outArr=avgArr
+        #         dset = self[outname].create_dataset( name=name, shape=outArr.shape, data=outArr)
+        #         dset.attrs.create(name = 'lon', data=lon, dtype='f')
+        #         dset.attrs.create(name = 'lat', data=lat, dtype='f')
+        #         # save to txt file
+        #         if outdir !=None:
+        #             if not os.path.isdir(outdir): os.makedirs(outdir)
+        #             np.savetxt(outdir+'/'+name+'_mod', outArr, fmt='%g')
+        #         
+        # index_valid = np.logical_not(mask)
+        # datain      = data[index_valid]
+        # lonin       = self.lonArr[index_valid]
+        # latin       = self.latArr[index_valid]
+        # 
+        # 
+        # 
+        #         avgArr = self[modelname].attrs['avg_model'][...]
+        # latarr = minlat + np.arange( (maxlat-minlat)/dlat + 1)*dlat
+        # lonarr = minlon + np.arange( (maxlon-minlon)/dlon + 1)*dlon
+        # outname = modelname+sfx
+        # try: del self[outname]
+        # except: pass
+        # self.copy( source = modelname, dest = outname )
+        # elonArr = np.array([]); elatArr = np.array([])
+        # for index in self[outname].keys():
+        #     elat = self[outname][index].attrs['lat']
+        #     elon = self[outname][index].attrs['lon']
+        #     elonArr = np.append(elonArr, elon)
+        #     elatArr = np.append(elatArr, elat)
+        # L=elonArr.size
+        # g = Geod(ellps='WGS84')
+        # print '================ Start horizontal extrapolation =============='
+        # for lon in lonarr:
+        #     for lat in latarr:
+        #         name='%g'%(lon) + '_%g' %(lat)
+        #         if (name in self[outname].keys()): continue
+        #         print 'Extending to ', name
+        #         clonArr=np.ones(L)*lon; clatArr=np.ones(L)*lat
+        #         az, baz, dist = g.inv(clonArr, clatArr, elonArr, elatArr)
+        #         imin = dist.argmin(); mindist = dist[imin]
+        #         elat = elatArr[imin]; elon = elonArr[imin]
+        #         cname = '%g'%(elon) + '_%g' %(elat)
+        #         cArr = self[outname][cname][...]
+        #         if mindist < Dref: outArr=((Dref-mindist)*cArr+mindist*avgArr)/Dref
+        #             # outArr=npr.evaluate ( '((Dref-mindist)*cArr+mindist*avgArr)/Dref ')
+        #         else: outArr=avgArr
+        #         dset = self[outname].create_dataset( name=name, shape=outArr.shape, data=outArr)
+        #         dset.attrs.create(name = 'lon', data=lon, dtype='f')
+        #         dset.attrs.create(name = 'lat', data=lat, dtype='f')
+        #         # save to txt file
+        #         if outdir !=None:
+        #             if not os.path.isdir(outdir): os.makedirs(outdir)
+        #             np.savetxt(outdir+'/'+name+'_mod', outArr, fmt='%g')
+        # self[outname].attrs.create(name = 'minlat', data=minlat, dtype='f')
+        # self[outname].attrs.create(name = 'maxlat', data=maxlat, dtype='f')
+        # self[outname].attrs.create(name = 'dlat', data=dlat, dtype='f')
+        # self[outname].attrs.create(name = 'minlon', data=minlon, dtype='f')
+        # self[outname].attrs.create(name = 'maxlon', data=maxlon, dtype='f')
+        # self[outname].attrs.create(name = 'dlon', data=dlon, dtype='f')
+        # print '================ End horizontal extrapolation =============='
+        # 
+        # #--------------------------------------------------
+        # # interpolation for parameter in the paraval array
+        # #--------------------------------------------------
+        # field2d_interp  = field2d_earth.Field2d(minlon=minlon, maxlon=maxlon, dlon=dlon,
+        #                     minlat=minlat, maxlat=maxlat, dlat=dlat, period=10., evlo=(minlon+maxlon)/2., evla=(minlat+maxlat)/2.)
+        # field2d_interp.read_array(lonArr = lonin, latArr = latin, ZarrIn = datain)
+        # outfname        = 'interp_paraval.lst'
+        # field2d_interp.interp_nearneighbor(workingdir=workingdir, outfname=outfname)
+        # dataout         = field2d_interp.Zarr
+        
+        # return dataout, index_valid, data
+
+        # mdata       = ma.masked_array(data, mask=mask )
+        # data_out    = interp(mdata, xin=self.lons, yin=self.lats, xout=self.lonArr, yout=self.latArr, order=1, masked=False)
+        #-----------
+        # plot data
+        #-----------
+        # m           = self._get_basemap(projection=projection)
+        # x, y        = m(self.lonArr, self.latArr)
+        # cmap        = 'cv'
+        # if cmap == 'ses3d':
+        #     cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
+        #                     0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
+        # elif cmap == 'cv':
+        #     import pycpt
+        #     cmap    = pycpt.load.gmtColormap('./cv.cpt')
+        # else:
+        #     try:
+        #         if os.path.isfile(cmap):
+        #             import pycpt
+        #             cmap    = pycpt.load.gmtColormap(cmap)
+        #     except:
+        #         pass
+        # im          = m.pcolormesh(x, y, data_out, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
+        # cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
+        # cb.set_label(clabel, fontsize=12, rotation=0)
+        # cb.ax.tick_params(labelsize=15)
+        # cb.set_alpha(1)
+        # cb.draw_all()
+        # # # cb.solids.set_rasterized(True)
+        # cb.solids.set_edgecolor("face")
+        # # m.shadedrelief(scale=1., origin='lower')
+        # # if showfig:
+        # plt.show()
+        # plot 
+        # return data_out
     
     def smooth_paraval(self, pindex, dtype='avg', ingrdfname=None, isthk=False):
         data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
@@ -1114,6 +1209,58 @@ class invhdf5(h5py.File):
                         for j in np.arange(1,ny-1):
                             v_filtered[i,j,:]=(v[i,j,:]+v[i+1,j,:]+v[i-1,j,:]+v[i,j+1,:]+v[i,j-1,:])/5.0
         
+    def _get_basemap(self, projection='lambert', geopolygons=None, resolution='i'):
+        """Get basemap for plotting results
+        """
+        # fig=plt.figure(num=None, figsize=(12, 12), dpi=80, facecolor='w', edgecolor='k')
+        plt.figure()
+        minlon      = self.attrs['minlon']
+        maxlon      = self.attrs['maxlon']
+        minlat      = self.attrs['minlat']
+        maxlat      = self.attrs['maxlat']
+        lat_centre  = (maxlat+minlat)/2.0
+        lon_centre  = (maxlon+minlon)/2.0
+        if projection=='merc':
+            m       = Basemap(projection='merc', llcrnrlat=minlat-5., urcrnrlat=maxlat+5., llcrnrlon=minlon-5.,
+                      urcrnrlon=maxlon+5., lat_ts=20, resolution=resolution, epsg = 4269)
+            # m.drawparallels(np.arange(minlat,maxlat,dlat), labels=[1,0,0,1])
+            # m.drawmeridians(np.arange(minlon,maxlon,dlon), labels=[1,0,0,1])
+            m.drawparallels(np.arange(-80.0,80.0,5.0), labels=[1,0,0,1])
+            m.drawmeridians(np.arange(-170.0,170.0,5.0), labels=[1,0,0,1])
+            m.drawstates(color='g', linewidth=2.)
+        elif projection=='global':
+            m       = Basemap(projection='ortho',lon_0=lon_centre, lat_0=lat_centre, resolution=resolution)
+            # m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,1])
+            # m.drawmeridians(np.arange(-170.0,170.0,10.0), labels=[1,0,0,1])
+        elif projection=='regional_ortho':
+            m1      = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution='l')
+            m       = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution=resolution,\
+                        llcrnrx=0., llcrnry=0., urcrnrx=m1.urcrnrx/mapfactor, urcrnry=m1.urcrnry/3.5)
+            m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,0],  linewidth=2,  fontsize=20)
+            # m.drawparallels(np.arange(-90.0,90.0,30.0),labels=[1,0,0,0], dashes=[10, 5], linewidth=2,  fontsize=20)
+            # m.drawmeridians(np.arange(10,180.0,30.0), dashes=[10, 5], linewidth=2)
+            m.drawmeridians(np.arange(-170.0,170.0,10.0),  linewidth=2)
+        elif projection=='lambert':
+            distEW, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, minlat, maxlon) # distance is in m
+            distNS, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, maxlat+2., minlon) # distance is in m
+            m       = Basemap(width=distEW, height=distNS, rsphere=(6378137.00,6356752.3142), resolution='h', projection='lcc',\
+                        lat_1=minlat, lat_2=maxlat, lon_0=lon_centre, lat_0=lat_centre+1)
+            m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=1, dashes=[2,2], labels=[1,1,0,0], fontsize=20)
+            m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=1, dashes=[2,2], labels=[0,0,1,0], fontsize=20)
+            # m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=0.5, dashes=[2,2], labels=[1,0,0,0], fontsize=5)
+            # m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=0.5, dashes=[2,2], labels=[0,0,0,1], fontsize=5)
+        m.drawcoastlines(linewidth=1.0)
+        m.drawcountries(linewidth=1.)
+        # # m.drawmapboundary(fill_color=[1.0,1.0,1.0])
+        # m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        # # m.drawlsmask(land_color='0.8', ocean_color='#99ffff')
+        # m.drawmapboundary(fill_color="white")
+        # m.shadedrelief(scale=1., origin='lower')
+        try:
+            geopolygons.PlotPolygon(inbasemap=m)
+        except:
+            pass
+        return m
         
     
     def plot_paraval(self, pindex, org_mask=False, dtype='avg', ingrdfname=None, isthk=False, shpfx=None,\
