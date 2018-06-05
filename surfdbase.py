@@ -715,13 +715,13 @@ class invhdf5(h5py.File):
         #                 for j in np.arange(1,ny-1):
         #                     v_filtered[i,j,:]=(v[i,j,:]+v[i+1,j,:]+v[i-1,j,:]+v[i,j+1,:]+v[i,j-1,:])/5.0
     
-    def paraval_arrays(self, dtype='min'):
+    def paraval_arrays(self, dtype='min', sigma=1):
         grp                 = self.require_group( name = dtype+'_paraval' )
         for pindex in range(13):
             if pindex == 11 or pindex == 12:
-                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, sigma=1, isthk=True)
+                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, sigma=sigma, isthk=True)
             else:
-                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, sigma=1, isthk=False)
+                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, sigma=sigma, isthk=False)
             grp.create_dataset(name = str(pindex)+'_org', data = data)
             grp.create_dataset(name = str(pindex)+'_smooth', data = data_smooth)
         grp.create_dataset(name = 'mask', data = mask)
@@ -945,7 +945,7 @@ class invhdf5(h5py.File):
         return m
         
     
-    def plot_paraval(self, pindex, org_mask=False, dtype='avg', ingrdfname=None, isthk=False, shpfx=None,\
+    def plot_paraval(self, pindex, org_mask=False, dtype='min', ingrdfname=None, isthk=False, shpfx=None,\
             clabel='', cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
         # # # mask        = self.attrs['mask']
         data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
@@ -1112,23 +1112,140 @@ class invhdf5(h5py.File):
             m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
         else:
             m.fillcontinents(lake_color='#99ffff',zorder=0.2)
-        if hillshade:
-            im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax, alpha=.5)
-        else:
-            im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
+        
+        im          = m.pcolormesh(x, y, mvs, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
         cb.set_label(clabel, fontsize=12, rotation=0)
-        plt.suptitle(str(period)+' sec', fontsize=20)
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)
         cb.draw_all()
-        print 'plotting data from '+dataid
+        # print 'plotting data from '+dataid
         # # cb.solids.set_rasterized(True)
         cb.solids.set_edgecolor("face")
-        m.shadedrelief(scale=1., origin='lower')
+        # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()
         return
+    
+    def plot_vertical(self, lon1, lat1, lon2, lat2, maxdepth, plottype = 0, d = 10., dtype='min', is_smooth=False, clabel='', cmap='cv', vmin=None, vmax=None, showfig=True):
+        if lon1 == lon2 and lat1 == lat2:
+            raise ValueError('The start and end points are the same!')
+        self._get_lon_lat_arr()
+        grp         = self[dtype+'_paraval']
+        if is_smooth:
+            vs3d    = grp['vs_smooth'].value
+            zArr    = grp['z_smooth'].value
+        else:
+            vs3d    = grp['vs_org'].value
+            zArr    = grp['z_org'].value
+        ind_z       = np.where(zArr <= maxdepth )[0]
+        zplot       = zArr[ind_z]
+        if lon1 == lon2 or lat1 == lat2:
+            if lon1 == lon2:    
+                ind_lon = np.where(self.lons == lon1)[0]
+                ind_lat = np.where((self.lats<=max(lat1, lat2))*(self.lats>=min(lat1, lat2)))[0]
+                # data    = np.zeros((len(ind_lat), ind_z.size))
+            else:
+                ind_lon = np.where((self.lons<=max(lon1, lon2))*(self.lons>=min(lon1, lon2)))[0]
+                ind_lat = np.where(self.lats == lat1)[0]
+                # data    = np.zeros((len(ind_lon), ind_z.size))
+            data_temp   = vs3d[ind_lat, ind_lon, :]
+            data        = data_temp[:, ind_z]
+            # return data, data_temp
+            if lon1 == lon2:
+                xplot       = self.lats[ind_lat]
+                xlabel      = 'latitude (deg)'
+            if lat1 == lat2:
+                xplot       = self.lons[ind_lon]
+                xlabel      = 'longitude (deg)'
+            # return data, xplot, zplot
+        else:
+            g               = Geod(ellps='WGS84')
+            az, baz, dist   = g.inv(lon1, lat1, lon2, lat2)
+            dist            = dist/1000.
+            d               = dist/float(int(dist/d))
+            Nd              = int(dist/d)
+            lonlats         = g.npts(lon1, lat1, lon2, lat2, npts=Nd-1)
+            lonlats         = [(lon1, lat1)] + lonlats
+            lonlats.append((lon2, lat2))
+            data            = np.zeros((len(lonlats), ind_z.size))
+            L               = self.lonArr.size
+            vlonArr         = self.lonArr.reshape(L)
+            vlatArr         = self.latArr.reshape(L)
+            ind_data        = 0
+            plons           = np.zeros(len(lonlats))
+            plats           = np.zeros(len(lonlats))
+            for lon,lat in lonlats:
+                if lon < 0.:
+                    lon     += 360.
+                # if lat <
+                # print lon, lat
+                clonArr         = np.ones(L, dtype=float)*lon
+                clatArr         = np.ones(L, dtype=float)*lat
+                az, baz, dist   = g.inv(clonArr, clatArr, vlonArr, vlatArr)
+                ind_min         = dist.argmin()
+                ind_lat         = int(np.floor(ind_min/self.Nlon))
+                ind_lon         = ind_min - self.Nlon*ind_lat
+                # 
+                azmin, bazmin, distmin = g.inv(lon, lat, self.lons[ind_lon], self.lats[ind_lat])
+                if distmin != dist[ind_min]:
+                    raise ValueError('DEBUG!')
+                #
+                data[ind_data, :]   \
+                                = vs3d[ind_lat, ind_lon, ind_z]
+                plons[ind_data] = lon
+                plats[ind_data] = lat
+                ind_data        += 1
+            # data[0, :]          = 
+            if plottype == 0:
+                xplot   = plons
+                xlabel  = 'longitude (deg)'
+            else:
+                xplot   = plats
+                xlabel  = 'latitude (deg)'
+        if cmap == 'ses3d':
+            cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
+                            0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
+        elif cmap == 'cv':
+            import pycpt
+            cmap    = pycpt.load.gmtColormap('./cv.cpt')
+        else:
+            try:
+                if os.path.isfile(cmap):
+                    import pycpt
+                    cmap    = pycpt.load.gmtColormap(cmap)
+            except:
+                pass
+        ax      = plt.subplot()
+        plt.pcolormesh(xplot, zplot, data.T, shading='gouraud', vmax=vmax, vmin=vmin, cmap=cmap)
+        plt.xlabel(xlabel, fontsize=30)
+        plt.ylabel('depth (km)', fontsize=30)
+        plt.gca().invert_yaxis()
+        # plt.axis([self.xgrid[0], self.xgrid[-1], self.ygrid[0], self.ygrid[-1]], 'scaled')
+        cb=plt.colorbar()
+        cb.set_label('Vs (km/s)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        if showfig:
+            plt.show()
+        
+        
+                 
+        
+        
+        #     
+        # 
+        #     
+        # try:
+        #     index   = np.where(zArr >= depth )[0][0]
+        # except IndexError:
+        #     print 'depth slice required is out of bound, maximum depth = '+str(zArr.max())+' km'
+        #     return
+        # depth       = zArr[index]
+        # mask        = grp['mask']
+        # mvs         = ma.masked_array(vs3d[:, :, index], mask=mask )
+        # if 
+    
     
     
     # def plot_paraval(self, pindex):

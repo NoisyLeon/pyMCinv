@@ -15,8 +15,6 @@ dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inve
 # dset.read_CU_model()
 # dset.read_etopo()
 # vpr = dset.mc_inv_iso(instafname='ref_log')
-# dset.mc_inv_iso(instafname='ref_log_Miller', outdir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results_Miller',
-#                 numbrun=150000, nprocess=10, verbose=True)
 # 
 # dset.mc_inv_iso(outdir='/work3/leon/mc_inv_files/mc_alaska_surf',
 #                 numbrun=45000, nprocess=12, verbose=False)
@@ -38,3 +36,7 @@ dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inve
 
 # dset.read_inv(datadir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf')
 # dset.plot_paraval(pindex=-2, isthk=True, dtype='avg')
+
+# dset.paraval_arrays(dtype='avg')
+# dset.construct_3d(dtype='avg')
+# dset.construct_3d(dtype='avg', is_smooth=True)
