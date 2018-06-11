@@ -35,6 +35,7 @@ import time
 import numpy.ma as ma
 import field2d_earth
 from pyproj import Geod
+import colormaps, pycpt
 
     
 class invhdf5(h5py.File):
@@ -478,8 +479,8 @@ class invhdf5(h5py.File):
                 print '--- Skipping inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
             print '--- Reading inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
-            invfname = datadir+'/mc_inv.'+ grd_id+'.npz'
-            datafname= datadir+'/mc_data.'+grd_id+'.npz'
+            invfname    = datadir+'/mc_inv.'+ grd_id+'.npz'
+            datafname   = datadir+'/mc_data.'+grd_id+'.npz'
             if not (os.path.isfile(invfname) and os.path.isfile(datafname)):
                 raise ValueError('No inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd))
             topovalue   = grp.attrs['topo']
@@ -652,70 +653,19 @@ class invhdf5(h5py.File):
         # plt.show()
         # # plot 
         # return data_out
-        # 
-        # 
-        # #- Loop over subvolumes.---------------------------------------------------
-        # for n in np.arange(self.nsubvol):
-        #     if modelname == 'dvsv':
-        #         v_filtered = self.m[n].dvsv 
-        #     if modelname == 'dvsh':
-        #         v_filtered = self.m[n].dvsh 
-        #     if modelname == 'drho':
-        #         v_filtered = self.m[n].drho 
-        #     if modelname == 'dvp':
-        #         v_filtered = self.m[n].dvp
-        #     v = np.copy(v_filtered)
-        #     #- Size of the array.
-        #     nx=len(self.m[n].lat)-1
-        #     ny=len(self.m[n].lon)-1
-        #     nz=len(self.m[n].r)-1
-        #     #- Gaussian smoothing. --------------------------------------------------
-        #     if filter_type=='gauss':
-        #         #- Estimate element width.
-        #         r=np.mean(self.m[n].r)
-        #         dx=r*np.pi*(self.m[n].lat[0]-self.m[n].lat[1])/180.0
-        #         #- Colat and lon fields for the small Gaussian.
-        #         dn=3*np.ceil(sigma/dx)
-        #         nx_min=np.round(float(nx)/2.0)-dn
-        #         nx_max=np.round(float(nx)/2.0)+dn
-        #         ny_min=np.round(float(ny)/2.0)-dn
-        #         ny_max=np.round(float(ny)/2.0)+dn
-        #         lon,colat=np.meshgrid(self.m[n].lon[ny_min:ny_max],90.0-self.m[n].lat[nx_min:nx_max])
-        #         colat=np.pi*colat/180.0
-        #         lon=np.pi*lon/180.0
-        #         #- Volume element.
-        #         dy=r*np.pi*np.sin(colat)*(self.m[n].lon[1]-self.m[n].lon[0])/180.0
-        #         dV=dx*dy
-        #         #- Unit vector field.
-        #         x=np.cos(lon)*np.sin(colat)
-        #         y=np.sin(lon)*np.sin(colat)
-        #         z=np.cos(colat)
-        #         #- Make a Gaussian centred in the middle of the grid. -----------------
-        #         i=np.round(float(nx)/2.0)-1
-        #         j=np.round(float(ny)/2.0)-1
-        #         colat_i=np.pi*(90.0-self.m[n].lat[i])/180.0
-        #         lon_j=np.pi*self.m[n].lon[j]/180.0
-        #         x_i=np.cos(lon_j)*np.sin(colat_i)
-        #         y_j=np.sin(lon_j)*np.sin(colat_i)
-        #         z_k=np.cos(colat_i)
-        #         #- Compute the Gaussian.
-        #         G=x*x_i+y*y_j+z*z_k
-        #         G=G/np.max(np.abs(G))
-        #         G=r*np.arccos(G)
-        #         G=np.exp(-0.5*G**2/sigma**2)/(2.0*np.pi*sigma**2)
-        #         #- Move the Gaussian across the field. --------------------------------
-        #         for i in np.arange(dn+1,nx-dn-1):
-        #             for j in np.arange(dn+1,ny-dn-1):
-        #                 for k in np.arange(nz):
-        #                     v_filtered[i,j,k]=np.sum(v[i-dn:i+dn,j-dn:j+dn,k]*G*dV)
-        #     #- Smoothing by averaging over neighbouring cells. ----------------------
-        #     elif filter_type=='neighbour':
-        #         for iteration in np.arange(int(sigma)):
-        #             for i in np.arange(1,nx-1):
-        #                 for j in np.arange(1,ny-1):
-        #                     v_filtered[i,j,:]=(v[i,j,:]+v[i+1,j,:]+v[i-1,j,:]+v[i,j+1,:]+v[i,j-1,:])/5.0
     
     def paraval_arrays(self, dtype='min', sigma=1):
+        """
+        get the paraval arrays and store them in the data base
+        =================================================================
+        ::: input :::
+        sigma       - total number of smooth iterations
+        dtype       - data type:
+                    avg - average model
+                    min - minimum misfit model
+                    sem - uncertainties (standard error of the mean)
+        =================================================================
+        """
         grp                 = self.require_group( name = dtype+'_paraval' )
         for pindex in range(13):
             if pindex == 11 or pindex == 12:
@@ -727,7 +677,27 @@ class invhdf5(h5py.File):
         grp.create_dataset(name = 'mask', data = mask)
         return
     
+    # def paraval_arrays_HD(self, dtype='min'):
+    #     grp     = self[dtype+'_paraval']
+    #     self._get_lon_lat_arr()
+        
+        
+        
+    
     def construct_3d(self, dtype='min', is_smooth=False, maxdepth=200., dz=0.1):
+        """
+        construct 3D vs array
+        =================================================================
+        ::: input :::
+        dtype       - data type:
+                        avg - average model
+                        min - minimum misfit model
+                        sem - uncertainties (standard error of the mean)
+        is_smooth   - use the smoothed array or not
+        maxdepth    - maximum depth (default - 200 km)
+        dz          - depth interval (default - 0.1 km)
+        =================================================================
+        """
         grp     = self[dtype+'_paraval']
         self._get_lon_lat_arr()
         Nz      = int(maxdepth/dz) + 1
@@ -763,134 +733,20 @@ class invhdf5(h5py.File):
             grp.create_dataset(name = 'vs_org', data = vs3d)
             grp.create_dataset(name = 'z_org', data = zArr)
         return
-                
-                    
-                # if not mask[ilat, ilon]:
-                #     continue
-                # clonArr         = np.ones(L, dtype=float)*self.lons[ilon]
-                # clatArr         = np.ones(L, dtype=float)*self.lats[ilat]
-                # az, baz, dist   = g.inv(clonArr, clatArr, vlonArr, vlatArr)
-                # ind_min         = dist.argmin()
-                # data_out[ilat, ilon] \
-                #                 = vdata[ind_min]
-        #         
-        #         
-        #         imin = dist.argmin(); mindist = dist[imin]
-        #         elat = elatArr[imin]; elon = elonArr[imin]
-        #         cname = '%g'%(elon) + '_%g' %(elat)
-        #         cArr = self[outname][cname][...]
-        #         if mindist < Dref: outArr=((Dref-mindist)*cArr+mindist*avgArr)/Dref
-        #             # outArr=npr.evaluate ( '((Dref-mindist)*cArr+mindist*avgArr)/Dref ')
-        #         else: outArr=avgArr
-        #         dset = self[outname].create_dataset( name=name, shape=outArr.shape, data=outArr)
-        #         dset.attrs.create(name = 'lon', data=lon, dtype='f')
-        #         dset.attrs.create(name = 'lat', data=lat, dtype='f')
-        #         # save to txt file
-        #         if outdir !=None:
-        #             if not os.path.isdir(outdir): os.makedirs(outdir)
-        #             np.savetxt(outdir+'/'+name+'_mod', outArr, fmt='%g')
-        #         
-        # index_valid = np.logical_not(mask)
-        # datain      = data[index_valid]
-        # lonin       = self.lonArr[index_valid]
-        # latin       = self.latArr[index_valid]
-        # 
-        # 
-        # 
-        #         avgArr = self[modelname].attrs['avg_model'][...]
-        # latarr = minlat + np.arange( (maxlat-minlat)/dlat + 1)*dlat
-        # lonarr = minlon + np.arange( (maxlon-minlon)/dlon + 1)*dlon
-        # outname = modelname+sfx
-        # try: del self[outname]
-        # except: pass
-        # self.copy( source = modelname, dest = outname )
-        # elonArr = np.array([]); elatArr = np.array([])
-        # for index in self[outname].keys():
-        #     elat = self[outname][index].attrs['lat']
-        #     elon = self[outname][index].attrs['lon']
-        #     elonArr = np.append(elonArr, elon)
-        #     elatArr = np.append(elatArr, elat)
-        # L=elonArr.size
-        # g = Geod(ellps='WGS84')
-        # print '================ Start horizontal extrapolation =============='
-        # for lon in lonarr:
-        #     for lat in latarr:
-        #         name='%g'%(lon) + '_%g' %(lat)
-        #         if (name in self[outname].keys()): continue
-        #         print 'Extending to ', name
-        #         clonArr=np.ones(L)*lon; clatArr=np.ones(L)*lat
-        #         az, baz, dist = g.inv(clonArr, clatArr, elonArr, elatArr)
-        #         imin = dist.argmin(); mindist = dist[imin]
-        #         elat = elatArr[imin]; elon = elonArr[imin]
-        #         cname = '%g'%(elon) + '_%g' %(elat)
-        #         cArr = self[outname][cname][...]
-        #         if mindist < Dref: outArr=((Dref-mindist)*cArr+mindist*avgArr)/Dref
-        #             # outArr=npr.evaluate ( '((Dref-mindist)*cArr+mindist*avgArr)/Dref ')
-        #         else: outArr=avgArr
-        #         dset = self[outname].create_dataset( name=name, shape=outArr.shape, data=outArr)
-        #         dset.attrs.create(name = 'lon', data=lon, dtype='f')
-        #         dset.attrs.create(name = 'lat', data=lat, dtype='f')
-        #         # save to txt file
-        #         if outdir !=None:
-        #             if not os.path.isdir(outdir): os.makedirs(outdir)
-        #             np.savetxt(outdir+'/'+name+'_mod', outArr, fmt='%g')
-        # self[outname].attrs.create(name = 'minlat', data=minlat, dtype='f')
-        # self[outname].attrs.create(name = 'maxlat', data=maxlat, dtype='f')
-        # self[outname].attrs.create(name = 'dlat', data=dlat, dtype='f')
-        # self[outname].attrs.create(name = 'minlon', data=minlon, dtype='f')
-        # self[outname].attrs.create(name = 'maxlon', data=maxlon, dtype='f')
-        # self[outname].attrs.create(name = 'dlon', data=dlon, dtype='f')
-        # print '================ End horizontal extrapolation =============='
-        # 
-        # #--------------------------------------------------
-        # # interpolation for parameter in the paraval array
-        # #--------------------------------------------------
-        # field2d_interp  = field2d_earth.Field2d(minlon=minlon, maxlon=maxlon, dlon=dlon,
-        #                     minlat=minlat, maxlat=maxlat, dlat=dlat, period=10., evlo=(minlon+maxlon)/2., evla=(minlat+maxlat)/2.)
-        # field2d_interp.read_array(lonArr = lonin, latArr = latin, ZarrIn = datain)
-        # outfname        = 'interp_paraval.lst'
-        # field2d_interp.interp_nearneighbor(workingdir=workingdir, outfname=outfname)
-        # dataout         = field2d_interp.Zarr
-        
-        # return dataout, index_valid, data
-
-        # mdata       = ma.masked_array(data, mask=mask )
-        # data_out    = interp(mdata, xin=self.lons, yin=self.lats, xout=self.lonArr, yout=self.latArr, order=1, masked=False)
-        #-----------
-        # plot data
-        #-----------
-        # m           = self._get_basemap(projection=projection)
-        # x, y        = m(self.lonArr, self.latArr)
-        # cmap        = 'cv'
-        # if cmap == 'ses3d':
-        #     cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
-        #                     0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
-        # elif cmap == 'cv':
-        #     import pycpt
-        #     cmap    = pycpt.load.gmtColormap('./cv.cpt')
-        # else:
-        #     try:
-        #         if os.path.isfile(cmap):
-        #             import pycpt
-        #             cmap    = pycpt.load.gmtColormap(cmap)
-        #     except:
-        #         pass
-        # im          = m.pcolormesh(x, y, data_out, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
-        # cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
-        # cb.set_label(clabel, fontsize=12, rotation=0)
-        # cb.ax.tick_params(labelsize=15)
-        # cb.set_alpha(1)
-        # cb.draw_all()
-        # # # cb.solids.set_rasterized(True)
-        # cb.solids.set_edgecolor("face")
-        # # m.shadedrelief(scale=1., origin='lower')
-        # # if showfig:
-        # plt.show()
-        # plot 
-        # return data_out
-    
     
         
+    def get_topo_arr(self):
+        self._get_lon_lat_arr()
+        topoarr     = np.zeros(self.lonArr.shape)
+        for ilat in range(self.Nlat):
+            for ilon in range(self.Nlon):
+                grd_id              = str(self.lons[ilon])+'_'+str(self.lats[ilat])
+                topovalue           = self[grd_id].attrs['topo']
+                topoarr[ilat, ilon] = topovalue
+        self.create_dataset(name='topo', data = topoarr)
+        return
+            
+            
     def _get_basemap(self, projection='lambert', geopolygons=None, resolution='i'):
         """Get basemap for plotting results
         """
@@ -1126,8 +982,16 @@ class invhdf5(h5py.File):
         if showfig:
             plt.show()
         return
+
     
-    def plot_vertical(self, lon1, lat1, lon2, lat2, maxdepth, plottype = 0, d = 10., dtype='min', is_smooth=False, clabel='', cmap='cv', vmin=None, vmax=None, showfig=True):
+    def plot_vertical_rel(self, lon1, lat1, lon2, lat2, maxdepth, vs_mantle=4.4, plottype = 0, d = 10., dtype='min', is_smooth=False,\
+                      clabel='', cmap='cv', vmin1=3.0, vmax1=4.2, vmin2=-10., vmax2=10., showfig=True):
+        if is_smooth:
+            mohoArr = self[dtype+'_paraval/12_smooth'].value
+        else:
+            mohoArr = self[dtype+'_paraval/12_org'].value
+        topoArr     = self['topo'].value
+        
         if lon1 == lon2 and lat1 == lat2:
             raise ValueError('The start and end points are the same!')
         self._get_lon_lat_arr()
@@ -1158,7 +1022,151 @@ class invhdf5(h5py.File):
             if lat1 == lat2:
                 xplot       = self.lons[ind_lon]
                 xlabel      = 'longitude (deg)'
-            # return data, xplot, zplot
+            # 
+            topo1d          = topoArr[ind_lat, ind_lon]
+            moho1d          = mohoArr[ind_lat, ind_lon]
+            #
+            data_moho       = data.copy()
+            mask_moho       = np.ones(data.shape, dtype=bool)
+            data_mantle     = data.copy()
+            mask_mantle     = np.ones(data.shape, dtype=bool)
+            for ix in range(data.shape[0]):
+                ind_moho    = zplot <= moho1d[ix]
+                ind_mantle  = np.logical_not(ind_moho)
+                mask_moho[ix, ind_moho] \
+                            = False
+                mask_mantle[ix, ind_mantle] \
+                            = False
+                data_mantle[ix, :] \
+                            = (data_mantle[ix, :] - vs_mantle)/vs_mantle*100.
+        else:
+            g               = Geod(ellps='WGS84')
+            az, baz, dist   = g.inv(lon1, lat1, lon2, lat2)
+            dist            = dist/1000.
+            d               = dist/float(int(dist/d))
+            Nd              = int(dist/d)
+            lonlats         = g.npts(lon1, lat1, lon2, lat2, npts=Nd-1)
+            lonlats         = [(lon1, lat1)] + lonlats
+            lonlats.append((lon2, lat2))
+            data            = np.zeros((len(lonlats), ind_z.size))
+            L               = self.lonArr.size
+            vlonArr         = self.lonArr.reshape(L)
+            vlatArr         = self.latArr.reshape(L)
+            ind_data        = 0
+            plons           = np.zeros(len(lonlats))
+            plats           = np.zeros(len(lonlats))
+            topo1d          = np.zeros(len(lonlats))
+            moho1d          = np.zeros(len(lonlats))
+            for lon,lat in lonlats:
+                if lon < 0.:
+                    lon     += 360.
+                clonArr         = np.ones(L, dtype=float)*lon
+                clatArr         = np.ones(L, dtype=float)*lat
+                az, baz, dist   = g.inv(clonArr, clatArr, vlonArr, vlatArr)
+                ind_min         = dist.argmin()
+                ind_lat         = int(np.floor(ind_min/self.Nlon))
+                ind_lon         = ind_min - self.Nlon*ind_lat
+                # 
+                azmin, bazmin, distmin = g.inv(lon, lat, self.lons[ind_lon], self.lats[ind_lat])
+                if distmin != dist[ind_min]:
+                    raise ValueError('DEBUG!')
+                #
+                data[ind_data, :]   \
+                                = vs3d[ind_lat, ind_lon, ind_z]
+                plons[ind_data] = lon
+                plats[ind_data] = lat
+                topo1d[ind_data]= topoArr[ind_lat, ind_lon]
+                moho1d[ind_data]= mohoArr[ind_lat, ind_lon]
+                ind_data        += 1
+            data_moho           = data.copy()
+            mask_moho           = np.ones(data.shape, dtype=bool)
+            data_mantle         = data.copy()
+            mask_mantle         = np.ones(data.shape, dtype=bool)
+            for ix in range(data.shape[0]):
+                ind_moho        = zplot <= moho1d[ix]
+                ind_mantle      = np.logical_not(ind_moho)
+                mask_moho[ix, ind_moho] \
+                                = False
+                mask_mantle[ix, ind_mantle] \
+                                = False
+                data_mantle[ix, :] \
+                                = (data_mantle[ix, :] - vs_mantle)/vs_mantle*100.
+            if plottype == 0:
+                xplot   = plons
+                xlabel  = 'longitude (deg)'
+            else:
+                xplot   = plats
+                xlabel  = 'latitude (deg)'
+        cmap1           = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
+                            0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
+        cmap2           = pycpt.load.gmtColormap('./cv.cpt')
+        f, (ax1, ax2)   = plt.subplots(2, sharex=True, sharey=False, gridspec_kw={'height_ratios':[1,4]})
+        topo1d[topo1d<0.]   \
+                        = 0.
+        ax1.plot(xplot, topo1d*1000., 'k', lw=3)
+        ax1.fill_between(xplot, 0, topo1d*1000., facecolor='grey')
+        ax1.set_ylabel('Elevation (m)', fontsize=30)
+        mdata_moho      = ma.masked_array(data_moho, mask=mask_moho )
+        mdata_mantle    = ma.masked_array(data_mantle, mask=mask_mantle )
+        m1              = ax2.pcolormesh(xplot, zplot, mdata_mantle.T, shading='gouraud', vmax=vmax2, vmin=vmin2, cmap=cmap1)
+        cb1             = f.colorbar(m1, orientation='horizontal', fraction=0.05)
+        cb1.set_label('Mantle Vs perturbation relative to '+str(vs_mantle)+' km/s (%)', fontsize=20)
+        cb1.ax.tick_params(labelsize=10) 
+        m2              = ax2.pcolormesh(xplot, zplot, mdata_moho.T, shading='gouraud', vmax=vmax1, vmin=vmin1, cmap=cmap2)
+        cb2             = f.colorbar(m2, orientation='horizontal', fraction=0.06)
+        cb2.set_label('Crustal Vs (km/s)', fontsize=20)
+        cb2.ax.tick_params(labelsize=10) 
+        #
+        ax2.plot(xplot, moho1d, 'r', lw=3)
+        #
+        ax2.set_xlabel(xlabel, fontsize=30)
+        ax2.set_ylabel('Depth (km)', fontsize=30)
+        plt.gca().invert_yaxis()
+        f.subplots_adjust(hspace=0)
+        # plt.setp([a.get_xticklabels() for a in f.axes[:-1]], visible=False)
+        # # plt.axis([self.xgrid[0], self.xgrid[-1], self.ygrid[0], self.ygrid[-1]], 'scaled')
+        # cb      = plt.colorbar()
+        # cb.set_label('Vs (km/s)', fontsize=30)
+        ax1.tick_params(axis='y', labelsize=20)
+        ax2.tick_params(axis='x', labelsize=20)
+        ax2.tick_params(axis='y', labelsize=20)
+        plt.xlim([xplot[0], xplot[-1]])
+        if showfig:
+            plt.show()
+            
+            
+    def plot_vertical_abs(self, lon1, lat1, lon2, lat2, maxdepth, plottype = 0, d = 10., dtype='min', is_smooth=False,\
+                      clabel='', cmap='cv', vmin=None, vmax=None, showfig=True):        
+        if lon1 == lon2 and lat1 == lat2:
+            raise ValueError('The start and end points are the same!')
+        self._get_lon_lat_arr()
+        grp         = self[dtype+'_paraval']
+        if is_smooth:
+            vs3d    = grp['vs_smooth'].value
+            zArr    = grp['z_smooth'].value
+        else:
+            vs3d    = grp['vs_org'].value
+            zArr    = grp['z_org'].value
+        ind_z       = np.where(zArr <= maxdepth )[0]
+        zplot       = zArr[ind_z]
+        if lon1 == lon2 or lat1 == lat2:
+            if lon1 == lon2:    
+                ind_lon = np.where(self.lons == lon1)[0]
+                ind_lat = np.where((self.lats<=max(lat1, lat2))*(self.lats>=min(lat1, lat2)))[0]
+                # data    = np.zeros((len(ind_lat), ind_z.size))
+            else:
+                ind_lon = np.where((self.lons<=max(lon1, lon2))*(self.lons>=min(lon1, lon2)))[0]
+                ind_lat = np.where(self.lats == lat1)[0]
+                # data    = np.zeros((len(ind_lon), ind_z.size))
+            data_temp   = vs3d[ind_lat, ind_lon, :]
+            data        = data_temp[:, ind_z]
+            # return data, data_temp
+            if lon1 == lon2:
+                xplot       = self.lats[ind_lat]
+                xlabel      = 'latitude (deg)'
+            if lat1 == lat2:
+                xplot       = self.lons[ind_lon]
+                xlabel      = 'longitude (deg)'            
         else:
             g               = Geod(ellps='WGS84')
             az, baz, dist   = g.inv(lon1, lat1, lon2, lat2)
@@ -1203,6 +1211,7 @@ class invhdf5(h5py.File):
             else:
                 xplot   = plats
                 xlabel  = 'latitude (deg)'
+                
         if cmap == 'ses3d':
             cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
                             0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
