@@ -1,10 +1,10 @@
 
 import surfdbase
 
-# dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inversion_alaska_surf.h5')
+dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inversion_alaska_surf.h5')
 
 # dset.paraval_arrays()
-dset = surfdbase.invhdf5('./inversion_alaska_surf.h5')
+# dset = surfdbase.invhdf5('./inversion_alaska_surf.h5')
 # dset = surfdbase.invhdf5('/work3/leon/mc_inv_files/inversion_alaska_surf.h5')
 # dset = surfdbase.invASDF('../../inversion_alaska.h5')
 # dset.read_ref_dbase(inasdfname='/scratch/summit/life9360/ALASKA_work/ASDF_data/ref_Alaska.h5')
@@ -40,4 +40,7 @@ dset = surfdbase.invhdf5('./inversion_alaska_surf.h5')
 # dset.paraval_arrays(dtype='avg')
 # dset.construct_3d(dtype='avg')
 # dset.construct_3d(dtype='avg', is_smooth=True)
-dset.plot_vertical_rel(lon1=-165+360, lon2=-150+360, lat1=65, lat2=55, maxdepth=100., dtype='avg', is_smooth=True)
+dset.plot_horizontal(depth=4., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
+             geopolygons=None, vmin=2.5, vmax=3.5, showfig=True)
+# dset.plot_vertical_rel(lon1=-165+360, lon2=-150+360, lat1=65, lat2=55, maxdepth=100., dtype='avg', is_smooth=True)
+

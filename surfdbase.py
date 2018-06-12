@@ -97,7 +97,8 @@ class invhdf5(h5py.File):
         self.lats       = np.arange(int((maxlat-minlat)/dlat)+1)*dlat+minlat
         self.Nlon       = self.lons.size
         self.Nlat       = self.lats.size
-        self.lonArr, self.latArr= np.meshgrid(self.lons, self.lats)
+        self.lonArr, self.latArr \
+                        = np.meshgrid(self.lons, self.lats)
         return
     
     def read_raytomo_dbase(self, inh5fname, runid, dtype='ph', wtype='ray', create_header=True, Tmin=-999, Tmax=999, verbose=False, res='LD'):
@@ -736,6 +737,9 @@ class invhdf5(h5py.File):
     
         
     def get_topo_arr(self):
+        """
+        get the topography array
+        """
         self._get_lon_lat_arr()
         topoarr     = np.zeros(self.lonArr.shape)
         for ilat in range(self.Nlat):
@@ -803,6 +807,26 @@ class invhdf5(h5py.File):
     
     def plot_paraval(self, pindex, org_mask=False, dtype='min', ingrdfname=None, isthk=False, shpfx=None,\
             clabel='', cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
+        """
+        plot the one given parameter in the paraval array
+        ===================================================================================================
+        ::: input :::
+        pindex      - parameter index in the paraval array
+        org_mask    - use the original mask in the database or not
+        dtype       - data type:
+                        avg - average model
+                        min - minimum misfit model
+                        sem - uncertainties (standard error of the mean)
+        ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
+        isthk       - flag indicating if the parameter is thickness or not
+        clabel      - label of colorbar
+        cmap        - colormap
+        projection  - projection type
+        geopolygons - geological polygons for plotting
+        vmin, vmax  - min/max value of plotting
+        showfig     - show figure or not
+        ===================================================================================================
+        """
         # # # mask        = self.attrs['mask']
         data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
         if org_mask:
@@ -879,21 +903,23 @@ class invhdf5(h5py.File):
             plt.show()
         return
     
-    def plot_horizontal(self, depth, dtype='min', is_smooth=False, shpfx=None, clabel='', cmap='cv', projection='lambert', hillshade=False,\
+    def plot_horizontal(self, depth, dtype='min', is_smooth=False, shpfx=None, clabel='', title='', cmap='cv', projection='lambert', hillshade=False,\
              geopolygons=None, vmin=None, vmax=None, showfig=True):
         """plot maps from the tomographic inversion
         =================================================================================================================
         ::: input parameters :::
-        runtype         - type of run (0 - smooth run, 1 - quality controlled run)
-        runid           - id of run
-        datatype        - datatype for plotting
-        period          - period of data
-        clabel          - label of colorbar
-        cmap            - colormap
-        projection      - projection type
-        geopolygons     - geological polygons for plotting
-        vmin, vmax      - min/max value of plotting
-        showfig         - show figure or not
+        depth       - depth of the slice for plotting
+        dtype       - data type:
+                        avg - average model
+                        min - minimum misfit model
+                        sem - uncertainties (standard error of the mean)
+        is_smooth   - use the data that has been smoothed or not
+        clabel      - label of colorbar
+        cmap        - colormap
+        projection  - projection type
+        geopolygons - geological polygons for plotting
+        vmin, vmax  - min/max value of plotting
+        showfig     - show figure or not
         =================================================================================================================
         """
         self._get_lon_lat_arr()
@@ -971,13 +997,14 @@ class invhdf5(h5py.File):
         
         im          = m.pcolormesh(x, y, mvs, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
-        cb.set_label(clabel, fontsize=12, rotation=0)
+        cb.set_label(clabel, fontsize=20, rotation=0)
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)
         cb.draw_all()
         # print 'plotting data from '+dataid
         # # cb.solids.set_rasterized(True)
         cb.solids.set_edgecolor("face")
+        plt.title(title, fontsize=30)
         # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()
