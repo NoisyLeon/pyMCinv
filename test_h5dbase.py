@@ -21,8 +21,6 @@ dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inve
 
 # dset.mc_inv_iso(instafname='ref_log', outdir='/home/lili/new_mc_results_Miller',
 #                 numbrun=150000, nprocess=4, verbose=True)
-
-
 # dset.mc_inv_iso_mp(instafname='ref_log', outdir='/work3/leon/mc_inv_files/mc_results_100000', nprocess=10, subsize=50, numbrun=100000)
 
 # vpr, vsdata = dset.mc_inv_iso()
@@ -37,10 +35,18 @@ dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inve
 # dset.read_inv(datadir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf')
 # dset.plot_paraval(pindex=-2, isthk=True, dtype='avg')
 
-# dset.paraval_arrays(dtype='avg')
+# dset.paraval_arrays(dtype='avg', sigma=1)
 # dset.construct_3d(dtype='avg')
 # dset.construct_3d(dtype='avg', is_smooth=True)
-dset.plot_horizontal(depth=4., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
-             geopolygons=None, vmin=2.5, vmax=3.5, showfig=True)
+
+depth = 100.
+dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+             geopolygons=None, vmin=4.2, vmax=4.7, showfig=True)
+# 
+# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+             # geopolygons=None, vmin=None, vmax=None, showfig=True)
+
+# dset.plot_horizontal(depth=10., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
+             # geopolygons=None, vmin=None, vmax=None, showfig=True)
 # dset.plot_vertical_rel(lon1=-165+360, lon2=-150+360, lat1=65, lat2=55, maxdepth=100., dtype='avg', is_smooth=True)
 

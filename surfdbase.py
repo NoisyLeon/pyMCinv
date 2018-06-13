@@ -944,10 +944,10 @@ class invhdf5(h5py.File):
         #-----------
         m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
         x, y        = m(self.lonArr, self.latArr)
-        # shapefname  = '/projects/life9360/geological_maps/qfaults'
-        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='blue')
-        # shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='blue')
+        shapefname  = '/projects/life9360/geological_maps/qfaults'
+        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
         # shapefname  = '../AKfaults/qfaults'
         # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
         # shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
@@ -1004,7 +1004,7 @@ class invhdf5(h5py.File):
         # print 'plotting data from '+dataid
         # # cb.solids.set_rasterized(True)
         cb.solids.set_edgecolor("face")
-        plt.title(title, fontsize=30)
+        plt.suptitle(title, fontsize=30)
         # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()
