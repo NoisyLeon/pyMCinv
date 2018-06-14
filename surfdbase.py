@@ -725,8 +725,16 @@ class invhdf5(h5py.File):
                 else:
                     vel_mod.get_para_model(paraval = paraval)
                     vel_mod.zArr    = vel_mod.zArr - topovalue
-                vs_interp           = np.interp(zArr, xp = vel_mod.zArr, fp = vel_mod.VsvArr)
-                vs3d[ilat, ilon, :] = vs_interp[:]
+                # interpolation
+                # vs_interp           = np.interp(zArr, xp = vel_mod.zArr, fp = vel_mod.VsvArr)
+                # vs3d[ilat, ilon, :] = vs_interp[:]
+                #
+                return vel_mod
+                from scipy import interpolate
+                f                   = interpolate.interp1d(x = vel_mod.zArr, y = vel_mod.VsvArr, kind='cubic')
+                vs3d[ilat, ilon, :] = f(vs_interp[:])   # use interpolation function returned by `interp1d`
+                # plt.plot(x, y, 'o', xnew, ynew, '-')
+                
         if is_smooth:
             grp.create_dataset(name = 'vs_smooth', data = vs3d)
             grp.create_dataset(name = 'z_smooth', data = zArr)

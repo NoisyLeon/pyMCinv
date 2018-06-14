@@ -35,13 +35,13 @@ dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inve
 # dset.read_inv(datadir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf')
 # dset.plot_paraval(pindex=-2, isthk=True, dtype='avg')
 
-# dset.paraval_arrays(dtype='avg', sigma=1)
-# dset.construct_3d(dtype='avg')
+dset.paraval_arrays(dtype='avg', sigma=1)
+v=dset.construct_3d(dtype='avg')
 # dset.construct_3d(dtype='avg', is_smooth=True)
 
-depth = 100.
-dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-             geopolygons=None, vmin=4.2, vmax=4.7, showfig=True)
+# depth = 100.
+# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+#              geopolygons=None, vmin=4.2, vmax=4.7, showfig=True)
 # 
 # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
              # geopolygons=None, vmin=None, vmax=None, showfig=True)
