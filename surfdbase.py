@@ -490,6 +490,9 @@ class invhdf5(h5py.File):
             vpr.read_data(infname = datafname)
             vpr.get_paraval()
             vpr.run_avg_fwrd(wdisp=1.)
+            if vpr.avg_misfit > (vpr.min_misfit*vpr.factor + vpr.thresh)*2.:
+                print '--- Unstable inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                continue
             #------------------------------------------
             # store inversion results in the database
             #------------------------------------------
@@ -558,6 +561,8 @@ class invhdf5(h5py.File):
             mask[ind_lat, ind_lon]      = False
         if not np.allclose(mask, self.attrs['mask']):
             print 'WARNING: check the mask array!'
+            self.attrs['mask']          = mask
+            # self.attrs.create(name='mask', data = mask)
         return data, mask
     
     def get_filled_paraval(self, pindex, dtype='min', ingrdfname=None, isthk=False):
@@ -724,15 +729,18 @@ class invhdf5(h5py.File):
                         numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
                 else:
                     vel_mod.get_para_model(paraval = paraval)
-                    vel_mod.zArr    = vel_mod.zArr - topovalue
-                # interpolation
-                # vs_interp           = np.interp(zArr, xp = vel_mod.zArr, fp = vel_mod.VsvArr)
-                # vs3d[ilat, ilon, :] = vs_interp[:]
+                    # vel_mod.zArr    = vel_mod.zArr - topovalue
+                zArr_in, VsvArr_in  = vel_mod.get_grid_mod()
+                if topovalue > 0.:
+                    zArr_in         = zArr_in - topovalue
+                # # interpolation
+                vs_interp           = np.interp(zArr, xp = zArr_in, fp = VsvArr_in)
+                vs3d[ilat, ilon, :] = vs_interp[:]
                 #
-                return vel_mod
-                from scipy import interpolate
-                f                   = interpolate.interp1d(x = vel_mod.zArr, y = vel_mod.VsvArr, kind='cubic')
-                vs3d[ilat, ilon, :] = f(vs_interp[:])   # use interpolation function returned by `interp1d`
+                # return vel_mod
+                # from scipy import interpolate
+                # f                   = interpolate.interp1d(x = vel_mod.zArr, y = vel_mod.VsvArr, kind='cubic')
+                # vs3d[ilat, ilon, :] = f(vs_interp[:])   # use interpolation function returned by `interp1d`
                 # plt.plot(x, y, 'o', xnew, ynew, '-')
                 
         if is_smooth:
@@ -1009,6 +1017,20 @@ class invhdf5(h5py.File):
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)
         cb.draw_all()
+        #
+        xc, yc      = m(np.array([-160, -170]), np.array([55, 60]))
+        m.plot(xc, yc,'k', lw = 3)
+        
+        xc, yc      = m(np.array([-155, -170]), np.array([56, 60]))
+        m.plot(xc, yc,'k', lw = 3)
+        
+        xc, yc      = m(np.array([-164]), np.array([59.5]))
+        m.plot(xc, yc,'x', lw = 3, ms=15)
+
+        xc, yc      = m(np.array([-164.5]), np.array([60.]))
+        m.plot(xc, yc,'x', lw = 3, ms=15)
+        
+        #
         # print 'plotting data from '+dataid
         # # cb.solids.set_rasterized(True)
         cb.solids.set_edgecolor("face")

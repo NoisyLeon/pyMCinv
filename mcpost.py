@@ -72,6 +72,8 @@ class postvpr(object):
         self.vprfwrd    = vprofile.vprofile1d()
         self.waterdepth = waterdepth
         self.vpwater    = vpwater
+        #
+        self.avg_misfit = 0.
         return
     
     def read_inv_data(self, infname, verbose=True):
@@ -136,14 +138,14 @@ class postvpr(object):
         if self.waterdepth <= 0.:
             self.min_model.get_para_model(paraval=min_paraval)
         else:
-            self.min_model.get_para_model(paraval=min_paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
+            self.min_model.get_para_model(paraval=min_paraval, waterdepth=self.waterdepth, vpwater=self.vpwater, nmod=4, \
                 numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
         self.min_model.isomod.mod2para()
         avg_paraval         = self.avg_paraval
         if self.waterdepth <= 0.:
             self.avg_model.get_para_model(paraval=avg_paraval)
         else:
-            self.avg_model.get_para_model(paraval=avg_paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
+            self.avg_model.get_para_model(paraval=avg_paraval, waterdepth=self.waterdepth, vpwater=self.vpwater, nmod=4, \
                 numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
         self.vprfwrd.model  = self.avg_model
         self.avg_model.isomod.mod2para()
@@ -229,6 +231,7 @@ class postvpr(object):
         if self.waterdepth < 0. and wdisp < 1.:
             self.vprfwrd.compute_rftheo()
         self.vprfwrd.get_misfit(wdisp=wdisp)
+        self.avg_misfit = self.vprfwrd.data.misfit
         return
     
     def plot_rf(self, title='Receiver function', obsrf=True, minrf=True, avgrf=True, assemrf=True, showfig=True):
@@ -322,7 +325,7 @@ class postvpr(object):
             plt.show()
         return
     
-    def plot_profile(self, title='Vs profile', minvpr=True, avgvpr=True, assemvpr=True, realvpr=False, showfig=True):
+    def plot_profile(self, title='Vs profile', minvpr=True, avgvpr=True, assemvpr=True, realvpr=False, showfig=True, layer=False):
         """
         plot vs profiles
         =================================================================================================
@@ -344,13 +347,29 @@ class postvpr(object):
                 else:
                     self.temp_model.get_para_model(paraval=paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
                         numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
-                plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=0.01, lw=3)               
+                if layer:
+                    plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=0.01, lw=3)
+                else:
+                    zArr, VsvArr    =  self.temp_model.get_grid_mod()
+                    plt.plot(VsvArr, zArr, '-',color='grey',  alpha=0.01, lw=3)
         if minvpr:
-            plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'y-', lw=3, label='min model')
+            if layer:
+                plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'y-', lw=3, label='min model')
+            else:
+                zArr, VsvArr    =  self.min_model.get_grid_mod()
+                plt.plot(VsvArr, zArr, 'y-', lw=3, label='min model')
         if avgvpr:
-            plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'r-', lw=3, label='avg model')
+            if layer:
+                plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'r-', lw=3, label='avg model')
+            else:
+                zArr, VsvArr    =  self.avg_model.get_grid_mod()
+                plt.plot(VsvArr, zArr, 'r-', lw=3, label='avg model')
         if realvpr:
-            plt.plot(self.real_model.VsvArr, self.real_model.zArr, 'g-', lw=3, label='real model')
+            if layer:
+                plt.plot(self.real_model.VsvArr, self.real_model.zArr, 'g-', lw=3, label='real model')
+            else:
+                zArr, VsvArr    =  self.real_model.get_grid_mod()
+                plt.plot(VsvArr, zArr, 'g-', lw=3, label='real model')
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('Vs (km/s)', fontsize=30)

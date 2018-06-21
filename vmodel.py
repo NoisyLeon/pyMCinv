@@ -47,9 +47,8 @@ class model1d(object):
         self.ngrid  = 0
         return
     
-    def read_model(self, infname, unit=1., isotropic=True, tilt=False,
-                indz=0, indvpv=1, indvsv=2, indrho=3, indvph=4, indvsh=5, 
-                    indeta=6, inddip=7, indstrike=8):
+    def read_model(self, infname, unit=1., isotropic=True, tilt=False, indz=0, indvpv=1, indvsv=2, indrho=3,
+                   indvph=4, indvsh=5, indeta=6, inddip=7, indstrike=8):
         """
         Read model in txt format
         ===========================================================================================================
@@ -331,6 +330,35 @@ class model1d(object):
         self.isomod.update()
         self.get_iso_vmodel()
         return
+    
+    def get_grid_mod(self):
+        """
+        return a grid model (depth and vs arrays)
+        """
+        thickness   = self.isomod.thickness.copy()
+        depth_dis   = thickness.cumsum()
+        indlay      = np.arange(self.nlay+1, dtype=np.int32)
+        indgrid     = indlay*2
+        indgrid[-1] = indgrid[-1] - 1
+        indgrid_out = np.array([], dtype=np.int32)
+        ind_top     = 0
+        for i in range(self.isomod.nmod-1):
+            ind_dis = np.where(abs(self.zArr - depth_dis[i])<1e-8)[0]
+            if ind_dis.size != 2:
+                print ind_dis, depth_dis[i]
+                raise ValueError('Check index at discontinuity!')
+            ind_bot = np.where(indgrid == ind_dis[1])[0][0]
+            indgrid_out \
+                    = np.append(indgrid_out, indgrid[ind_top:ind_bot])
+            indgrid_out \
+                    = np.append(indgrid_out, ind_dis[0])
+            ind_top = ind_bot
+        indgrid_out = np.append(indgrid_out, indgrid[ind_top:])
+        #
+        zArr        = self.zArr[indgrid_out]
+        VsvArr      = self.VsvArr[indgrid_out]
+        return zArr, VsvArr
+        
     
     
     

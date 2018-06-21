@@ -1,6 +1,6 @@
 import mcpost
 
-vpr = mcpost.postvpr()
+vpr = mcpost.postvpr(thresh=0.2, waterdepth=0.019)
 # vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results/mc_inv.TA.TOLK.npz')
 # vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results/mc_data.TA.TOLK.npz')
 
@@ -28,5 +28,8 @@ vpr = mcpost.postvpr()
 # vpr.read_data('/work3/leon/mc_inv_files/mc_alaska_surf/mc_data.205.0_65.0.npz')
 
 
-vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_inv.205.0_65.0.npz')
-vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_data.205.0_65.0.npz')
+# vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_inv.195.5_60.0.npz')
+# vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_data.195.5_60.0.npz')
+
+# vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_inv.195.0_59.5.npz')
+# vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_data.195.0_59.5.npz')

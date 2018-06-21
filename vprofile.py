@@ -628,6 +628,8 @@ class vprofile1d(object):
         merge       - merge data into one single npz file or not
         ==================================================================================================================
         """
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
         #-------------------------
         # prepare data
         #-------------------------
@@ -717,7 +719,7 @@ class vprofile1d(object):
         return
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
-    # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
+    print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\

@@ -389,8 +389,6 @@ class isomod(object):
             elif self.mtype[i] == 2:
                 self.isspl[i]               = False
                 self.bspline(i)
-                # # if self.isspl[i] != 1:
-                # #     self.bspline(i)
                 self.vs[:self.nlay[i], i]   = np.dot( (self.spl[:self.numbp[i], :self.nlay[i], i]).T, self.cvel[:self.numbp[i], i])
                 self.hArr[:self.nlay[i], i] = self.thickness[i]/self.nlay[i]
                 # # for ilay in range(self.nlay[i]):
@@ -422,6 +420,7 @@ class isomod(object):
                 self.hArr[0, i]         = self.thickness[i]
                 self.nlay[i]            = 1
         return True
+    
     
     def update_depth(self):
         """
@@ -460,6 +459,7 @@ class isomod(object):
                 self.hArr[0, i]         = self.thickness[i]
                 self.nlay[i]            = 1
         return True
+
     
     def parameterize_input(self, zarr, vsarr, crtthk, sedthk, topovalue=1., maxdepth=200., vp_water=1.5):
         """
