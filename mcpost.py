@@ -129,7 +129,7 @@ class postvpr(object):
         self.sem_paraval    = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).std(axis=0) / np.sqrt((self.invdata[self.ind_thresh, 2:(self.npara+2)]).size)
         return
     
-    def get_vmodel(self):
+    def get_vmodel(self, real_paraval=None):
         """
         get the minimum misfit and average model from the inversion data array
         """
@@ -149,6 +149,13 @@ class postvpr(object):
                 numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
         self.vprfwrd.model  = self.avg_model
         self.avg_model.isomod.mod2para()
+        if real_paraval is not None:
+            if self.waterdepth <= 0.:
+                self.real_model.get_para_model(paraval=real_paraval)
+            else:
+                self.real_model.get_para_model(paraval=real_paraval, waterdepth=self.waterdepth, vpwater=self.vpwater, nmod=4, \
+                    numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
+            self.real_model.isomod.mod2para()
         return
         
     def read_data(self, infname):
@@ -214,7 +221,7 @@ class postvpr(object):
         run and store receiver functions and surface wave dispersion for the average model
         """
         self.get_period()
-        self.get_vmodel()
+        # self.get_vmodel()
         self.vprfwrd.update_mod(mtype = 'iso')
         self.vprfwrd.get_vmodel(mtype = 'iso')
         self.vprfwrd.data   = copy.deepcopy(self.data)
