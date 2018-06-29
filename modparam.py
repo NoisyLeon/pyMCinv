@@ -717,6 +717,7 @@ class isomod(object):
             # velocity coeficient for splines
             if int(self.para.paraindex[0, i]) == 0:
                 ip                  = int(self.para.paraindex[5, i])
+                # print self.cvel[ip][ig], ip, ig, val
                 self.cvel[ip][ig]   = val
             # total thickness of the group
             elif int(self.para.paraindex[0, i]) == 1:

@@ -319,7 +319,11 @@ class model1d(object):
         self.isomod.mtype           = mtype[:]
         self.isomod.vpvs            = vpvs[:]
         self.isomod.get_paraind()
+        # print paraval
         self.isomod.para.paraval[:] = paraval[:]
+        # print paraval._value
+        # self.isomod.para.paraval[:] = np.array([paraval[0], paraval[1], paraval[2], paraval[3], paraval[4], paraval[5],\
+        #                                 paraval[6], paraval[7], paraval[8], paraval[9], paraval[10], paraval[11], paraval[12]])
         if self.isomod.mtype[0] == 5:
             if waterdepth <= 0.:
                 raise ValueError('Water depth for water layer should be non-zero!')
