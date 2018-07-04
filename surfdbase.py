@@ -438,7 +438,7 @@ class invhdf5(h5py.File):
             # # # return
         return
     
-    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5, skipmask=True):
+    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5, skipmask=True, avgqc=True):
         """
         read the inversion results in to data base
         ==================================================================================================================
@@ -490,9 +490,10 @@ class invhdf5(h5py.File):
             vpr.read_data(infname = datafname)
             vpr.get_paraval()
             vpr.run_avg_fwrd(wdisp=1.)
-            if vpr.avg_misfit > (vpr.min_misfit*vpr.factor + vpr.thresh)*2.:
-                print '--- Unstable inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
-                continue
+            if avgqc:
+                if vpr.avg_misfit > (vpr.min_misfit*vpr.factor + vpr.thresh)*3.:
+                    print '--- Unstable inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                    continue
             #------------------------------------------
             # store inversion results in the database
             #------------------------------------------
@@ -601,9 +602,12 @@ class invhdf5(h5py.File):
                 ind_min         = dist.argmin()
                 data_out[ilat, ilon] \
                                 = vdata[ind_min]
+                # if self.lats[ilat] == 60.:
+                    # print ilon, ilat, ind_min, vlonArr[ind_min], vlatArr[ind_min], self.lons[ilon], self.lats[ilat]
         return data_out, mask
     
-    def get_smooth_paraval(self, pindex, sigma, dtype='min', ingrdfname=None, isthk=False): #, vmin=None, vmax=None, clabel=''):
+    def get_smooth_paraval(self, pindex, sigma=1., smooth_type = 'gauss', dtype='min',\
+            workingdir = 'working_gauss_smooth', width=50., ingrdfname=None, isthk=False): #, vmin=None, vmax=None, clabel=''):
         """
         get smooth data array for the model parameter
         ==================================================================================================================
@@ -618,14 +622,29 @@ class invhdf5(h5py.File):
         isthk       - flag indicating if the parameter is thickness or not
         ==================================================================================================================
         """
-        data, mask  = self.get_filled_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
-        data_smooth = data.copy()
-        #- Smoothing by averaging over neighbouring cells. ----------------------
-        for iteration in range(int(sigma)):
-            for ilat in range(1, self.Nlat-1):
-                for ilon in range(1, self.Nlon-1):
-                    data_smooth[ilat, ilon] = (data[ilat, ilon] + data[ilat+1, ilon] \
-                                               + data[ilat-1, ilon] + data[ilat, ilon+1] + data[ilat, ilon-1])/5.0
+        data, mask      = self.get_filled_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
+        if smooth_type is 'nearneighbor':
+            data_smooth = data.copy()
+            #- Smoothing by averaging over neighbouring cells. ----------------------
+            for iteration in range(int(sigma)):
+                for ilat in range(1, self.Nlat-1):
+                    for ilon in range(1, self.Nlon-1):
+                        data_smooth[ilat, ilon] = (data[ilat, ilon] + data[ilat+1, ilon] \
+                                                   + data[ilat-1, ilon] + data[ilat, ilon+1] + data[ilat, ilon-1])/5.0
+        elif smooth_type is 'gauss':
+            minlon          = self.attrs['minlon']
+            maxlon          = self.attrs['maxlon']
+            minlat          = self.attrs['minlat']
+            maxlat          = self.attrs['maxlat']
+            dlon            = self.attrs['dlon']
+            dlat            = self.attrs['dlat']
+            field           = field2d_earth.Field2d(minlon=minlon, maxlon=maxlon, dlon=dlon,
+                                minlat=minlat, maxlat=maxlat, dlat=dlat, period=10., evlo=(minlon+maxlon)/2., evla=(minlat+maxlat)/2.)
+            index           = np.logical_not(mask)
+            field.read_array(lonArr = self.lonArr[index], latArr = self.latArr[index], ZarrIn = data[index])
+            outfname        = 'smooth_paraval.lst'
+            field.gauss_smoothing(workingdir=workingdir, outfname=outfname, width=width)
+            data_smooth     = field.Zarr
         return data, data_smooth, mask
         #-----------
         # plot data
@@ -660,7 +679,7 @@ class invhdf5(h5py.File):
         # # plot 
         # return data_out
     
-    def paraval_arrays(self, dtype='min', sigma=1):
+    def paraval_arrays(self, dtype='min', sigma=1, width = 50.):
         """
         get the paraval arrays and store them in the data base
         =================================================================
@@ -675,20 +694,15 @@ class invhdf5(h5py.File):
         grp                 = self.require_group( name = dtype+'_paraval' )
         for pindex in range(13):
             if pindex == 11 or pindex == 12:
-                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, sigma=sigma, isthk=True)
+                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, \
+                        sigma=sigma, width = width, isthk=True)
             else:
-                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, sigma=sigma, isthk=False)
+                data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype, \
+                        sigma=sigma, width = width, isthk=False)
             grp.create_dataset(name = str(pindex)+'_org', data = data)
             grp.create_dataset(name = str(pindex)+'_smooth', data = data_smooth)
         grp.create_dataset(name = 'mask', data = mask)
         return
-    
-    # def paraval_arrays_HD(self, dtype='min'):
-    #     grp     = self[dtype+'_paraval']
-    #     self._get_lon_lat_arr()
-        
-        
-        
     
     def construct_3d(self, dtype='min', is_smooth=False, maxdepth=200., dz=0.1):
         """
@@ -821,7 +835,7 @@ class invhdf5(h5py.File):
         return m
         
     
-    def plot_paraval(self, pindex, org_mask=False, dtype='min', ingrdfname=None, isthk=False, shpfx=None,\
+    def plot_paraval(self, pindex, org_mask=False, dtype='min', ingrdfname=None, isthk=False, shpfx=None, outfname=None,\
             clabel='', cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
         """
         plot the one given parameter in the paraval array
@@ -917,7 +931,19 @@ class invhdf5(h5py.File):
         # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()
-        return
+        #
+        if outfname is not None:
+            ind_valid   = np.logical_not(mask)
+            outlon      = self.lonArr[ind_valid]
+            outlat      = self.latArr[ind_valid]
+            outZ        = data[ind_valid]
+            OutArr      = np.append(outlon, outlat)
+            OutArr      = np.append(OutArr, outZ)
+            OutArr      = OutArr.reshape(3, outZ.size)
+            OutArr      = OutArr.T
+            np.savetxt(outfname, OutArr, '%g')
+        #
+        return 
     
     def plot_horizontal(self, depth, dtype='min', is_smooth=False, shpfx=None, clabel='', title='', cmap='cv', projection='lambert', hillshade=False,\
              geopolygons=None, vmin=None, vmax=None, showfig=True):

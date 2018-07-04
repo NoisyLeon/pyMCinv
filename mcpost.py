@@ -221,7 +221,7 @@ class postvpr(object):
         run and store receiver functions and surface wave dispersion for the average model
         """
         self.get_period()
-        # self.get_vmodel()
+        self.get_vmodel()
         self.vprfwrd.update_mod(mtype = 'iso')
         self.vprfwrd.get_vmodel(mtype = 'iso')
         self.vprfwrd.data   = copy.deepcopy(self.data)

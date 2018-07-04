@@ -1,6 +1,6 @@
 import mcpost
 import numpy as np
-vpr = mcpost.postvpr()
+vpr = mcpost.postvpr(thresh=0.1)
 # vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results/mc_inv.TA.TOLK.npz')
 # vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results/mc_data.TA.TOLK.npz')
 
@@ -28,14 +28,14 @@ vpr = mcpost.postvpr()
 # vpr.read_data('/work3/leon/mc_inv_files/mc_alaska_surf/mc_data.205.0_65.0.npz')
 
 
-# vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_inv.195.5_60.0.npz')
-# vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_data.195.5_60.0.npz')
+vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf_150000/mc_inv.225.0_60.0.npz')
+vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf_150000/mc_data.225.0_60.0.npz')
 
 # vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_inv.195.0_59.5.npz')
 # vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf/mc_data.195.0_59.5.npz')
 
-real_paraval = np.loadtxt('synthetic_iso_inv/real_para.txt')
-
-vpr.read_inv_data('synthetic_working/mc_inv.CU.LF.npz')
-vpr.read_data('synthetic_working/mc_data.CU.LF.npz')
+# real_paraval = np.loadtxt('synthetic_iso_inv/real_para.txt')
+# 
+# vpr.read_inv_data('synthetic_working/mc_inv.CU.LF.npz')
+# vpr.read_data('synthetic_working/mc_data.CU.LF.npz')
 

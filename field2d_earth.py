@@ -339,6 +339,39 @@ class Field2d(object):
         self.Zarr   = (ZarrIn.reshape(self.Nlat, self.Nlon))[::-1, :]
         return
     
+    def gauss_smoothing(self, workingdir, outfname, tension=0.0, width=50.):
+        """
+        Perform a Gaussian smoothing
+        """
+        if not os.path.isdir(workingdir):
+            os.makedirs(workingdir)
+        OutArr      = np.append(self.lonArrIn, self.latArrIn)
+        OutArr      = np.append(OutArr, self.ZarrIn)
+        OutArr      = OutArr.reshape(3, self.lonArrIn.size)
+        OutArr      = OutArr.T
+        np.savetxt(workingdir+'/'+outfname, OutArr, fmt='%g')
+        fnameHD     = workingdir+'/'+outfname+'.HD'
+        tempGMT     = workingdir+'/'+outfname+'_GMT.sh'
+        grdfile     = workingdir+'/'+outfname+'.grd'
+        outgrd      = workingdir+'/'+outfname+'_filtered.grd'
+        #
+        width       = 6.*width
+        with open(tempGMT,'wb') as f:
+            REG     = '-R'+str(self.minlon)+'/'+str(self.maxlon)+'/'+str(self.minlat)+'/'+str(self.maxlat)
+            f.writelines('gmt gmtset MAP_FRAME_TYPE fancy \n')
+            f.writelines('gmt surface %s -T%g -G%s -I%g %s \n' %( workingdir+'/'+outfname, tension, grdfile, self.dlon, REG ))
+            f.writelines('gmt grdfilter %s -D4 -Fg%g -G%s %s \n' %( grdfile, width, outgrd, REG))
+            f.writelines('gmt grd2xyz %s %s > %s \n' %( outgrd, REG, fnameHD ))
+        call(['bash', tempGMT])
+        os.remove(grdfile)
+        os.remove(outgrd)
+        os.remove(tempGMT)
+        inArr       = np.loadtxt(fnameHD)
+        ZarrIn      = inArr[:, 2]
+        self.Zarr   = (ZarrIn.reshape(self.Nlat, self.Nlon))[::-1, :]
+        return
+        
+    
     def interp_nearneighbor(self, workingdir, outfname, radius=None):
         """Interpolate input data to grid point with gmt surface command
         =======================================================================================
@@ -362,11 +395,11 @@ class Field2d(object):
         tempGMT     = workingdir+'/'+outfname+'_GMT.sh'
         grdfile     = workingdir+'/'+outfname+'.grd'
         if radius is None:
-            radius  = self.dlon*2.
+            radius  = self.dlon
         with open(tempGMT,'wb') as f:
             REG     = '-R'+str(self.minlon)+'/'+str(self.maxlon)+'/'+str(self.minlat)+'/'+str(self.maxlat)
             f.writelines('gmt gmtset MAP_FRAME_TYPE fancy \n')
-            f.writelines('gmt nearneighbor %s -S%gd -G%s -I%g %s \n' %( workingdir+'/'+outfname, radius, grdfile, self.dlon, REG ))
+            f.writelines('gmt surface %s -S%gd -G%s -I%g %s \n' %( workingdir+'/'+outfname, radius, grdfile, self.dlon, REG ))
             f.writelines('gmt grd2xyz %s %s > %s \n' %( grdfile, REG, fnameHD ))
         call(['bash', tempGMT])
         os.remove(grdfile)
