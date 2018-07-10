@@ -986,10 +986,10 @@ class invhdf5(h5py.File):
         #-----------
         m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
         x, y        = m(self.lonArr, self.latArr)
-        shapefname  = '/projects/life9360/geological_maps/qfaults'
-        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
-        shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        # shapefname  = '/projects/life9360/geological_maps/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        # shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
         # shapefname  = '../AKfaults/qfaults'
         # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
         # shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
@@ -1044,8 +1044,64 @@ class invhdf5(h5py.File):
         cb.set_alpha(1)
         cb.draw_all()
         #
-        xc, yc      = m(np.array([-150, -170]), np.array([57, 64]))
-        m.plot(xc, yc,'k', lw = 3)
+        # xc, yc      = m(np.array([-150, -170]), np.array([57, 64]))
+        # m.plot(xc, yc,'k', lw = 3)
+        ############################################################
+        evlons  = np.array([])
+        evlats  = np.array([])
+        values  = np.array([])
+        valuetype = 'depth'
+        cat     = obspy.read_events('deep_quake.xml')
+        for event in cat:
+            event_id    = event.resource_id.id.split('=')[-1]
+            magnitude   = event.magnitudes[0].mag
+            Mtype       = event.magnitudes[0].magnitude_type
+            otime       = event.origins[0].time
+            evlo        = event.origins[0].longitude
+            evla        = event.origins[0].latitude
+            evdp        = event.origins[0].depth/1000.
+            if evlo > -80.:
+                continue
+            evlons      = np.append(evlons, evlo)
+            evlats      = np.append(evlats, evla);
+            if valuetype=='depth':
+                values  = np.append(values, evdp)
+            elif valuetype=='mag':
+                values  = np.append(values, magnitude)
+        x, y            = m(evlons, evlats)
+        m.plot(x, y, 'ko', ms=1, alpha=0.1)
+        # # # 
+        # # # if vmax==None and vmin==None:
+        # # #     vmax        = values.max()
+        # # #     vmin        = values.min()
+        # # # if gcmt:
+        # # #     for i in xrange(len(focmecs)):
+        # # #         value   = values[i]
+        # # #         rgbcolor= cmap( (value-vmin)/(vmax-vmin) )
+        # # #         b       = beach(focmecs[i], xy=(x[i], y[i]), width=100000, linewidth=1, facecolor=rgbcolor)
+        # # #         b.set_zorder(10)
+        # # #         ax.add_collection(b)
+        # # #         # ax.annotate(str(i), (x[i]+50000, y[i]+50000))
+        # # #     im          = m.scatter(x, y, marker='o', s=1, c=values, cmap=cmap, vmin=vmin, vmax=vmax)
+        # # #     cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
+        # # #     cb.set_label(valuetype, fontsize=20)
+        # # # else:
+        # # #     if values.size!=0:
+        # # #         im      = m.scatter(x, y, marker='o', s=300, c=values, cmap=cmap, vmin=vmin, vmax=vmax)
+        # # #         cb      = m.colorbar(im, "bottom", size="3%", pad='2%')
+        # # #     else:
+        # # #         m.plot(x,y,'o')
+        # # # if gcmt:
+        # # #     stime       = self.events[0].origins[0].time
+        # # #     etime       = self.events[-1].origins[0].time
+        # # # else:
+        # # #     etime       = self.events[0].origins[0].time
+        # # #     stime       = self.events[-1].origins[0].time
+        # # # plt.suptitle('Number of event: '+str(len(self.events))+' time range: '+str(stime)+' - '+str(etime), fontsize=20 )
+        # # # if showfig:
+        # # #     plt.show()
+        #########################################################################
+        
         # 
         # xc, yc      = m(np.array([-155, -170]), np.array([56, 60]))
         # m.plot(xc, yc,'k', lw = 3)
@@ -1322,13 +1378,6 @@ class invhdf5(h5py.File):
         ax.tick_params(axis='y', labelsize=20)
         if showfig:
             plt.show()
-        
-        
-                 
-        
-        
-        #     
-        # 
         #     
         # try:
         #     index   = np.where(zArr >= depth )[0][0]
