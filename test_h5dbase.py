@@ -39,19 +39,21 @@ dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inve
 # dset.construct_3d(dtype='avg')
 # dset.construct_3d(dtype='avg', is_smooth=True)
 # # # 
-# # # # depth = 100.
-# # # # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-# # # #              geopolygons=None, vmin=4.2, vmax=4.7, showfig=True)
-# # # # 
-# # # # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-# # #              # geopolygons=None, vmin=None, vmax=None, showfig=True)
+depth = 100.
+# # # # # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+# # # # #              geopolygons=None, vmin=4.2, vmax=4.7, showfig=True)
+# # # # # 
+dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+             geopolygons=None, vmin=None, vmax=None, showfig=True)
 # # # 
 # # # # dset.plot_horizontal(depth=10., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
 # # # #              geopolygons=None, vmin=None, vmax=None, showfig=True)
 # # # 
-dset.plot_horizontal(depth=4., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
-             geopolygons=None, vmin=2.5, vmax=3.5, showfig=True)
+# dset.plot_horizontal(depth=4., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
+#              geopolygons=None, vmin=2.5, vmax=3.5, showfig=True)
 # dset.plot_vertical_rel(lon1=-165+360, lon2=-150+360, lat1=65, lat2=55, maxdepth=100., dtype='avg', is_smooth=True)
+
+dset.plot_vertical_rel(lon1=-170+360, lon2=-150+360, lat1=64, lat2=56, maxdepth=100., dtype='avg', is_smooth=True)
 
 # dset.plot_vertical_rel(lon1=-153+360, lon2=-142+360, lat1=61, lat2=64, maxdepth=150., dtype='avg', is_smooth=True)
 

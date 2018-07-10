@@ -1044,17 +1044,17 @@ class invhdf5(h5py.File):
         cb.set_alpha(1)
         cb.draw_all()
         #
-        xc, yc      = m(np.array([-160, -170]), np.array([55, 60]))
+        xc, yc      = m(np.array([-150, -170]), np.array([57, 64]))
         m.plot(xc, yc,'k', lw = 3)
-        
-        xc, yc      = m(np.array([-155, -170]), np.array([56, 60]))
-        m.plot(xc, yc,'k', lw = 3)
-        
-        xc, yc      = m(np.array([-164]), np.array([59.5]))
-        m.plot(xc, yc,'x', lw = 3, ms=15)
-
-        xc, yc      = m(np.array([-164.5]), np.array([60.]))
-        m.plot(xc, yc,'x', lw = 3, ms=15)
+        # 
+        # xc, yc      = m(np.array([-155, -170]), np.array([56, 60]))
+        # m.plot(xc, yc,'k', lw = 3)
+        # 
+        # xc, yc      = m(np.array([-164]), np.array([59.5]))
+        # m.plot(xc, yc,'x', lw = 3, ms=15)
+        # 
+        # xc, yc      = m(np.array([-164.5]), np.array([60.]))
+        # m.plot(xc, yc,'x', lw = 3, ms=15)
         
         #
         # print 'plotting data from '+dataid
@@ -1189,6 +1189,7 @@ class invhdf5(h5py.File):
         ax1.plot(xplot, topo1d*1000., 'k', lw=3)
         ax1.fill_between(xplot, 0, topo1d*1000., facecolor='grey')
         ax1.set_ylabel('Elevation (m)', fontsize=30)
+        ax1.set_ylim(0, topo1d.max()*1000.+10.)
         mdata_moho      = ma.masked_array(data_moho, mask=mask_moho )
         mdata_mantle    = ma.masked_array(data_mantle, mask=mask_mantle )
         m1              = ax2.pcolormesh(xplot, zplot, mdata_mantle.T, shading='gouraud', vmax=vmax2, vmin=vmin2, cmap=cmap1)
@@ -1204,7 +1205,6 @@ class invhdf5(h5py.File):
         #
         ax2.set_xlabel(xlabel, fontsize=30)
         ax2.set_ylabel('Depth (km)', fontsize=30)
-        plt.gca().invert_yaxis()
         f.subplots_adjust(hspace=0)
         # plt.setp([a.get_xticklabels() for a in f.axes[:-1]], visible=False)
         # # plt.axis([self.xgrid[0], self.xgrid[-1], self.ygrid[0], self.ygrid[-1]], 'scaled')
@@ -1213,7 +1213,9 @@ class invhdf5(h5py.File):
         ax1.tick_params(axis='y', labelsize=20)
         ax2.tick_params(axis='x', labelsize=20)
         ax2.tick_params(axis='y', labelsize=20)
-        plt.xlim([xplot[0], xplot[-1]])
+        ax2.set_ylim([zplot[0], zplot[-1]])
+        ax2.set_xlim([xplot[0], xplot[-1]])
+        plt.gca().invert_yaxis()
         if showfig:
             plt.show()
             
