@@ -835,8 +835,9 @@ class invhdf5(h5py.File):
         return m
         
     
-    def plot_paraval(self, pindex, org_mask=False, dtype='min', ingrdfname=None, isthk=False, shpfx=None, outfname=None,\
-            clabel='', cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
+    def plot_paraval(self, pindex, is_smooth=True, org_mask=False, dtype='min', sigma=1, width = 50., \
+            ingrdfname=None, isthk=False, shpfx=None, outfname=None, clabel='', cmap='cv', \
+                projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
         """
         plot the one given parameter in the paraval array
         ===================================================================================================
@@ -858,10 +859,14 @@ class invhdf5(h5py.File):
         ===================================================================================================
         """
         # # # mask        = self.attrs['mask']
-        data, mask  = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
+        data, data_smooth, mask = self.get_smooth_paraval(pindex=pindex, dtype=dtype,\
+                        sigma=sigma, width = width, isthk=isthk)
         if org_mask:
             mask    = self.attrs['mask']
-        mdata       = ma.masked_array(data, mask=mask )
+        if is_smooth:
+            mdata       = ma.masked_array(data_smooth, mask=mask )
+        else:
+            mdata       = ma.masked_array(data, mask=mask )
         #-----------
         # plot data
         #-----------
@@ -922,7 +927,7 @@ class invhdf5(h5py.File):
         else:
             im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
-        cb.set_label(clabel, fontsize=12, rotation=0)
+        cb.set_label(clabel, fontsize=20, rotation=0)
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)
         cb.draw_all()
@@ -986,10 +991,10 @@ class invhdf5(h5py.File):
         #-----------
         m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
         x, y        = m(self.lonArr, self.latArr)
-        # shapefname  = '/projects/life9360/geological_maps/qfaults'
-        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
-        # shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        shapefname  = '/projects/life9360/geological_maps/qfaults'
+        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        shapefname  = '/projects/life9360/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
         # shapefname  = '../AKfaults/qfaults'
         # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
         # shapefname  = '../AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
@@ -1047,29 +1052,29 @@ class invhdf5(h5py.File):
         # xc, yc      = m(np.array([-150, -170]), np.array([57, 64]))
         # m.plot(xc, yc,'k', lw = 3)
         ############################################################
-        evlons  = np.array([])
-        evlats  = np.array([])
-        values  = np.array([])
-        valuetype = 'depth'
-        cat     = obspy.read_events('deep_quake.xml')
-        for event in cat:
-            event_id    = event.resource_id.id.split('=')[-1]
-            magnitude   = event.magnitudes[0].mag
-            Mtype       = event.magnitudes[0].magnitude_type
-            otime       = event.origins[0].time
-            evlo        = event.origins[0].longitude
-            evla        = event.origins[0].latitude
-            evdp        = event.origins[0].depth/1000.
-            if evlo > -80.:
-                continue
-            evlons      = np.append(evlons, evlo)
-            evlats      = np.append(evlats, evla);
-            if valuetype=='depth':
-                values  = np.append(values, evdp)
-            elif valuetype=='mag':
-                values  = np.append(values, magnitude)
-        x, y            = m(evlons, evlats)
-        m.plot(x, y, 'ko', ms=1, alpha=0.1)
+        # evlons  = np.array([])
+        # evlats  = np.array([])
+        # values  = np.array([])
+        # valuetype = 'depth'
+        # cat     = obspy.read_events('deep_quake.xml')
+        # for event in cat:
+        #     event_id    = event.resource_id.id.split('=')[-1]
+        #     magnitude   = event.magnitudes[0].mag
+        #     Mtype       = event.magnitudes[0].magnitude_type
+        #     otime       = event.origins[0].time
+        #     evlo        = event.origins[0].longitude
+        #     evla        = event.origins[0].latitude
+        #     evdp        = event.origins[0].depth/1000.
+        #     if evlo > -80.:
+        #         continue
+        #     evlons      = np.append(evlons, evlo)
+        #     evlats      = np.append(evlats, evla);
+        #     if valuetype=='depth':
+        #         values  = np.append(values, evdp)
+        #     elif valuetype=='mag':
+        #         values  = np.append(values, magnitude)
+        # x, y            = m(evlons, evlats)
+        # m.plot(x, y, 'ko', ms=1, alpha=0.1)
         # # # 
         # # # if vmax==None and vmin==None:
         # # #     vmax        = values.max()

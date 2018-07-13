@@ -7,14 +7,11 @@ import pygmo as pg
 
 
 prob    = pg.problem(sampler_test_tool.disp_func())
-
 algo    = pg.algorithm(pg.de(gen = 1000))
-
 algo.set_verbosity(10)
-
 pop     = pg.population(prob, 20)
-
 pop     = algo.evolve(pop)
+
 
 
 # from pygmo import *
