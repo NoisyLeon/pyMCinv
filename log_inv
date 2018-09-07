@@ -1,0 +1,753 @@
+--- Skip MC inversion for grid: lon = -172.0, lat = 52.0, 1/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 52.5, 2/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 53.0, 3/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 53.5, 4/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 54.0, 5/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 54.5, 6/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 55.0, 7/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 55.5, 8/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 56.0, 9/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 56.5, 10/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 57.0, 11/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 57.5, 12/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 58.0, 13/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 58.5, 14/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 59.0, 15/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 59.5, 16/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 60.0, 17/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 60.5, 18/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 61.0, 19/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 61.5, 20/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 62.0, 21/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 62.5, 22/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 63.0, 23/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 63.5, 24/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 64.0, 25/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 64.5, 26/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 65.0, 27/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 65.5, 28/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 66.0, 29/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 66.5, 30/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 67.0, 31/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 67.5, 32/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 68.0, 33/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 68.5, 34/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 69.0, 35/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 69.5, 36/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 70.0, 37/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 70.5, 38/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 71.0, 39/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 71.5, 40/2091
+--- Skip MC inversion for grid: lon = -172.0, lat = 72.0, 41/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 52.0, 42/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 52.5, 43/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 53.0, 44/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 53.5, 45/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 54.0, 46/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 54.5, 47/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 55.0, 48/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 55.5, 49/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 56.0, 50/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 56.5, 51/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 57.0, 52/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 57.5, 53/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 58.0, 54/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 58.5, 55/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 59.0, 56/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 59.5, 57/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 60.0, 58/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 60.5, 59/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 61.0, 60/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 61.5, 61/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 62.0, 62/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 62.5, 63/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 63.0, 64/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 63.5, 65/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 64.0, 66/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 64.5, 67/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 65.0, 68/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 65.5, 69/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 66.0, 70/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 66.5, 71/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 67.0, 72/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 67.5, 73/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 68.0, 74/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 68.5, 75/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 69.0, 76/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 69.5, 77/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 70.0, 78/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 70.5, 79/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 71.0, 80/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 71.5, 81/2091
+--- Skip MC inversion for grid: lon = -171.0, lat = 72.0, 82/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 52.0, 83/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 52.5, 84/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 53.0, 85/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 53.5, 86/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 54.0, 87/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 54.5, 88/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 55.0, 89/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 55.5, 90/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 56.0, 91/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 56.5, 92/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 57.0, 93/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 57.5, 94/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 58.0, 95/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 58.5, 96/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 59.0, 97/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 59.5, 98/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 60.0, 99/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 60.5, 100/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 61.0, 101/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 61.5, 102/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 62.0, 103/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 62.5, 104/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 63.0, 105/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 63.5, 106/2091
+--- MC inversion for grid: lon = -170.0, lat = 64.0, 107/2091
+--- MC inversion for grid: lon = -170.0, lat = 64.5, 108/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 65.0, 109/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 65.5, 110/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 66.0, 111/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 66.5, 112/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 67.0, 113/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 67.5, 114/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 68.0, 115/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 68.5, 116/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 69.0, 117/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 69.5, 118/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 70.0, 119/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 70.5, 120/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 71.0, 121/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 71.5, 122/2091
+--- Skip MC inversion for grid: lon = -170.0, lat = 72.0, 123/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 52.0, 124/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 52.5, 125/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 53.0, 126/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 53.5, 127/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 54.0, 128/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 54.5, 129/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 55.0, 130/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 55.5, 131/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 56.0, 132/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 56.5, 133/2091
+--- MC inversion for grid: lon = -169.0, lat = 57.0, 134/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 57.5, 135/2091
+--- MC inversion for grid: lon = -169.0, lat = 58.0, 136/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 58.5, 137/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 59.0, 138/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 59.5, 139/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 60.0, 140/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 60.5, 141/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 61.0, 142/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 61.5, 143/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 62.0, 144/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 62.5, 145/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 63.0, 146/2091
+--- MC inversion for grid: lon = -169.0, lat = 63.5, 147/2091
+--- MC inversion for grid: lon = -169.0, lat = 64.0, 148/2091
+--- MC inversion for grid: lon = -169.0, lat = 64.5, 149/2091
+--- MC inversion for grid: lon = -169.0, lat = 65.0, 150/2091
+--- MC inversion for grid: lon = -169.0, lat = 65.5, 151/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 66.0, 152/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 66.5, 153/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 67.0, 154/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 67.5, 155/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 68.0, 156/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 68.5, 157/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 69.0, 158/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 69.5, 159/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 70.0, 160/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 70.5, 161/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 71.0, 162/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 71.5, 163/2091
+--- Skip MC inversion for grid: lon = -169.0, lat = 72.0, 164/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 52.0, 165/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 52.5, 166/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 53.0, 167/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 53.5, 168/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 54.0, 169/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 54.5, 170/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 55.0, 171/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 55.5, 172/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 56.0, 173/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 56.5, 174/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 57.0, 175/2091
+--- MC inversion for grid: lon = -168.0, lat = 57.5, 176/2091
+--- MC inversion for grid: lon = -168.0, lat = 58.0, 177/2091
+--- MC inversion for grid: lon = -168.0, lat = 58.5, 178/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 59.0, 179/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 59.5, 180/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 60.0, 181/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 60.5, 182/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 61.0, 183/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 61.5, 184/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 62.0, 185/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 62.5, 186/2091
+--- MC inversion for grid: lon = -168.0, lat = 63.0, 187/2091
+--- MC inversion for grid: lon = -168.0, lat = 63.5, 188/2091
+--- MC inversion for grid: lon = -168.0, lat = 64.0, 189/2091
+--- MC inversion for grid: lon = -168.0, lat = 64.5, 190/2091
+--- MC inversion for grid: lon = -168.0, lat = 65.0, 191/2091
+--- MC inversion for grid: lon = -168.0, lat = 65.5, 192/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 66.0, 193/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 66.5, 194/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 67.0, 195/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 67.5, 196/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 68.0, 197/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 68.5, 198/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 69.0, 199/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 69.5, 200/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 70.0, 201/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 70.5, 202/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 71.0, 203/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 71.5, 204/2091
+--- Skip MC inversion for grid: lon = -168.0, lat = 72.0, 205/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 52.0, 206/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 52.5, 207/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 53.0, 208/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 53.5, 209/2091
+--- MC inversion for grid: lon = -167.0, lat = 54.0, 210/2091
+--- MC inversion for grid: lon = -167.0, lat = 54.5, 211/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 55.0, 212/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 55.5, 213/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 56.0, 214/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 56.5, 215/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 57.0, 216/2091
+--- MC inversion for grid: lon = -167.0, lat = 57.5, 217/2091
+--- MC inversion for grid: lon = -167.0, lat = 58.0, 218/2091
+--- MC inversion for grid: lon = -167.0, lat = 58.5, 219/2091
+--- MC inversion for grid: lon = -167.0, lat = 59.0, 220/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 59.5, 221/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 60.0, 222/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 60.5, 223/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 61.0, 224/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 61.5, 225/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 62.0, 226/2091
+--- MC inversion for grid: lon = -167.0, lat = 62.5, 227/2091
+--- MC inversion for grid: lon = -167.0, lat = 63.0, 228/2091
+--- MC inversion for grid: lon = -167.0, lat = 63.5, 229/2091
+--- MC inversion for grid: lon = -167.0, lat = 64.0, 230/2091
+--- MC inversion for grid: lon = -167.0, lat = 64.5, 231/2091
+--- MC inversion for grid: lon = -167.0, lat = 65.0, 232/2091
+--- MC inversion for grid: lon = -167.0, lat = 65.5, 233/2091
+--- MC inversion for grid: lon = -167.0, lat = 66.0, 234/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 66.5, 235/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 67.0, 236/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 67.5, 237/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 68.0, 238/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 68.5, 239/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 69.0, 240/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 69.5, 241/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 70.0, 242/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 70.5, 243/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 71.0, 244/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 71.5, 245/2091
+--- Skip MC inversion for grid: lon = -167.0, lat = 72.0, 246/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 52.0, 247/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 52.5, 248/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 53.0, 249/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 53.5, 250/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 54.0, 251/2091
+--- MC inversion for grid: lon = -166.0, lat = 54.5, 252/2091
+--- MC inversion for grid: lon = -166.0, lat = 55.0, 253/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 55.5, 254/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 56.0, 255/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 56.5, 256/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 57.0, 257/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 57.5, 258/2091
+--- MC inversion for grid: lon = -166.0, lat = 58.0, 259/2091
+--- MC inversion for grid: lon = -166.0, lat = 58.5, 260/2091
+--- MC inversion for grid: lon = -166.0, lat = 59.0, 261/2091
+--- MC inversion for grid: lon = -166.0, lat = 59.5, 262/2091
+--- MC inversion for grid: lon = -166.0, lat = 60.0, 263/2091
+--- MC inversion for grid: lon = -166.0, lat = 60.5, 264/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 61.0, 265/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 61.5, 266/2091
+--- MC inversion for grid: lon = -166.0, lat = 62.0, 267/2091
+--- MC inversion for grid: lon = -166.0, lat = 62.5, 268/2091
+--- MC inversion for grid: lon = -166.0, lat = 63.0, 269/2091
+--- MC inversion for grid: lon = -166.0, lat = 63.5, 270/2091
+--- MC inversion for grid: lon = -166.0, lat = 64.0, 271/2091
+--- MC inversion for grid: lon = -166.0, lat = 64.5, 272/2091
+--- MC inversion for grid: lon = -166.0, lat = 65.0, 273/2091
+--- MC inversion for grid: lon = -166.0, lat = 65.5, 274/2091
+--- MC inversion for grid: lon = -166.0, lat = 66.0, 275/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 66.5, 276/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 67.0, 277/2091
+--- MC inversion for grid: lon = -166.0, lat = 67.5, 278/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 68.0, 279/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 68.5, 280/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 69.0, 281/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 69.5, 282/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 70.0, 283/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 70.5, 284/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 71.0, 285/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 71.5, 286/2091
+--- Skip MC inversion for grid: lon = -166.0, lat = 72.0, 287/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 52.0, 288/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 52.5, 289/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 53.0, 290/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 53.5, 291/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 54.0, 292/2091
+--- MC inversion for grid: lon = -165.0, lat = 54.5, 293/2091
+--- MC inversion for grid: lon = -165.0, lat = 55.0, 294/2091
+--- MC inversion for grid: lon = -165.0, lat = 55.5, 295/2091
+--- MC inversion for grid: lon = -165.0, lat = 56.0, 296/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 56.5, 297/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 57.0, 298/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 57.5, 299/2091
+--- MC inversion for grid: lon = -165.0, lat = 58.0, 300/2091
+--- MC inversion for grid: lon = -165.0, lat = 58.5, 301/2091
+--- MC inversion for grid: lon = -165.0, lat = 59.0, 302/2091
+--- MC inversion for grid: lon = -165.0, lat = 59.5, 303/2091
+--- MC inversion for grid: lon = -165.0, lat = 60.0, 304/2091
+--- MC inversion for grid: lon = -165.0, lat = 60.5, 305/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.70137930       3.31868744       2.96585417      0.517945945       1.25000002E-02
+ a/b/rho/d/qs:   6.89493608       3.41454148       3.03320312      0.517144501       1.25000002E-02
+ a/b/rho/d/qs:   7.06827354       3.50038218       3.09863591      0.517102361       1.25000002E-02
+ a/b/rho/d/qs:   7.25999880       3.59532928       3.16381240      0.517819762       1.25000002E-02
+ a/b/rho/d/qs:   7.44365549       3.68628073       3.23017764      0.517777681       1.25000002E-02
+ a/b/rho/d/qs:   5.37081718       3.06574130       2.47306752      0.772792578       1.66666671E-03
+ a/b/rho/d/qs:   5.39601755       3.08012581       2.48149824      0.773457050       1.66666671E-03
+  
+--- MC inversion for grid: lon = -165.0, lat = 61.0, 306/2091
+--- MC inversion for grid: lon = -165.0, lat = 61.5, 307/2091
+--- MC inversion for grid: lon = -165.0, lat = 62.0, 308/2091
+--- MC inversion for grid: lon = -165.0, lat = 62.5, 309/2091
+--- MC inversion for grid: lon = -165.0, lat = 63.0, 310/2091
+--- MC inversion for grid: lon = -165.0, lat = 63.5, 311/2091
+--- MC inversion for grid: lon = -165.0, lat = 64.0, 312/2091
+--- MC inversion for grid: lon = -165.0, lat = 64.5, 313/2091
+--- MC inversion for grid: lon = -165.0, lat = 65.0, 314/2091
+--- MC inversion for grid: lon = -165.0, lat = 65.5, 315/2091
+--- MC inversion for grid: lon = -165.0, lat = 66.0, 316/2091
+--- MC inversion for grid: lon = -165.0, lat = 66.5, 317/2091
+--- MC inversion for grid: lon = -165.0, lat = 67.0, 318/2091
+--- MC inversion for grid: lon = -165.0, lat = 67.5, 319/2091
+--- MC inversion for grid: lon = -165.0, lat = 68.0, 320/2091
+--- MC inversion for grid: lon = -165.0, lat = 68.5, 321/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 69.0, 322/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 69.5, 323/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 70.0, 324/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 70.5, 325/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 71.0, 326/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 71.5, 327/2091
+--- Skip MC inversion for grid: lon = -165.0, lat = 72.0, 328/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 52.0, 329/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 52.5, 330/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 53.0, 331/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 53.5, 332/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 54.0, 333/2091
+--- MC inversion for grid: lon = -164.0, lat = 54.5, 334/2091
+--- MC inversion for grid: lon = -164.0, lat = 55.0, 335/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.63887596       3.29062557       2.94242644      0.241510808       1.25000002E-02
+ a/b/rho/d/qs:   7.20330667       3.57039142       3.14626217      0.242261112       1.25000002E-02
+ a/b/rho/d/qs:   5.25507593       2.99996758       2.43479753      0.786715508       1.25000002E-02
+ a/b/rho/d/qs:   5.27989388       3.01413560       2.44107890      0.785858989       1.25000002E-02
+ a/b/rho/d/qs:   5.29672194       3.02374244       2.44733071      0.785762310       1.66666671E-03
+ a/b/rho/d/qs:   5.31634521       3.03494430       2.45367599      0.787183046       1.66666671E-03
+ a/b/rho/d/qs:   5.34123850       3.04915500       2.45994925      0.786327124       1.66666671E-03
+  
+--- MC inversion for grid: lon = -164.0, lat = 55.5, 336/2091
+--- MC inversion for grid: lon = -164.0, lat = 56.0, 337/2091
+--- MC inversion for grid: lon = -164.0, lat = 56.5, 338/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 57.0, 339/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 57.5, 340/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 58.0, 341/2091
+--- MC inversion for grid: lon = -164.0, lat = 58.5, 342/2091
+--- MC inversion for grid: lon = -164.0, lat = 59.0, 343/2091
+--- MC inversion for grid: lon = -164.0, lat = 59.5, 344/2091
+--- MC inversion for grid: lon = -164.0, lat = 60.0, 345/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.88902903       3.40858459       3.03609395      0.376692146       1.25000002E-02
+ a/b/rho/d/qs:   6.90966415       3.41879439       3.04196405      0.377429217       1.25000002E-02
+ a/b/rho/d/qs:   6.94116259       3.43437910       3.05103874      0.376647651       1.25000002E-02
+ a/b/rho/d/qs:   6.94782257       3.43767452       3.05557227      0.377384424       1.25000002E-02
+ a/b/rho/d/qs:   5.46681929       3.12023282       2.50853610       1.02193928       1.66666671E-03
+ a/b/rho/d/qs:   5.48377895       3.12991238       2.51415229       1.02101660       1.66666671E-03
+ a/b/rho/d/qs:   5.50849247       3.14401793       2.52141094       1.02161169       1.66666671E-03
+  
+--- MC inversion for grid: lon = -164.0, lat = 60.5, 346/2091
+--- MC inversion for grid: lon = -164.0, lat = 61.0, 347/2091
+--- MC inversion for grid: lon = -164.0, lat = 61.5, 348/2091
+--- MC inversion for grid: lon = -164.0, lat = 62.0, 349/2091
+--- MC inversion for grid: lon = -164.0, lat = 62.5, 350/2091
+--- MC inversion for grid: lon = -164.0, lat = 63.0, 351/2091
+--- MC inversion for grid: lon = -164.0, lat = 63.5, 352/2091
+--- MC inversion for grid: lon = -164.0, lat = 64.0, 353/2091
+--- MC inversion for grid: lon = -164.0, lat = 64.5, 354/2091
+--- MC inversion for grid: lon = -164.0, lat = 65.0, 355/2091
+--- MC inversion for grid: lon = -164.0, lat = 65.5, 356/2091
+--- MC inversion for grid: lon = -164.0, lat = 66.0, 357/2091
+--- MC inversion for grid: lon = -164.0, lat = 66.5, 358/2091
+--- MC inversion for grid: lon = -164.0, lat = 67.0, 359/2091
+--- MC inversion for grid: lon = -164.0, lat = 67.5, 360/2091
+--- MC inversion for grid: lon = -164.0, lat = 68.0, 361/2091
+--- MC inversion for grid: lon = -164.0, lat = 68.5, 362/2091
+--- MC inversion for grid: lon = -164.0, lat = 69.0, 363/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 69.5, 364/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 70.0, 365/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 70.5, 366/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 71.0, 367/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 71.5, 368/2091
+--- Skip MC inversion for grid: lon = -164.0, lat = 72.0, 369/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 52.0, 370/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 52.5, 371/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 53.0, 372/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 53.5, 373/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 54.0, 374/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 54.5, 375/2091
+--- MC inversion for grid: lon = -163.0, lat = 55.0, 376/2091
+--- MC inversion for grid: lon = -163.0, lat = 55.5, 377/2091
+--- MC inversion for grid: lon = -163.0, lat = 56.0, 378/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 56.5, 379/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 57.0, 380/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 57.5, 381/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 58.0, 382/2091
+--- MC inversion for grid: lon = -163.0, lat = 58.5, 383/2091
+--- MC inversion for grid: lon = -163.0, lat = 59.0, 384/2091
+--- MC inversion for grid: lon = -163.0, lat = 59.5, 385/2091
+--- MC inversion for grid: lon = -163.0, lat = 60.0, 386/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.42935419       3.18114448       2.86856055      0.555157423       1.25000002E-02
+ a/b/rho/d/qs:   6.53919935       3.23549390       2.90728498      0.555109024       1.25000002E-02
+ a/b/rho/d/qs:   6.64904404       3.28984356       2.94703531      0.555819988       1.25000002E-02
+ a/b/rho/d/qs:   6.76607943       3.34775090       2.98571706      0.555012465       1.25000002E-02
+ a/b/rho/d/qs:   6.86873436       3.39854264       3.02545333      0.555722952       1.25000002E-02
+ a/b/rho/d/qs:   6.98600292       3.45656562       3.06518936      0.554915428       1.25000002E-02
+ a/b/rho/d/qs:   5.27400398       3.01018190       2.43664598       1.06490779       1.66666671E-03
+  
+--- MC inversion for grid: lon = -163.0, lat = 60.5, 387/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.60941362       3.27602243       2.93169379      0.537690878       1.25000002E-02
+ a/b/rho/d/qs:   6.79284859       3.36694360       2.99679852      0.538404822       1.25000002E-02
+ a/b/rho/d/qs:   6.98820734       3.46377540       3.06480622      0.537600040       1.25000002E-02
+ a/b/rho/d/qs:   7.16385555       3.55083704       3.13095307      0.538313985       1.25000002E-02
+ a/b/rho/d/qs:   7.35973835       3.64792848       3.19781971      0.537509203       1.25000002E-02
+ a/b/rho/d/qs:   7.54313374       3.73882985       3.34712553      0.538223028       1.25000002E-02
+ a/b/rho/d/qs:   4.78027296       2.72891665       2.25995350       1.00193000       1.66666671E-03
+  
+--- MC inversion for grid: lon = -163.0, lat = 61.0, 388/2091
+--- MC inversion for grid: lon = -163.0, lat = 61.5, 389/2091
+--- MC inversion for grid: lon = -163.0, lat = 62.0, 390/2091
+--- MC inversion for grid: lon = -163.0, lat = 62.5, 391/2091
+--- MC inversion for grid: lon = -163.0, lat = 63.0, 392/2091
+--- MC inversion for grid: lon = -163.0, lat = 63.5, 393/2091
+--- MC inversion for grid: lon = -163.0, lat = 64.0, 394/2091
+--- MC inversion for grid: lon = -163.0, lat = 64.5, 395/2091
+--- MC inversion for grid: lon = -163.0, lat = 65.0, 396/2091
+--- MC inversion for grid: lon = -163.0, lat = 65.5, 397/2091
+--- MC inversion for grid: lon = -163.0, lat = 66.0, 398/2091
+--- MC inversion for grid: lon = -163.0, lat = 66.5, 399/2091
+--- MC inversion for grid: lon = -163.0, lat = 67.0, 400/2091
+--- MC inversion for grid: lon = -163.0, lat = 67.5, 401/2091
+--- MC inversion for grid: lon = -163.0, lat = 68.0, 402/2091
+--- MC inversion for grid: lon = -163.0, lat = 68.5, 403/2091
+--- MC inversion for grid: lon = -163.0, lat = 69.0, 404/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 69.5, 405/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 70.0, 406/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 70.5, 407/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 71.0, 408/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 71.5, 409/2091
+--- Skip MC inversion for grid: lon = -163.0, lat = 72.0, 410/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 52.0, 411/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 52.5, 412/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 53.0, 413/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 53.5, 414/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 54.0, 415/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 54.5, 416/2091
+--- MC inversion for grid: lon = -162.0, lat = 55.0, 417/2091
+--- MC inversion for grid: lon = -162.0, lat = 55.5, 418/2091
+--- MC inversion for grid: lon = -162.0, lat = 56.0, 419/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 56.5, 420/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 57.0, 421/2091
+--- MC inversion for grid: lon = -162.0, lat = 57.5, 422/2091
+--- MC inversion for grid: lon = -162.0, lat = 58.0, 423/2091
+--- MC inversion for grid: lon = -162.0, lat = 58.5, 424/2091
+--- MC inversion for grid: lon = -162.0, lat = 59.0, 425/2091
+--- MC inversion for grid: lon = -162.0, lat = 59.5, 426/2091
+--- MC inversion for grid: lon = -162.0, lat = 60.0, 427/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.67171335       3.30200195       2.95699382      0.407069534       1.25000002E-02
+ a/b/rho/d/qs:   6.71217203       3.32202601       2.96956897      0.407802969       1.25000002E-02
+ a/b/rho/d/qs:   6.73317480       3.33242083       2.97779655      0.407017469       1.25000002E-02
+ a/b/rho/d/qs:   6.77372217       3.35248876       2.99037719      0.406991482       1.25000002E-02
+ a/b/rho/d/qs:   5.38526011       3.07377934       2.47887874       1.09024453       1.66666671E-03
+ a/b/rho/d/qs:   5.39053917       3.07679272       2.48032641       1.08929920       1.66666671E-03
+ a/b/rho/d/qs:   5.40440369       3.08470607       2.48335671       1.09063029       1.66666671E-03
+  
+--- MC inversion for grid: lon = -162.0, lat = 60.5, 428/2091
+--- MC inversion for grid: lon = -162.0, lat = 61.0, 429/2091
+--- MC inversion for grid: lon = -162.0, lat = 61.5, 430/2091
+--- MC inversion for grid: lon = -162.0, lat = 62.0, 431/2091
+--- MC inversion for grid: lon = -162.0, lat = 62.5, 432/2091
+--- MC inversion for grid: lon = -162.0, lat = 63.0, 433/2091
+--- MC inversion for grid: lon = -162.0, lat = 63.5, 434/2091
+--- MC inversion for grid: lon = -162.0, lat = 64.0, 435/2091
+--- MC inversion for grid: lon = -162.0, lat = 64.5, 436/2091
+--- MC inversion for grid: lon = -162.0, lat = 65.0, 437/2091
+--- MC inversion for grid: lon = -162.0, lat = 65.5, 438/2091
+--- MC inversion for grid: lon = -162.0, lat = 66.0, 439/2091
+--- MC inversion for grid: lon = -162.0, lat = 66.5, 440/2091
+--- MC inversion for grid: lon = -162.0, lat = 67.0, 441/2091
+--- MC inversion for grid: lon = -162.0, lat = 67.5, 442/2091
+--- MC inversion for grid: lon = -162.0, lat = 68.0, 443/2091
+--- MC inversion for grid: lon = -162.0, lat = 68.5, 444/2091
+--- MC inversion for grid: lon = -162.0, lat = 69.0, 445/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 69.5, 446/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 70.0, 447/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 70.5, 448/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 71.0, 449/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 71.5, 450/2091
+--- Skip MC inversion for grid: lon = -162.0, lat = 72.0, 451/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 52.0, 452/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 52.5, 453/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 53.0, 454/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 53.5, 455/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 54.0, 456/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 54.5, 457/2091
+--- MC inversion for grid: lon = -161.0, lat = 55.0, 458/2091
+--- MC inversion for grid: lon = -161.0, lat = 55.5, 459/2091
+--- MC inversion for grid: lon = -161.0, lat = 56.0, 460/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.38255882       3.16180611       2.85124993      0.531615496       1.25000002E-02
+ a/b/rho/d/qs:   6.61909866       3.27898383       2.93576407      0.531571150       1.25000002E-02
+ a/b/rho/d/qs:   6.85563850       3.39616132       3.01795840      0.531526804       1.25000002E-02
+ a/b/rho/d/qs:   7.10005856       3.51724291       3.10576129      0.532241583       1.25000002E-02
+ a/b/rho/d/qs:   7.33686209       3.63455081       3.19249988      0.531438112       1.25000002E-02
+ a/b/rho/d/qs:   4.80340385       2.74195027       2.26846957      0.989115953       1.66666671E-03
+ a/b/rho/d/qs:   4.92657089       2.81225872       2.31223750      0.989721298       1.66666671E-03
+  
+--- MC inversion for grid: lon = -161.0, lat = 56.5, 461/2091
+--- MC inversion for grid: lon = -161.0, lat = 57.0, 462/2091
+--- MC inversion for grid: lon = -161.0, lat = 57.5, 463/2091
+--- MC inversion for grid: lon = -161.0, lat = 58.0, 464/2091
+--- MC inversion for grid: lon = -161.0, lat = 58.5, 465/2091
+--- MC inversion for grid: lon = -161.0, lat = 59.0, 466/2091
+--- MC inversion for grid: lon = -161.0, lat = 59.5, 467/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.78885651       3.35902047       3.01227880       8.80993456E-02   1.25000002E-02
+ a/b/rho/d/qs:   7.77683973       3.84785938       3.33655167       8.73386711E-02   1.25000002E-02
+ a/b/rho/d/qs:   4.71521854       2.69125009       2.24032736       1.06315732       1.66666671E-03
+ a/b/rho/d/qs:   4.89341974       2.79296017       2.30220389       1.06298006       1.66666671E-03
+ a/b/rho/d/qs:   5.05710888       2.88638711       2.36024761       1.06280255       1.66666671E-03
+ a/b/rho/d/qs:   5.20405102       2.97025585       2.41273928       1.06414318       1.66666671E-03
+ a/b/rho/d/qs:   5.34904814       3.05301380       2.46285248       1.06320715       1.66666671E-03
+  
+--- MC inversion for grid: lon = -161.0, lat = 60.0, 468/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   7.07890081       3.50948620       3.17758107       1.29111875E-02   1.25000002E-02
+ a/b/rho/d/qs:   6.79567814       3.36907363       3.04957938       1.29111614E-02   1.25000002E-02
+ a/b/rho/d/qs:   5.18053055       2.95748305       2.40696239       1.19682682       1.66666671E-03
+ a/b/rho/d/qs:   5.32444382       3.03964043       2.45669293       1.19660223       1.66666671E-03
+ a/b/rho/d/qs:   5.45937443       3.11667061       2.50531745       1.19637752       1.66666671E-03
+ a/b/rho/d/qs:   5.58466816       3.18819833       2.54893041       1.19691157       1.66666671E-03
+ a/b/rho/d/qs:   5.69769049       3.25272131       2.58699942       1.19668722       1.66666671E-03
+  
+ LSTOP=          10
+ a/b/rho/d/qs:   7.11193228       3.52510095       3.29074168       4.55689291E-03   1.25000002E-02
+ a/b/rho/d/qs:   6.82094431       3.38086963       3.21071792       4.55688918E-03   1.25000002E-02
+ a/b/rho/d/qs:   4.86236668       2.77578163       2.29241443       1.22948158       1.66666671E-03
+ a/b/rho/d/qs:   5.04095650       2.87773371       2.35560441       1.23000348       1.66666671E-03
+ a/b/rho/d/qs:   5.20994425       2.97420287       2.41476607       1.22900724       1.66666671E-03
+ a/b/rho/d/qs:   5.36309290       3.06163120       2.46900225       1.23028755       1.66666671E-03
+ a/b/rho/d/qs:   5.50743484       3.14403176       2.51833463       1.23005056       1.66666671E-03
+  
+--- MC inversion for grid: lon = -161.0, lat = 60.5, 469/2091
+--- MC inversion for grid: lon = -161.0, lat = 61.0, 470/2091
+--- MC inversion for grid: lon = -161.0, lat = 61.5, 471/2091
+--- MC inversion for grid: lon = -161.0, lat = 62.0, 472/2091
+--- MC inversion for grid: lon = -161.0, lat = 62.5, 473/2091
+--- MC inversion for grid: lon = -161.0, lat = 63.0, 474/2091
+--- MC inversion for grid: lon = -161.0, lat = 63.5, 475/2091
+--- MC inversion for grid: lon = -161.0, lat = 64.0, 476/2091
+--- MC inversion for grid: lon = -161.0, lat = 64.5, 477/2091
+--- MC inversion for grid: lon = -161.0, lat = 65.0, 478/2091
+--- MC inversion for grid: lon = -161.0, lat = 65.5, 479/2091
+--- MC inversion for grid: lon = -161.0, lat = 66.0, 480/2091
+--- MC inversion for grid: lon = -161.0, lat = 66.5, 481/2091
+--- MC inversion for grid: lon = -161.0, lat = 67.0, 482/2091
+--- MC inversion for grid: lon = -161.0, lat = 67.5, 483/2091
+--- MC inversion for grid: lon = -161.0, lat = 68.0, 484/2091
+--- MC inversion for grid: lon = -161.0, lat = 68.5, 485/2091
+--- MC inversion for grid: lon = -161.0, lat = 69.0, 486/2091
+--- MC inversion for grid: lon = -161.0, lat = 69.5, 487/2091
+--- MC inversion for grid: lon = -161.0, lat = 70.0, 488/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 70.5, 489/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 71.0, 490/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 71.5, 491/2091
+--- Skip MC inversion for grid: lon = -161.0, lat = 72.0, 492/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 52.0, 493/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 52.5, 494/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 53.0, 495/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 53.5, 496/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 54.0, 497/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 54.5, 498/2091
+--- MC inversion for grid: lon = -160.0, lat = 55.0, 499/2091
+--- MC inversion for grid: lon = -160.0, lat = 55.5, 500/2091
+--- MC inversion for grid: lon = -160.0, lat = 56.0, 501/2091
+--- MC inversion for grid: lon = -160.0, lat = 56.5, 502/2091
+--- MC inversion for grid: lon = -160.0, lat = 57.0, 503/2091
+--- MC inversion for grid: lon = -160.0, lat = 57.5, 504/2091
+--- MC inversion for grid: lon = -160.0, lat = 58.0, 505/2091
+--- MC inversion for grid: lon = -160.0, lat = 58.5, 506/2091
+--- MC inversion for grid: lon = -160.0, lat = 59.0, 507/2091
+--- MC inversion for grid: lon = -160.0, lat = 59.5, 508/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.40186214       3.16844559       2.96599412       4.55689291E-03   1.25000002E-02
+ a/b/rho/d/qs:   7.68781424       3.80489635       3.23070049       4.55688918E-03   1.25000002E-02
+ a/b/rho/d/qs:   5.74125671       3.27697396       2.60957336       1.10722756       1.66666671E-03
+ a/b/rho/d/qs:   5.76160049       3.28858566       2.61542559       1.10779428       1.66666671E-03
+ a/b/rho/d/qs:   5.78522158       3.30206800       2.62299085       1.10760164       1.66666671E-03
+ a/b/rho/d/qs:   5.81401634       3.31850362       2.63176966       1.10816836       1.66666671E-03
+ a/b/rho/d/qs:   5.84381533       3.33551168       2.64035511       1.10873413       1.66666671E-03
+  
+ LSTOP=          10
+ a/b/rho/d/qs:   6.24817610       3.09424996       2.80976605       3.03792884E-03   1.25000002E-02
+ a/b/rho/d/qs:   7.36125326       3.64547324       3.25119424       2.27844552E-03   1.25000002E-02
+ a/b/rho/d/qs:   5.11515856       2.91980743       2.38462782       1.06698251       1.66666671E-03
+ a/b/rho/d/qs:   5.13104296       2.92887473       2.38741875       1.06756318       1.66666671E-03
+ a/b/rho/d/qs:   5.14404535       2.93629646       2.39312267       1.06662512       1.66666671E-03
+ a/b/rho/d/qs:   5.16757488       2.94972754       2.39826059       1.06796408       1.66666671E-03
+ a/b/rho/d/qs:   5.19397259       2.96479607       2.40723348       1.06778622       1.66666671E-03
+  
+--- MC inversion for grid: lon = -160.0, lat = 60.0, 509/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   7.00651026       3.47284722       3.10669994       4.02524397E-02   1.25000002E-02
+ a/b/rho/d/qs:   7.88808060       3.90980649       3.32087207       3.94927114E-02   1.25000002E-02
+ a/b/rho/d/qs:   5.23703146       2.98966646       2.42783570       1.15733147       1.66666671E-03
+ a/b/rho/d/qs:   5.40510416       3.08561420       2.48575878       1.15712154       1.66666671E-03
+ a/b/rho/d/qs:   5.55766392       3.17270613       2.54073119       1.15691113       1.66666671E-03
+ a/b/rho/d/qs:   5.69442415       3.25077844       2.58795118       1.15746021       1.66666671E-03
+ a/b/rho/d/qs:   5.81311750       3.31853700       2.63018084       1.15724945       1.66666671E-03
+  
+--- MC inversion for grid: lon = -160.0, lat = 60.5, 510/2091
+--- MC inversion for grid: lon = -160.0, lat = 61.0, 511/2091
+--- MC inversion for grid: lon = -160.0, lat = 61.5, 512/2091
+--- MC inversion for grid: lon = -160.0, lat = 62.0, 513/2091
+--- MC inversion for grid: lon = -160.0, lat = 62.5, 514/2091
+--- MC inversion for grid: lon = -160.0, lat = 63.0, 515/2091
+--- MC inversion for grid: lon = -160.0, lat = 63.5, 516/2091
+--- MC inversion for grid: lon = -160.0, lat = 64.0, 517/2091
+--- MC inversion for grid: lon = -160.0, lat = 64.5, 518/2091
+--- MC inversion for grid: lon = -160.0, lat = 65.0, 519/2091
+--- MC inversion for grid: lon = -160.0, lat = 65.5, 520/2091
+--- MC inversion for grid: lon = -160.0, lat = 66.0, 521/2091
+--- MC inversion for grid: lon = -160.0, lat = 66.5, 522/2091
+--- MC inversion for grid: lon = -160.0, lat = 67.0, 523/2091
+--- MC inversion for grid: lon = -160.0, lat = 67.5, 524/2091
+--- MC inversion for grid: lon = -160.0, lat = 68.0, 525/2091
+--- MC inversion for grid: lon = -160.0, lat = 68.5, 526/2091
+--- MC inversion for grid: lon = -160.0, lat = 69.0, 527/2091
+--- MC inversion for grid: lon = -160.0, lat = 69.5, 528/2091
+--- MC inversion for grid: lon = -160.0, lat = 70.0, 529/2091
+--- MC inversion for grid: lon = -160.0, lat = 70.5, 530/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 71.0, 531/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 71.5, 532/2091
+--- Skip MC inversion for grid: lon = -160.0, lat = 72.0, 533/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 52.0, 534/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 52.5, 535/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 53.0, 536/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 53.5, 537/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 54.0, 538/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 54.5, 539/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 55.0, 540/2091
+--- MC inversion for grid: lon = -159.0, lat = 55.5, 541/2091
+--- MC inversion for grid: lon = -159.0, lat = 56.0, 542/2091
+--- MC inversion for grid: lon = -159.0, lat = 56.5, 543/2091
+--- MC inversion for grid: lon = -159.0, lat = 57.0, 544/2091
+--- MC inversion for grid: lon = -159.0, lat = 57.5, 545/2091
+--- MC inversion for grid: lon = -159.0, lat = 58.0, 546/2091
+--- MC inversion for grid: lon = -159.0, lat = 58.5, 547/2091
+--- MC inversion for grid: lon = -159.0, lat = 59.0, 548/2091
+--- MC inversion for grid: lon = -159.0, lat = 59.5, 549/2091
+--- MC inversion for grid: lon = -159.0, lat = 60.0, 550/2091
+--- MC inversion for grid: lon = -159.0, lat = 60.5, 551/2091
+--- MC inversion for grid: lon = -159.0, lat = 61.0, 552/2091
+--- MC inversion for grid: lon = -159.0, lat = 61.5, 553/2091
+--- MC inversion for grid: lon = -159.0, lat = 62.0, 554/2091
+--- MC inversion for grid: lon = -159.0, lat = 62.5, 555/2091
+--- MC inversion for grid: lon = -159.0, lat = 63.0, 556/2091
+--- MC inversion for grid: lon = -159.0, lat = 63.5, 557/2091
+--- MC inversion for grid: lon = -159.0, lat = 64.0, 558/2091
+--- MC inversion for grid: lon = -159.0, lat = 64.5, 559/2091
+--- MC inversion for grid: lon = -159.0, lat = 65.0, 560/2091
+--- MC inversion for grid: lon = -159.0, lat = 65.5, 561/2091
+--- MC inversion for grid: lon = -159.0, lat = 66.0, 562/2091
+--- MC inversion for grid: lon = -159.0, lat = 66.5, 563/2091
+--- MC inversion for grid: lon = -159.0, lat = 67.0, 564/2091
+--- MC inversion for grid: lon = -159.0, lat = 67.5, 565/2091
+--- MC inversion for grid: lon = -159.0, lat = 68.0, 566/2091
+--- MC inversion for grid: lon = -159.0, lat = 68.5, 567/2091
+--- MC inversion for grid: lon = -159.0, lat = 69.0, 568/2091
+--- MC inversion for grid: lon = -159.0, lat = 69.5, 569/2091
+--- MC inversion for grid: lon = -159.0, lat = 70.0, 570/2091
+--- MC inversion for grid: lon = -159.0, lat = 70.5, 571/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 71.0, 572/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 71.5, 573/2091
+--- Skip MC inversion for grid: lon = -159.0, lat = 72.0, 574/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 52.0, 575/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 52.5, 576/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 53.0, 577/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 53.5, 578/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 54.0, 579/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 54.5, 580/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 55.0, 581/2091
+--- MC inversion for grid: lon = -158.0, lat = 55.5, 582/2091
+--- MC inversion for grid: lon = -158.0, lat = 56.0, 583/2091
+--- MC inversion for grid: lon = -158.0, lat = 56.5, 584/2091
+ LSTOP=          10
+ a/b/rho/d/qs:   6.74697018       3.34353471       2.98038745      0.397196919       1.25000002E-02
+ a/b/rho/d/qs:   7.09157705       3.51430821       3.10740089      0.397172123       1.25000002E-02
+ a/b/rho/d/qs:   7.41510963       3.67463851       3.22200322      0.397147357       1.25000002E-02
+ a/b/rho/d/qs:   7.76071024       3.84590459       3.35201931      0.397881985       1.25000002E-02
+ a/b/rho/d/qs:   5.02916098       2.87093568       2.35049868      0.910327196       1.66666671E-03
+ a/b/rho/d/qs:   5.06848240       2.89338255       2.36346865      0.910197258       1.66666671E-03
+ a/b/rho/d/qs:   5.10637903       2.91501617       2.37829041      0.910825968       1.66666671E-03
+  
+--- MC inversion for grid: lon = -158.0, lat = 57.0, 585/2091
+--- MC inversion for grid: lon = -158.0, lat = 57.5, 586/2091
+--- MC inversion for grid: lon = -158.0, lat = 58.0, 587/2091
+--- MC inversion for grid: lon = -158.0, lat = 58.5, 588/2091
+--- MC inversion for grid: lon = -158.0, lat = 59.0, 589/2091
+--- MC inversion for grid: lon = -158.0, lat = 59.5, 590/2091
+--- MC inversion for grid: lon = -158.0, lat = 60.0, 591/2091
+--- MC inversion for grid: lon = -158.0, lat = 60.5, 592/2091
+--- MC inversion for grid: lon = -158.0, lat = 61.0, 593/2091
+--- MC inversion for grid: lon = -158.0, lat = 61.5, 594/2091
+--- MC inversion for grid: lon = -158.0, lat = 62.0, 595/2091
+--- MC inversion for grid: lon = -158.0, lat = 62.5, 596/2091
+--- MC inversion for grid: lon = -158.0, lat = 63.0, 597/2091
+--- MC inversion for grid: lon = -158.0, lat = 63.5, 598/2091
+--- MC inversion for grid: lon = -158.0, lat = 64.0, 599/2091
+--- MC inversion for grid: lon = -158.0, lat = 64.5, 600/2091
+--- MC inversion for grid: lon = -158.0, lat = 65.0, 601/2091
+--- MC inversion for grid: lon = -158.0, lat = 65.5, 602/2091
+--- MC inversion for grid: lon = -158.0, lat = 66.0, 603/2091
+--- MC inversion for grid: lon = -158.0, lat = 66.5, 604/2091
+--- MC inversion for grid: lon = -158.0, lat = 67.0, 605/2091
+--- MC inversion for grid: lon = -158.0, lat = 67.5, 606/2091
+--- MC inversion for grid: lon = -158.0, lat = 68.0, 607/2091
+--- MC inversion for grid: lon = -158.0, lat = 68.5, 608/2091
+--- MC inversion for grid: lon = -158.0, lat = 69.0, 609/2091
+--- MC inversion for grid: lon = -158.0, lat = 69.5, 610/2091
+--- MC inversion for grid: lon = -158.0, lat = 70.0, 611/2091
+--- MC inversion for grid: lon = -158.0, lat = 70.5, 612/2091
+--- MC inversion for grid: lon = -158.0, lat = 71.0, 613/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 71.5, 614/2091
+--- Skip MC inversion for grid: lon = -158.0, lat = 72.0, 615/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 52.0, 616/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 52.5, 617/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 53.0, 618/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 53.5, 619/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 54.0, 620/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 54.5, 621/2091
+--- Skip MC inversion for grid: lon = -157.0, lat = 55.0, 622/2091
+--- MC inversion for grid: lon = -157.0, lat = 55.5, 623/2091
+--- MC inversion for grid: lon = -157.0, lat = 56.0, 624/2091
+--- MC inversion for grid: lon = -157.0, lat = 56.5, 625/2091
+--- MC inversion for grid: lon = -157.0, lat = 57.0, 626/2091
+--- MC inversion for grid: lon = -157.0, lat = 57.5, 627/2091

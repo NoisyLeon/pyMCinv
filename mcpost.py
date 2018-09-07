@@ -48,6 +48,9 @@ class postvpr(object):
     factor          - factor to determine the threshhold value for selectingthe finalized model
     thresh          - threshhold value for selecting the finalized model
                         misfit < min_misfit*factor + thresh
+    stdfactor       - C_predict at all periods should be within bounds :[C_obs - stdfactor*std, C_obs + stdfactor*std]
+                        the same apply to group speed
+                        --- added Sep 7th, 2018
     : --- object --- :
     data            - data object storing obsevred data
     avg_model       - average model object
@@ -58,10 +61,11 @@ class postvpr(object):
     vprfwrd         - vprofile1d object for forward modelling of the average model
     =====================================================================================================================
     """
-    def __init__(self, factor=1., thresh=0.5, waterdepth=-1., vpwater=1.5):
+    def __init__(self, factor=1., thresh=0.5, waterdepth=-1., vpwater=1.5, stdfactor=2.):
         self.data       = data.data1d()
         self.factor     = factor
         self.thresh     = thresh
+        self.stdfactor  = stdfactor
         # models
         self.avg_model  = vmodel.model1d()
         self.min_model  = vmodel.model1d()
@@ -74,6 +78,7 @@ class postvpr(object):
         self.vpwater    = vpwater
         #
         self.avg_misfit = 0.
+        self.code       = ''
         return
     
     def read_inv_data(self, infname, verbose=True):
@@ -105,18 +110,28 @@ class postvpr(object):
             print 'minimum misfit = '+str(self.min_misfit)
         return
     
-    def get_thresh_model(self, factor=1., thresh=0.5):
+    def get_thresh_model(self):
         """
         get the index for the finalized accepted model
-        ===================================================================================
-        ::: input :::
-        factor  - factor to determine the threshhold value for selectingthe finalized model
-        thresh  - threshhold value for selecting the finalized model
-                misfit < min_misfit*factor + thresh
-        ===================================================================================
         """
         thresh_val      = self.min_misfit*self.factor+ self.thresh
-        self.ind_thresh = np.where(self.ind_acc*(self.misfit<= thresh_val))[0]
+        ind_thresh      = self.ind_acc*(self.misfit<= thresh_val)
+        if self.stdfactor is not None:
+            if self.data.dispR.npper > 0:
+                cmax    = self.data.dispR.pvelo + self.stdfactor*self.data.dispR.stdpvelo
+                cmin    = self.data.dispR.pvelo - self.stdfactor*self.data.dispR.stdpvelo
+                ind_thresh   \
+                        =  ind_thresh * np.all(self.disppre_ph <= cmax, axis=1)
+                ind_thresh   \
+                        =  ind_thresh * np.all(self.disppre_ph >= cmin, axis=1)
+            if self.data.dispR.ngper > 0:
+                umax    = self.data.dispR.gvelo + self.stdfactor*self.data.dispR.stdgvelo
+                umin    = self.data.dispR.gvelo - self.stdfactor*self.data.dispR.stdgvelo
+                ind_thresh   \
+                        =  ind_thresh * np.all(self.disppre_gr <= umax, axis=1)
+                ind_thresh   \
+                        =  ind_thresh * np.all(self.disppre_gr >= umin, axis=1)
+        self.ind_thresh = np.where(ind_thresh)[0]
         return
     
     def get_paraval(self):
@@ -182,6 +197,15 @@ class postvpr(object):
             indata      = np.append(indata, inarr['arr_9'])
             indata      = indata.reshape(3, indata.size/3)
             self.data.rfr.get_rf(indata=indata)
+        if index[0] == 1 and index[1] == 1 and index[2] == 0:
+            indata      = np.append(inarr['arr_1'], inarr['arr_2'])
+            indata      = np.append(indata, inarr['arr_3'])
+            indata      = indata.reshape(3, indata.size/3)
+            self.data.dispR.get_disp(indata=indata, dtype='ph')
+            indata      = np.append(inarr['arr_4'], inarr['arr_5'])
+            indata      = np.append(indata, inarr['arr_6'])
+            indata      = indata.reshape(3, indata.size/3)
+            self.data.dispR.get_disp(indata=indata, dtype='gr')
         if index[0] == 0 and index[1] == 1 and index[2] == 1:
             indata      = np.append(inarr['arr_1'], inarr['arr_2'])
             indata      = np.append(indata, inarr['arr_3'])
@@ -279,7 +303,7 @@ class postvpr(object):
         return
     
     def plot_disp(self, title='Dispersion curves', obsdisp=True, mindisp=True, avgdisp=True, assemdisp=True,\
-                  disptype='ph', showfig=True):
+                  disptype='ph', alpha=0.05, showfig=True):
         """
         plot phase/group dispersion curves
         =================================================================================================
@@ -297,36 +321,57 @@ class postvpr(object):
             for i in self.ind_thresh:
                 if disptype == 'ph':
                     disp_temp   = self.disppre_ph[i, :]
-                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=0.05, lw=1)
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                elif disptype == 'gr':
+                    disp_temp   = self.disppre_gr[i, :]
+                    plt.plot(self.data.dispR.gper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
                 else:
                     disp_temp   = self.disppre_gr[i, :]
-                    plt.plot(self.data.dispR.gper, disp_temp, '-',color='grey',  alpha=0.05, lw=1)                
+                    plt.plot(self.data.dispR.gper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                    disp_temp   = self.disppre_ph[i, :]
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
         if obsdisp:
             if disptype == 'ph':
                 plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=1, label='observed')
-            else:
+            elif disptype == 'gr':
                 plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='b', lw=1, label='observed')
+            else:
+                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=1, label='observed phase')
+                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='k', lw=1, label='observed group')
         if mindisp:
             if disptype == 'ph':
                 disp_min    = self.disppre_ph[self.ind_min, :]
                 plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=1, ms=10, label='min model')
-            else:
+            elif disptype == 'gr':
                 disp_min    = self.disppre_gr[self.ind_min, :]
                 plt.plot(self.data.dispR.gper, disp_min, 'yo-', lw=1, ms=10, label='min model')
+            else:
+                disp_min    = self.disppre_ph[self.ind_min, :]
+                plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=1, ms=10, label='min model phase')
+                disp_min    = self.disppre_gr[self.ind_min, :]
+                plt.plot(self.data.dispR.gper, disp_min, 'mo-', lw=1, ms=10, label='min model group')
         if avgdisp:
             self.run_avg_fwrd()
             if disptype == 'ph':
                 disp_avg    = self.vprfwrd.data.dispR.pvelp
                 plt.plot(self.data.dispR.pper, disp_avg, 'r^-', lw=1, ms=10, label='avg model')
-            else:
+            elif disptype == 'gr':
                 disp_avg    = self.vprfwrd.data.dispR.gvelp
                 plt.plot(self.data.dispR.gper, disp_avg, 'r^-', lw=1, ms=10, label='avg model')
+            else:
+                disp_avg    = self.vprfwrd.data.dispR.pvelp
+                plt.plot(self.data.dispR.pper, disp_avg, 'r^-', lw=1, ms=10, label='avg model phase')
+                disp_avg    = self.vprfwrd.data.dispR.gvelp
+                plt.plot(self.data.dispR.gper, disp_avg, 'g^-', lw=1, ms=10, label='avg model group')
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('Period (sec)', fontsize=30)
         label_type  = {'ph': 'Phase', 'gr': 'Group'}
-        plt.ylabel(label_type[disptype]+' velocity (km/s)', fontsize=30)
-        plt.title(title, fontsize=30)
+        if disptype == 'ph' or disptype == 'gr':
+            plt.ylabel(label_type[disptype]+' velocity (km/s)', fontsize=30)
+        else:
+            plt.ylabel('Velocity (km/s)', fontsize=30)
+        plt.title(title+' '+self.code, fontsize=30)
         plt.legend(loc=0, fontsize=20)
         if showfig:
             plt.show()
@@ -381,7 +426,7 @@ class postvpr(object):
         ax.tick_params(axis='y', labelsize=20)
         plt.xlabel('Vs (km/s)', fontsize=30)
         plt.ylabel('Depth (km)', fontsize=30)
-        plt.title(title, fontsize=30)
+        plt.title(title+' '+self.code, fontsize=30)
         plt.legend(loc=0, fontsize=20)
         if showfig:
             plt.ylim([0, 200.])

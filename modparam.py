@@ -741,8 +741,12 @@ class isomod(object):
         """
         # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
         for i in range (self.nmod-1):
-            if self.vs[0, i+1] < self.vs[-1, i]:
+            nlay        = self.nlay[i]
+            if self.vs[0, i+1] < self.vs[nlay-1, i]:
                 return False
+        # Vs < 4.9 km/sec , contraint (6) in 4.2 of Shen et al., 2012
+        if np.any(self.vs > 4.9):
+            return False
         if m1 >= self.nmod:
             m1  = self.nmod -1
         if m0 < 0:
@@ -764,6 +768,16 @@ class isomod(object):
             for j in range(g0, g1+1):
                 if self.vs[0, j] > self.vs[1, j]:
                     return False
+        #--------------------------------------
+        # new constraints added, Sep 7th, 2018
+        #--------------------------------------
+        # constrain the first layer Vs in mantle
+        if self.vs[0, self.nmod-1] > 4.6:
+            return False
+        # constrain the bottom layer Vs in mantle
+        nlay_mantle     = self.nlay[self.nmod-1]
+        if self.vs[nlay_mantle-1, self.nmod-1 ] < 4.3:
+            return False
         return True
     
     def get_vmodel_old(self):

@@ -38,6 +38,7 @@ class vprofile1d(object):
         self.gausswidth = 2.5
         self.amplevel   = 0.005
         self.t0         = 0.
+        self.code       = ''
         return
     
     def readdisp(self, infname, dtype='ph', wtype='ray'):
@@ -267,6 +268,12 @@ class vprofile1d(object):
                                         self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
             self.data.dispR.pvelp   = cr0[:nper]
             self.data.dispR.gvelp   = ur0[:nper]
+            # replace NaN value with oberved value
+            # added Aug 30th, 2018
+            index_nan               = np.isnan(self.data.dispR.gvelp)
+            if np.any(index_nan):
+                self.data.dispR.gvelp[index_nan]\
+                                    = self.data.dispR.gvelo[index_nan]
         elif wtype=='l' or wtype == 'love':
             ilvry                   = 1
             nper                    = self.TLpiso.size
@@ -375,7 +382,7 @@ class vprofile1d(object):
         self.update_mod(mtype = 'iso')
         self.get_vmodel(mtype = 'iso')
         # output arrays
-        outmodarr       = np.zeros((numbrun, self.model.isomod.para.npara+9))
+        outmodarr       = np.zeros((numbrun, self.model.isomod.para.npara+9)) # original
         outdisparr_ph   = np.zeros((numbrun, self.data.dispR.npper))
         outdisparr_gr   = np.zeros((numbrun, self.data.dispR.ngper))
         outrfarr        = np.zeros((numbrun, self.data.rfr.npts))
@@ -414,11 +421,20 @@ class vprofile1d(object):
             # satisfying the constraint (3), (4) and (5) in Shen et al., 2012
             m0  = 0
             m1  = 1
+            # satisfying the constraint (7) in Shen et al., 2012
+            if wdisp >= 1.:
+                g0  = 2
+                g1  = 2
+            else:
+                g0  = 1
+                g1  = 0
             if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
                 m0  += 1
                 m1  += 1
+                g0  += 1
+                g1  += 1
             igood       = 0
-            while ( not newmod.isgood(m0, m1, 1, 0)):
+            while ( not newmod.isgood(m0, m1, g0, g1)):
                 igood   += igood + 1
                 newmod  = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(0)
@@ -459,13 +475,22 @@ class vprofile1d(object):
                 newmod.update()
                 # loop to find the "good" model,
                 # satisfying the constraint (3), (4) and (5) in Shen et al., 2012
-                m0  = 0
-                m1  = 1
+                m0      = 0
+                m1      = 1
+                # satisfying the constraint (7) in Shen et al., 2012
+                if wdisp >= 1.:
+                    g0  = 2
+                    g1  = 2
+                else:
+                    g0  = 1
+                    g1  = 0
                 if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
                     m0  += 1
                     m1  += 1
+                    g0  += 1
+                    g1  += 1
                 igood       = 0
-                while ( not newmod.isgood(m0, m1, 1, 0)):
+                while ( not newmod.isgood(m0, m1, g0, g1)):
                     igood   += igood + 1
                     newmod  = copy.deepcopy(self.model.isomod)
                     newmod.para.new_paraval(0)
@@ -498,17 +523,26 @@ class vprofile1d(object):
                     # loop to find the "good" model, added on May 3rd, 2018
                     m0  = 0
                     m1  = 1
+                    # satisfying the constraint (7) in Shen et al., 2012
+                    if wdisp >= 1.:
+                        g0  = 2
+                        g1  = 2
+                    else:
+                        g0  = 1
+                        g1  = 0
                     if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
                         m0  += 1
                         m1  += 1
+                        g0  += 1
+                        g1  += 1
                     itemp   = 0
-                    while (not newmod.isgood(m0, m1, 1, 0)) and itemp < 100:
+                    while (not newmod.isgood(m0, m1, g0, g1)) and itemp < 100:
                         itemp       += 1
                         newmod      = copy.deepcopy(self.model.isomod)
                         newmod.para.new_paraval(1)
                         newmod.para2mod()
                         newmod.update()
-                    if not newmod.isgood(m0, m1, 1, 0):
+                    if not newmod.isgood(m0, m1, g0, g1):
                         print 'No good model found!'
                         continue
                 # assign new model to old ones
@@ -525,6 +559,21 @@ class vprofile1d(object):
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 newL                = self.data.L
                 newmisfit           = self.data.misfit
+                # reject model if NaN misfit 
+                if np.isnan(newmisfit):
+                    print 'WARNING: '+pfx+', NaN misfit!'
+                    outmodarr[inew-1, 0]                        = -1 # index for acceptance
+                    outmodarr[inew-1, 1]                        = iacc
+                    outmodarr[inew-1, 2:(newmod.para.npara+2)]  = newmod.para.paraval[:]
+                    outmodarr[inew-1, newmod.para.npara+2]      = 0.
+                    outmodarr[inew-1, newmod.para.npara+3]      = 9999.
+                    outmodarr[inew-1, newmod.para.npara+4]      = self.data.rfr.L
+                    outmodarr[inew-1, newmod.para.npara+5]      = self.data.rfr.misfit
+                    outmodarr[inew-1, newmod.para.npara+6]      = self.data.dispR.L
+                    outmodarr[inew-1, newmod.para.npara+7]      = self.data.dispR.L
+                    outmodarr[inew-1, newmod.para.npara+8]      = time.time()-start
+                    self.model.isomod                           = oldmod
+                    continue
                 if newL < oldL:
                     prob    = (oldL-newL)/oldL
                     rnumb   = random.random()
@@ -591,17 +640,37 @@ class vprofile1d(object):
         np.savez_compressed(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
         if savedata:
             outfname    = outdir+'/mc_data.'+pfx+'.npz'
-            try:
-                np.savez_compressed(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                         self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
                         self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-            except AttributeError:
-                try:
-                    np.savez_compressed(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts == 0:
+                np.savez_compressed(outdatafname, np.array([1, 1, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo)
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper == 0 and self.data.rfr.npts == 0:
+                np.savez_compressed(outdatafname, np.array([1, 0, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo)
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper == 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-                except AttributeError:
-                    np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
-                        self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            if self.data.dispR.npper == 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts == 0:
+                np.savez_compressed(outdatafname, np.array([0, 1, 0]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo)
+            if self.data.dispR.npper == 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+                            self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            if self.data.dispR.npper == 0 and self.data.dispR.ngper == 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([0, 0, 1]), self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            # 
+            # try:
+            #     np.savez_compressed(outfname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            #             self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
+            #             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            # except AttributeError:
+            #     try:
+            #         np.savez_compressed(outfname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            #                 self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            #     except AttributeError:
+            #         np.savez_compressed(outfname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+            #             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
         del outmodarr
         del outdisparr_ph
         del outdisparr_gr
@@ -698,20 +767,40 @@ class vprofile1d(object):
         # save data
         if savedata:
             outdatafname    = outdir+'/mc_data.'+pfx+'.npz'
-            try:
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts > 0:
                 np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                         self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
                         self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-            except AttributeError:
-                try:
-                    np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts == 0:
+                np.savez_compressed(outdatafname, np.array([1, 1, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo)
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper == 0 and self.data.rfr.npts == 0:
+                np.savez_compressed(outdatafname, np.array([1, 0, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo)
+            if self.data.dispR.npper > 0 and self.data.dispR.ngper == 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-                except AttributeError:
-                    try:
-                        np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+            if self.data.dispR.npper == 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts == 0:
+                np.savez_compressed(outdatafname, np.array([0, 1, 0]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo)
+            if self.data.dispR.npper == 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
                             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
-                    except AttributeError:
-                        np.savez_compressed(outdatafname, np.array([1, 0, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo)
+            if self.data.dispR.npper == 0 and self.data.dispR.ngper == 0 and self.data.rfr.npts > 0:
+                np.savez_compressed(outdatafname, np.array([0, 0, 1]), self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            # 
+            # try:
+            #     np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            #             self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
+            #             self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            # except AttributeError:
+            #     try:
+            #         np.savez_compressed(outdatafname, np.array([1, 0, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+            #                 self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            # #     except AttributeError:
+            # #         try:
+            #             np.savez_compressed(outdatafname, np.array([0, 1, 1]), self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo,\
+            #                 self.data.rfr.to, self.data.rfr.rfo, self.data.rfr.stdrfo)
+            #         except AttributeError:
+            #             np.savez_compressed(outdatafname, np.array([1, 0, 0]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo)
         if verbose:
             print 'End MC inversion: '+pfx+' '+time.ctime()
             etime   = time.time()
@@ -719,17 +808,15 @@ class vprofile1d(object):
         return
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun):
-    print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
+    # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
-        invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+        invpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor, \
                        monoc=monoc, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
     else:
-        invpr.mc_joint_inv_iso(outdir=outdir, wdisp=wdisp, rffactor=rffactor,\
+        invpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor, \
                        monoc=monoc, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
     return 
-    
-    
     
     # def mc_inv_iso_old(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC'):
     #     """

@@ -255,33 +255,33 @@ class disp(object):
         dispersion curve is stored
         ==========================================================================
         """
-        dtype   = dtype.lower()
+        dtype                   = dtype.lower()
         if dtype == 'ph' or dtype == 'phase':
             if self.isphase:
                 print 'phase velocity data is already stored!'
                 return False
-            inArr 	    = np.loadtxt(infname, dtype=np.float64)
-            self.pper   = inArr[:,0]
-            self.pvelo  = inArr[:,1]
-            self.npper  = self.pper.size
+            inArr 	            = np.loadtxt(infname, dtype=np.float64)
+            self.pper           = inArr[:,0]
+            self.pvelo          = inArr[:,1]
+            self.npper          = self.pper.size
             try:
-                self.stdpvelo= inArr[:,2]
+                self.stdpvelo   = inArr[:,2]
             except IndexError:
-                self.stdpvelo= np.ones(self.npper, dtype=np.float64)
-            self.isphase = True
+                self.stdpvelo   = np.ones(self.npper, dtype=np.float64)
+            self.isphase        = True
         elif dtype == 'gr' or dtype == 'group':
             if self.isgroup:
                 print 'group velocity data is already stored!'
                 return False
-            inArr 	  = np.loadtxt(infname, dtype=np.float64)
-            self.gper = inArr[:,0]
-            self.gvelo= inArr[:,1]
-            self.ngper= self.gper.size
+            inArr 	            = np.loadtxt(infname, dtype=np.float64)
+            self.gper           = inArr[:,0]
+            self.gvelo          = inArr[:,1]
+            self.ngper          = self.gper.size
             try:
-                self.stdgvelo= inArr[:,2]
+                self.stdgvelo   = inArr[:,2]
             except IndexError:
-                self.stdgvelo= np.ones(self.ngper, dtype=np.float64)
-            self.isgroup  = True
+                self.stdgvelo   = np.ones(self.ngper, dtype=np.float64)
+            self.isgroup        = True
         else:
             raise ValueError('Unexpected dtype: '+dtype)
         return True
@@ -560,12 +560,12 @@ class disp(object):
     
     def get_misfit(self):
         """
-        Compute combined misfit
+        Compute combined misfit of both phase and group dispersion
         """
         # misfit for phase velocities
         temp1           = 0.
         temp2           = 0.
-        if self.isphase:
+        if self.isphase: # isphase is determined when reading phase velocity data
             temp1       += ((self.pvelo - self.pvelp)**2/self.stdpvelo**2).sum()
             tS          = temp1
             self.pS     = tS
@@ -573,10 +573,10 @@ class disp(object):
             if tS > 50.:
                 tS      = np.sqrt(tS*50.)
             L           = np.exp(-0.5 * tS)
-            self.pmisfit    = misfit
-            self.pL         = L
+            self.pmisfit= misfit
+            self.pL     = L
         # misfit for group velocities
-        if self.isgroup:
+        if self.isgroup: # isgroup is determined when reading group velocity data
             temp2       += ((self.gvelo - self.gvelp)**2/self.stdgvelo**2).sum()
             tS          = temp2
             self.gS     = tS
@@ -584,8 +584,8 @@ class disp(object):
             if tS > 50.:
                 tS      = np.sqrt(tS*50.)
             L           = np.exp(-0.5 * tS)
-            self.gmisfit    = misfit
-            self.gL         = L
+            self.gmisfit= misfit
+            self.gL     = L
         if (not self.isphase) and (not self.isgroup):
             printf('No dispersion data stored!')
             self.misfit = 0.

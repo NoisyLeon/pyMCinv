@@ -1,53 +1,72 @@
 
 import surfdbase
-
-dset = surfdbase.invhdf5('/scratch/summit/life9360/ALASKA_work/mc_inv_files/inversion_alaska_surf.h5')
-
-# dset.read_raytomo_dbase(inh5fname='/scratch/summit/life9360/ALASKA_work/hdf5_files/ray_tomo_Alaska_20180410.h5', runid=2, Tmin=8., Tmax=50.)
-# # # 
+import copy
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180902_3d.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180907.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180822_3d.h5')
+#-------------------------
+# before inversion
+#-------------------------
+# dset.read_raytomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2, Tmin=8., Tmax=50.)
 # dset.read_crust_thickness()
 # dset.read_sediment_thickness()
 # dset.read_CU_model()
-# dset.read_etopo(infname='/projects/life9360/station_map/grd_dir/ETOPO2v2g_f4.nc')
-# # vpr = dset.mc_inv_iso(instafname='ref_log')
+# dset.read_etopo(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
 # # 
-# # dset.mc_inv_iso(outdir='/work3/leon/mc_inv_files/mc_alaska_surf',
-# #                 numbrun=45000, nprocess=12, verbose=False)
+# # # # # group
+# dset.read_raytomo_dbase_group(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_20180823_gr.h5', runid=2, Tmin=8., Tmax=50.)
+
+#-------------------------
+# inversion
+#-------------------------
+# dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180822_150000',
+#                 numbrun=150000, nprocess=30, verbose=False)
+
+dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180907_150000_both',
+                numbrun=150000, nprocess=35, verbose=False, group=True)
+
+# vpr = dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180829_150000_both',
+#                 numbrun=150000, nprocess=30, verbose=False, group=True)
+# vpr_ph          = copy.deepcopy(vpr)
+# vpr_ph.data.dispR.isgroup  \
+#                 = False
 # 
-# # dset.mc_inv_iso(instafname='ref_log', outdir='/home/lili/new_mc_results_Miller',
-# #                 numbrun=150000, nprocess=4, verbose=True)
-# # dset.mc_inv_iso_mp(instafname='ref_log', outdir='/work3/leon/mc_inv_files/mc_results_100000', nprocess=10, subsize=50, numbrun=100000)
+# vpr_gr          = copy.deepcopy(vpr)
+# vpr_gr.data.dispR.isphase  \
+#                 = False
+
+# vpr.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='BOTH', wdisp=1., nprocess=35, verbose=True, numbrun=150000)
+# vpr_gr.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='GR', wdisp=1., nprocess=35, verbose=True, numbrun=150000)
+# vpr_ph.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='PH', wdisp=1., nprocess=35, verbose=True, numbrun=150000)
+#-------------------------
+# read inversion results
+#-------------------------
+# dset.read_inv(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180829_150000_both', avgqc=False)
+
+#-------------------------
+# interpolation/smoothingdset.get_raytomo_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2)
+#-------------------------
+# dset.get_raytomo_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2)
+# dset.get_topo_arr(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
 # 
-# # vpr, vsdata = dset.mc_inv_iso()
-# # import matplotlib.pyplot as plt
-# # 
-# # plt.plot(vsdata[:, 0], vsdata[:, 1])
-# # vpr.update_mod()
-# # vpr.get_vmodel()
-# # plt.plot(vpr.model.zArr, vpr.model.VsvArr)
-# # plt.show()
-# 
-# dset.read_inv(datadir='/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_alaska_surf_150000', avgqc=False)
-# dset.plot_paraval(pindex=-2, isthk=True, dtype='min', outfname = 'crthick_min.txt')
-# # 
 # dset.paraval_arrays(dtype='min')
 # dset.construct_3d(dtype='min')
 # dset.construct_3d(dtype='min', is_smooth=True)
-
+# 
+# dset.paraval_arrays(dtype='avg')
+# dset.construct_3d(dtype='avg')
+# dset.construct_3d(dtype='avg', is_smooth=True)
 
 # dset.paraval_arrays(dtype='avg', width=50.)
 # dset.construct_3d(dtype='avg')
 # dset.construct_3d(dtype='avg', is_smooth=True)
 # # # 
-depth = 20.
-# # # # # # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-# # # # # #              geopolygons=None, vmin=4.2, vmax=4.7, showfig=True)
-# # # # # # 
-# # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-# #              geopolygons=None, vmin=None, vmax=None, showfig=True)
+# depth = 80.
+# dset.plot_horizontal(depth=depth, dtype='min', is_smooth=False, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+#              geopolygons=None, vmin=4.2, vmax=4.6, showfig=True)
 # 
-dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-             geopolygons=None, vmin=None, vmax=None, showfig=True)
+# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+#              geopolygons=None, vmin=None, vmax=None, showfig=True)
 # 
 # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
 #              geopolygons=None, vmin=4.2, vmax=4.6, showfig=True)
@@ -64,3 +83,4 @@ dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabe
 # dset.plot_vertical_rel(lon1=-153+360, lon2=-142+360, lat1=61, lat2=64, maxdepth=150., dtype='avg', is_smooth=True)
 
 
+# vpr = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180829_150000_both', lon=-142., lat=62.)
