@@ -271,7 +271,7 @@ class vprofile1d(object):
             # replace NaN value with oberved value
             # added Aug 30th, 2018
             index_nan               = np.isnan(self.data.dispR.gvelp)
-            if np.any(index_nan):
+            if np.any(index_nan) and self.data.dispR.ngper > 0:
                 self.data.dispR.gvelp[index_nan]\
                                     = self.data.dispR.gvelo[index_nan]
         elif wtype=='l' or wtype == 'love':
@@ -381,6 +381,12 @@ class vprofile1d(object):
         self.get_period()
         self.update_mod(mtype = 'iso')
         self.get_vmodel(mtype = 'iso')
+        if dispdtype == 'both':
+            try:
+                if not np.allclose( self.data.dispR.pper, self.data.dispR.gper):
+                    raise ValueError('Incompatible period arrays for phase/group!')
+            except AttributeError:
+                raise ValueError('Incompatible period arrays for phase/group!')
         # output arrays
         outmodarr       = np.zeros((numbrun, self.model.isomod.para.npara+9)) # original
         outdisparr_ph   = np.zeros((numbrun, self.data.dispR.npper))
@@ -536,7 +542,7 @@ class vprofile1d(object):
                         g0  += 1
                         g1  += 1
                     itemp   = 0
-                    while (not newmod.isgood(m0, m1, g0, g1)) and itemp < 100:
+                    while (not newmod.isgood(m0, m1, g0, g1)) and itemp < 5000:
                         itemp       += 1
                         newmod      = copy.deepcopy(self.model.isomod)
                         newmod.para.new_paraval(1)
@@ -639,7 +645,8 @@ class vprofile1d(object):
         outfname    = outdir+'/mc_inv.'+pfx+'.npz'
         np.savez_compressed(outfname, outmodarr, outdisparr_ph, outdisparr_gr, outrfarr)
         if savedata:
-            outfname    = outdir+'/mc_data.'+pfx+'.npz'
+            outdatafname\
+                    = outdir+'/mc_data.'+pfx+'.npz'
             if self.data.dispR.npper > 0 and self.data.dispR.ngper > 0 and self.data.rfr.npts > 0:
                 np.savez_compressed(outdatafname, np.array([1, 1, 1]), self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
                         self.data.dispR.gper, self.data.dispR.gvelo, self.data.dispR.stdgvelo, \
@@ -699,6 +706,12 @@ class vprofile1d(object):
         """
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
+        if dispdtype == 'both':
+            try:
+                if not np.allclose( self.data.dispR.pper, self.data.dispR.gper):
+                    raise ValueError('Incompatible period arrays for phase/group!')
+            except AttributeError:
+                raise ValueError('Incompatible period arrays for phase/group!')
         #-------------------------
         # prepare data
         #-------------------------

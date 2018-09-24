@@ -703,9 +703,9 @@ class invhdf5(h5py.File):
             # # #     continue
             # # # if not (np.random.rand() > 0.9 and topovalue<0.):
             # # #     continue
-            # # # if grd_lon != -130. or grd_lat != 60.:
-            # # #     continue
-            # # # return vpr
+            # if grd_lon != -155. or grd_lat != 68.:
+            #     continue
+            # return vpr
             print '--- MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
             if parallel:
                 vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=1.,\
@@ -787,11 +787,12 @@ class invhdf5(h5py.File):
             vpr.read_data(infname = datafname)
             vpr.read_inv_data(infname = invfname, verbose=False)
             # change stdfactor is necessary to make sure enough models are finally accepted
+            # future plan: adaptively change thresh and stdfactor to make accpeted model around a specified value
             # --- added Sep 7th, 2018
             N0          = vpr.ind_thresh.size
             if N0 < Nmin:
                 vpr_temp    = copy.deepcopy(vpr)
-                vrp_temp.stdfactor\
+                vpr_temp.stdfactor\
                             = None
                 vpr_temp.get_thresh_model()
                 N1          = vpr_temp.ind_thresh.size
@@ -807,6 +808,7 @@ class invhdf5(h5py.File):
                         vpr.stdfactor   = None
                         vpr.ind_thresh  = vpr_temp.ind_thresh
                 else:
+                    print '--- NOTE: number of final accpected model =',N1
                     vpr.stdfactor       = None
                     vpr.ind_thresh      = vpr_temp.ind_thresh
             # --- added Sep 7th, 2018
@@ -1344,6 +1346,9 @@ class invhdf5(h5py.File):
         elif cmap == 'cv':
             import pycpt
             cmap        = pycpt.load.gmtColormap('./cv.cpt')
+        elif cmap == 'gmtseis':
+            import pycpt
+            cmap        = pycpt.load.gmtColormap('./GMTseis.cpt')
         else:
             try:
                 if os.path.isfile(cmap):
@@ -1367,16 +1372,16 @@ class invhdf5(h5py.File):
             ny, nx      = etopo.shape
             topodat,xtopo,ytopo = m.transform_scalar(etopo,lons,lats,nx, ny, returnxy=True)
             m.imshow(ls.hillshade(topodat, vert_exag=1., dx=1., dy=1.), cmap='gray')
-            mycm1=pycpt.load.gmtColormap('/home/leon/station_map/etopo1.cpt')
-            mycm2=pycpt.load.gmtColormap('/home/leon/station_map/bathy1.cpt')
+            mycm1       = pycpt.load.gmtColormap('/home/leon/station_map/etopo1.cpt')
+            mycm2       = pycpt.load.gmtColormap('/home/leon/station_map/bathy1.cpt')
             mycm2.set_over('w',0)
             m.imshow(ls.shade(topodat, cmap=mycm1, vert_exag=1., dx=1., dy=1., vmin=0, vmax=8000))
             m.imshow(ls.shade(topodat, cmap=mycm2, vert_exag=1., dx=1., dy=1., vmin=-11000, vmax=-0.5))
         ###################################################################
-        if hillshade:
-            m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
-        else:
-            m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        # if hillshade:
+        #     m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
+        # else:
+        #     m.fillcontinents(lake_color='#99ffff',zorder=0.2)
         if hillshade:
             im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax, alpha=.5)
         else:
@@ -1405,7 +1410,7 @@ class invhdf5(h5py.File):
     
     def plot_horizontal(self, depth, depthb=None, depthavg=None, dtype='avg', is_smooth=True, shpfx=None, clabel='', title='',\
             cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, \
-            lonplt=[], latplt=[], showfig=True):
+            lonplt=[], latplt=[], incat=None, plotevents=False, showfig=True):
         """plot maps from the tomographic inversion
         =================================================================================================================
         ::: input parameters :::
@@ -1466,6 +1471,13 @@ class invhdf5(h5py.File):
         m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
         shapefname  = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
         m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        
+        # shapefname  = '/home/leon/sediments_US/Sedimentary_Basins_of_the_United_States'
+        # m.readshapefile(shapefname, 'sediments', linewidth=2, color='grey')
+        # shapefname  = '/home/leon/AK_sediments/AK_Sedimentary_Basins'
+        # m.readshapefile(shapefname, 'sediments', linewidth=2, color='grey')
+        # shapefname  = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
         if cmap == 'ses3d':
             cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
                             0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
@@ -1501,10 +1513,10 @@ class invhdf5(h5py.File):
             m.imshow(ls.shade(topodat, cmap=mycm1, vert_exag=1., dx=1., dy=1., vmin=0, vmax=8000))
             m.imshow(ls.shade(topodat, cmap=mycm2, vert_exag=1., dx=1., dy=1., vmin=-11000, vmax=-0.5))
         ###################################################################
-        if hillshade:
-            m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
-        else:
-            m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        # if hillshade:
+        #     m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
+        # else:
+        #     m.fillcontinents(lake_color='#99ffff',zorder=0.2)
         
         im          = m.pcolormesh(x, y, mvs, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
@@ -1517,33 +1529,39 @@ class invhdf5(h5py.File):
             xc, yc      = m(lonplt, latplt)
             m.plot(xc, yc,'go', lw = 3)
         ############################################################
-        # evlons  = np.array([])
-        # evlats  = np.array([])
-        # values  = np.array([])
-        # valuetype = 'depth'
-        # cat     = obspy.read_events('alaska_events.xml')
-        # for event in cat:
-        #     event_id    = event.resource_id.id.split('=')[-1]
-        #     porigin     = event.preferred_origin()
-        #     pmag        = event.preferred_magnitude()
-        #     magnitude   = pmag.mag
-        #     Mtype       = pmag.magnitude_type
-        #     otime       = porigin.time
-        #     try:
-        #         evlo        = porigin.longitude
-        #         evla        = porigin.latitude
-        #         evdp        = porigin.depth/1000.
-        #     except:
-        #         continue
-        #     evlons      = np.append(evlons, evlo)
-        #     evlats      = np.append(evlats, evla);
-        #     if valuetype=='depth':
-        #         values  = np.append(values, evdp)
-        #     elif valuetype=='mag':
-        #         values  = np.append(values, magnitude)
-        # ind             = (values >= depth - 5.)*(values<=depth+5.)
-        # x, y            = m(evlons[ind], evlats[ind])
-        # m.plot(x, y, 'ko', ms=3, alpha=0.5)
+        if plotevents or incat is not None:
+            evlons  = np.array([])
+            evlats  = np.array([])
+            values  = np.array([])
+            valuetype = 'depth'
+            if incat is None:
+                print 'Loading catalog'
+                cat     = obspy.read_events('alaska_events.xml')
+                print 'Catalog loaded!'
+            else:
+                cat     = incat
+            for event in cat:
+                event_id    = event.resource_id.id.split('=')[-1]
+                porigin     = event.preferred_origin()
+                pmag        = event.preferred_magnitude()
+                magnitude   = pmag.mag
+                Mtype       = pmag.magnitude_type
+                otime       = porigin.time
+                try:
+                    evlo        = porigin.longitude
+                    evla        = porigin.latitude
+                    evdp        = porigin.depth/1000.
+                except:
+                    continue
+                evlons      = np.append(evlons, evlo)
+                evlats      = np.append(evlats, evla);
+                if valuetype=='depth':
+                    values  = np.append(values, evdp)
+                elif valuetype=='mag':
+                    values  = np.append(values, magnitude)
+            ind             = (values >= depth - 5.)*(values<=depth+5.)
+            x, y            = m(evlons[ind], evlats[ind])
+            m.plot(x, y, 'o', mfc='white', mec='k', ms=3, alpha=0.5)
         # # # 
         # # # if vmax==None and vmin==None:
         # # #     vmax        = values.max()
@@ -1577,11 +1595,11 @@ class invhdf5(h5py.File):
         #########################################################################
         
         # 
-        # xc, yc      = m(np.array([-155, -170]), np.array([56, 60]))
-        # m.plot(xc, yc,'k', lw = 3)
+        # xc, yc      = m(np.array([-160, -145]), np.array([64, 60]))
+        # m.plot(xc, yc,'g', lw = 3)
         # 
-        # xc, yc      = m(np.array([-164]), np.array([59.5]))
-        # m.plot(xc, yc,'x', lw = 3, ms=15)
+        # xc, yc      = m(np.array([-160, -147]), np.array([62, 59]))
+        # m.plot(xc, yc,'k', lw = 3)
         # 
         # xc, yc      = m(np.array([-164.5]), np.array([60.]))
         # m.plot(xc, yc,'x', lw = 3, ms=15)
@@ -1697,10 +1715,10 @@ class invhdf5(h5py.File):
             m.imshow(ls.shade(topodat, cmap=mycm1, vert_exag=1., dx=1., dy=1., vmin=0, vmax=8000))
             m.imshow(ls.shade(topodat, cmap=mycm2, vert_exag=1., dx=1., dy=1., vmin=-11000, vmax=-0.5))
         ###################################################################
-        if hillshade:
-            m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
-        else:
-            m.fillcontinents(lake_color='#99ffff',zorder=0.2)
+        # if hillshade:
+        #     m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
+        # else:
+        #     m.fillcontinents(lake_color='#99ffff',zorder=0.2)
         
         im          = m.pcolormesh(x, y, mvs, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
@@ -1764,10 +1782,8 @@ class invhdf5(h5py.File):
             plt.show()
         return
     
-    
-    
     def plot_vertical_rel(self, lon1, lat1, lon2, lat2, maxdepth, vs_mantle=4.4, plottype = 0, d = 10., dtype='min', is_smooth=True,\
-                      clabel='', cmap='cv', vmin1=3.0, vmax1=4.2, vmin2=-10., vmax2=10., showfig=True, incat=None):
+                      clabel='', cmap='cv', vmin1=3.0, vmax1=4.2, vmin2=-10., vmax2=10., incat=None, dist_thresh=20., showfig=True):
         is_interp   = self.attrs['is_interp']
         if is_smooth:
             mohoArr = self[dtype+'_paraval/12_smooth'].value
@@ -1910,6 +1926,10 @@ class invhdf5(h5py.File):
         # cb      = plt.colorbar()
         # cb.set_label('Vs (km/s)', fontsize=30)
         ############################################################
+        lonlats_arr \
+                = np.asarray(lonlats)
+        lons_arr= lonlats_arr[:, 0]
+        lats_arr= lonlats_arr[:, 1]
         evlons  = np.array([])
         evlats  = np.array([])
         values  = np.array([])
@@ -1920,35 +1940,81 @@ class invhdf5(h5py.File):
             print 'Catalog loaded!'
         else:
             cat     = incat
-        for lon,lat in lonlats:
-            if lon < 0.:
-                lon     += 360.
-            for event in cat:
-                event_id    = event.resource_id.id.split('=')[-1]
-                porigin     = event.preferred_origin()
-                pmag        = event.preferred_magnitude()
-                magnitude   = pmag.mag
-                Mtype       = pmag.magnitude_type
-                otime       = porigin.time
-                try:
-                    evlo        = porigin.longitude
-                    evla        = porigin.latitude
-                    evdp        = porigin.depth/1000.
-                except:
-                    continue
-                if evlo < 0.:
-                    evlo    += 360.
-                if abs(evlo-lon)<0.1 and abs(evla-lat)<0.1:
-                    evlons      = np.append(evlons, evlo)
-                    evlats      = np.append(evlats, evla)
-                    if valuetype=='depth':
-                        values  = np.append(values, evdp)
-                    elif valuetype=='mag':
-                        values  = np.append(values, magnitude)
+        Nevent      = 0
+        for event in cat:
+            event_id    = event.resource_id.id.split('=')[-1]
+            porigin     = event.preferred_origin()
+            pmag        = event.preferred_magnitude()
+            magnitude   = pmag.mag
+            Mtype       = pmag.magnitude_type
+            otime       = porigin.time
+            try:
+                evlo        = porigin.longitude
+                evla        = porigin.latitude
+                evdp        = porigin.depth/1000.
+            except:
+                continue
+            # # # Nevent      += 1
+            # # # print Nevent
+            az, baz, dist \
+                            = g.inv(lons_arr, lats_arr, np.ones(lons_arr.size)*evlo, np.ones(lons_arr.size)*evla)
+            # print dist.min()/1000.
+            if evlo < 0.:
+                evlo        += 360.
+            if dist.min()/1000. < dist_thresh:
+                evlons      = np.append(evlons, evlo)
+                evlats      = np.append(evlats, evla)
+                if valuetype=='depth':
+                    values  = np.append(values, evdp)
+                elif valuetype=='mag':
+                    values  = np.append(values, magnitude)
+            # 
+            # for lon,lat in lonlats:
+            #     if lon < 0.:
+            #         lon     += 360.
+            #     dist, az, baz \
+            #                 = obspy.geodetics.gps2dist_azimuth(lat, lon, evla, evlo)
+            #     # az, baz, dist \
+            #     #             = g.inv(lon, lat, evlo, evla)
+            #     if dist/1000. < 10.:
+            #         evlons      = np.append(evlons, evlo)
+            #         evlats      = np.append(evlats, evla)
+            #     if valuetype=='depth':
+            #         values  = np.append(values, evdp)
+            #     elif valuetype=='mag':
+            #         values  = np.append(values, magnitude)
+            #         break
+ 
+        # # # for lon,lat in lonlats:
+        # # #     if lon < 0.:
+        # # #         lon     += 360.
+        # # #     for event in cat:
+        # # #         event_id    = event.resource_id.id.split('=')[-1]
+        # # #         porigin     = event.preferred_origin()
+        # # #         pmag        = event.preferred_magnitude()
+        # # #         magnitude   = pmag.mag
+        # # #         Mtype       = pmag.magnitude_type
+        # # #         otime       = porigin.time
+        # # #         try:
+        # # #             evlo        = porigin.longitude
+        # # #             evla        = porigin.latitude
+        # # #             evdp        = porigin.depth/1000.
+        # # #         except:
+        # # #             continue
+        # # #         if evlo < 0.:
+        # # #             evlo    += 360.
+        # # #         if abs(evlo-lon)<0.1 and abs(evla-lat)<0.1:
+        # # #             evlons      = np.append(evlons, evlo)
+        # # #             evlats      = np.append(evlats, evla)
+        # # #             if valuetype=='depth':
+        # # #                 values  = np.append(values, evdp)
+        # # #             elif valuetype=='mag':
+        # # #                 values  = np.append(values, magnitude)
+        # print evlons.size
         if plottype == 0:
-            ax2.plot(evlons, values, 'ko', ms=5, alpha=0.8)
+            ax2.plot(evlons, values, 'o', mfc='white', mec='k', ms=5, alpha=0.8)
         else:
-            ax2.plot(evlats, values, 'ko', ms=5, alpha=0.8)
+            ax2.plot(evlats, values, 'o', mfc='white', mec='k', ms=5, alpha=0.8)
         #########################################################################
         ax1.tick_params(axis='y', labelsize=20)
         ax2.tick_params(axis='x', labelsize=20)

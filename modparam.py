@@ -13,6 +13,8 @@ import numba
 import math
 import random
 from scipy.optimize import lsq_linear
+import scipy.interpolate
+import scipy.signal
 
 class para1d(object):
     """
@@ -180,7 +182,7 @@ def bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts):
     obasis      = np.zeros((np.int64(m), np.int64(npts)), dtype = np.float64)
     nbasis      = np.zeros((np.int64(m), np.int64(npts)), dtype = np.float64)
     #-------------------------------- 
-    # computing B spline basis
+    # computing B spline basis functions
     #--------------------------------
     for i in range (m):
         for j in range (npts):
@@ -198,7 +200,7 @@ def bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts):
                 obasis[i][j]= nbasis[i][j]
     nbasis[0][0]            = 1
     nbasis[nBs-1][npts-1]   = 1
-    return nbasis
+    return nbasis, t
 
 
 class isomod(object):
@@ -269,6 +271,9 @@ class isomod(object):
         self.hArr       = np.zeros((self.maxlay, self.nmod), dtype = np.float64)
         # arrays of size maxspl, maxlay, nmod
         self.spl        = np.zeros((self.maxspl, self.maxlay, self.nmod), dtype = np.float64)
+        # added Sep 14th, 2018
+        self.knot_vector= np.zeros((self.maxspl, self.nmod), dtype = np.float64)
+        self.Nknot      = np.zeros((self.nmod), dtype = np.int64)
         return
     
     def readmodtxt(self, infname):
@@ -364,12 +369,19 @@ class isomod(object):
         zmax_Bs     = self.thickness[i]
         disfacBs    = 2.
         npts        = self.nlay[i]
-        nbasis      = bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts)
+        # original
+        # nbasis      = bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts)
+        # modified Sep 14th, 2018 
+        nbasis, t   = bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts)
         m           = nBs-1+degBs
         if m > self.maxspl:
             raise ValueError('number of splines is too large, change default maxspl!')
         self.spl[:nBs, :npts, i]= nbasis[:nBs, :]
         self.isspl[i]           = True
+        # added Sep 14th, 2018
+        self.knot_vector[:(nBs+degBs), i]\
+                                = t
+        self.Nknot[i]           = t.size
         return True
 
     def update(self):
@@ -730,7 +742,7 @@ class isomod(object):
         self.thickness[-1]          = 200. - self.thickness[:-1].sum()
         return
     
-    def isgood(self, m0, m1, g0, g1):
+    def isgood(self, m0, m1, g0, g1, dvs_thresh=0.05):
         """
         check the model is good or not
         ==========================================================================
@@ -763,62 +775,66 @@ class isomod(object):
                 vs1     = self.vs[1:self.nlay[j], j]
                 if np.any(np.greater(vs0, vs1)):
                     return False
-        # gradient check
-        if g0<=g1:
-            for j in range(g0, g1+1):
-                if self.vs[0, j] > self.vs[1, j]:
-                    return False
+        # gradient check, positive gradient
+        # if g0<=g1:
+        #     for j in range(g0, g1+1):
+        #         if self.vs[0, j] > self.vs[1, j]:
+        #             return False
+        # if g0<=g1:
+        #     for j in range(g0, g1+1):
+        #         if self.vs[0, j] < self.vs[1, j]:
+        #             return False
         #--------------------------------------
         # new constraints added, Sep 7th, 2018
         #--------------------------------------
+        # constrain the last layer Vs in crust
+        nlay_crust      = self.nlay[self.nmod-2]
+        if self.vs[nlay_crust-1, self.nmod-2] > 4.3:
+            return False
         # constrain the first layer Vs in mantle
         if self.vs[0, self.nmod-1] > 4.6:
             return False
+        if self.vs[0, self.nmod-1] < 4.0:
+            return False
         # constrain the bottom layer Vs in mantle
         nlay_mantle     = self.nlay[self.nmod-1]
-        if self.vs[nlay_mantle-1, self.nmod-1 ] < 4.3:
+        if self.vs[nlay_mantle-1, self.nmod-1] < 4.3:
+            return False
+        #--------------------------------------
+        # curvature constraints in the mantle
+        #--------------------------------------
+        # Nknot_mantle    = self.Nknot[-1]
+        # t               = self.knot_vector[:Nknot_mantle, -1]
+        # c               = self.para.paraval[6:11]
+        # k               = t.size - c.size - 1
+        # depth           = np.arange(self.nlay[-1])*self.thickness[-1]/float(self.nlay[-1]-1)
+        # bspl            = scipy.interpolate.BSpline(t=t, c=c, k=k)
+        # curvature       = bspl.derivative(2)(depth)
+        # if curvature.max() - curvature.min() > thresh_cur or abs(curvature.max()) > thresh_cur or abs(curvature.min()) > thresh_cur:
+        #     return False
+        #-------------------------------------------------------------------
+        # penalize oscillations with differences in local/maximum extrema 
+        #-------------------------------------------------------------------
+        vs_mantle       = self.vs[:self.nlay[self.nmod-1], self.nmod-1]
+        local_indmax    = scipy.signal.argrelmax(vs_mantle)[0]
+        local_indmin    = scipy.signal.argrelmin(vs_mantle)[0]
+        if local_indmin.size > 0 and local_indmax.size > 0:
+            if local_indmin.size == local_indmax.size:
+                vmin    = vs_mantle[local_indmin]
+                vmax    = vs_mantle[local_indmax]
+            else:
+                Ndiff   = local_indmax.size - local_indmin.size
+                if Ndiff > 0:
+                    vmin    = vs_mantle[local_indmin]
+                    vmax    = vs_mantle[local_indmax[:-Ndiff]]
+                else:
+                    vmin    = vs_mantle[local_indmin[:Ndiff]]
+                    vmax    = vs_mantle[local_indmax]
+            if (vmax-vmin).max() > dvs_thresh*vs_mantle.mean():
+                return False
+        if (vs_mantle.max() - vs_mantle.min()) > 0.15*vs_mantle.mean():
             return False
         return True
-    
-    def get_vmodel_old(self):
-        """
-        get velocity models
-        ==========================================================================
-        ::: output :::
-        hArr, vs, vp, rho, qs, qp
-        ==========================================================================
-        """
-        nlay    = self.nlay.sum()
-        hArr    = np.array([], dtype = np.float64)
-        vs      = np.array([], dtype = np.float64)
-        vp      = np.array([], dtype = np.float64)
-        rho     = np.array([], dtype = np.float64)
-        qs      = np.array([], dtype = np.float64)
-        qp      = np.array([], dtype = np.float64)
-        depth   = np.array([], dtype = np.float64)
-        for i in range(self.nmod):
-            hArr    = np.append(hArr, self.hArr[:self.nlay[i], i])
-            depth   = np.append(depth, (self.hArr[:self.nlay[i], i]).cumsum())
-            if self.mtype[i] == 5:
-                vs      = np.append(vs,  0.)
-                vp      = np.append(vp,  self.cvel[0][i])
-                rho     = np.append(rho, 1.02)
-                qs      = np.append(qs,  10000.)
-                qp      = np.append(qp,  57822.)
-            elif (i == 0 and self.mtype[i] != 5) or (i == 1 and self.mtype[0] == 5):
-                vs      = np.append(vs,  self.vs[:self.nlay[i], i])
-                vp      = np.append(vp,  self.vs[:self.nlay[i], i]*self.vpvs[i])
-                rho     = np.append(rho, 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i])
-                qs      = np.append(qs,  80.*np.ones(self.nlay[i], dtype=np.float64))
-                qp      = np.append(qp,  160.*np.ones(self.nlay[i], dtype=np.float64))
-            else:
-                vs      = np.append(vs,  self.vs[:self.nlay[i], i])
-                vp      = np.append(vp,  self.vs[:self.nlay[i], i]*self.vpvs[i])
-                rho     = np.append(rho, 0.541 + 0.3601*self.vs[:self.nlay[i], i]*self.vpvs[i])
-                qs      = np.append(qs,  600.*np.ones(self.nlay[i], dtype=np.float64))
-                qp      = np.append(qp,  1400.*np.ones(self.nlay[i], dtype=np.float64))
-        rho[vp > 7.5]   = 3.35
-        return hArr, vs, vp, rho, qs, qp, nlay
     
     def get_vmodel(self):
         """

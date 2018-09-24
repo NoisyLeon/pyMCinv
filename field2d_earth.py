@@ -640,6 +640,9 @@ class Field2d(object):
         TLst        = tfield.Zarr.reshape(tfield.Zarr.size)
         lplc        = self.lplc.reshape(self.lplc.size)
         index       = np.where((lplc>-threshold)*(lplc<threshold))[0]
+        # Sep 24th, 2018
+        if index.size == 0:
+            return False
         LonLst      = LonLst[index]
         LatLst      = LatLst[index]
         TLst        = TLst[index]
@@ -672,7 +675,7 @@ class Field2d(object):
         os.remove(grdfile+'.T0.2')
         os.remove(grdfile)
         os.remove(tempGMT)
-        return
+        return True
     
     def check_curvature_amp(self, workingdir, outpfx='', threshold=0.2):
         """
