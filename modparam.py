@@ -471,7 +471,6 @@ class isomod(object):
                 self.hArr[0, i]         = self.thickness[i]
                 self.nlay[i]            = 1
         return True
-
     
     def parameterize_input(self, zarr, vsarr, crtthk, sedthk, topovalue=1., maxdepth=200., vp_water=1.5):
         """
@@ -609,6 +608,55 @@ class isomod(object):
             x                   = lsq_linear(A, b, bounds=(vs0, vs1)).x
             self.cvel[:5, 3]    = x[:]
         return
+    
+    def parameterize_ak135(self, crtthk, sedthk, topovalue=1., maxdepth=200., vp_water=1.5):
+        """
+        use paramerization from ak135
+        ===============================================================================
+        ::: input :::
+        crtthk      - input crustal thickness (unit - km)
+        sedthk      - input sediment thickness (unit - km)
+        maxdepth    - maximum depth for the 1-D profile (default - 200 km)
+        ::: output :::
+        self.thickness  
+        self.numbp      - [2, 4, 5]
+        self.mtype      - [4, 2, 2]
+        self.vpvs       - [2., 1.75, 1.75]
+        self.spl
+        self.cvel       - determined from ak135
+        ===============================================================================
+        """
+        if topovalue < 0.:
+            self.init_arr(4)
+            self.thickness[:]   = np.array([-topovalue, sedthk, crtthk - sedthk, maxdepth - crtthk + topovalue])
+            self.numbp[:]       = np.array([1, 2, 4, 5])
+            self.mtype[:]       = np.array([5, 4, 2, 2])
+            self.vpvs[:]        = np.array([0., 2., 1.75, 1.75])
+        else:
+            self.init_arr(3)
+            self.thickness[:]   = np.array([sedthk, crtthk - sedthk, maxdepth - crtthk])
+            self.numbp[:]       = np.array([2, 4, 5])
+            self.mtype[:]       = np.array([4, 2, 2])
+            self.vpvs[:]        = np.array([2., 1.75, 1.75])
+        self.update_depth()
+        # water layer
+        if topovalue < 0.:
+            self.cvel[0, 0] = vp_water
+        # sediments
+        if topovalue >= 0.:
+            self.cvel[0, 0] = 1.0
+            self.cvel[1, 0] = 1.5
+        else:
+            self.cvel[0, 1] = 1.0
+            self.cvel[1, 1] = 1.5
+        # crust and mantle
+        if topovalue >= 0.:
+            self.cvel[:4, 1]= np.array([3.2, 3.46, 3.85, 3.9])
+            self.cvel[:5, 2]= np.array([4.48,4.49, 4.51, 4.52, 4.6])
+        else:
+            self.cvel[:4, 2]= np.array([3.2, 3.46, 3.85, 3.9])
+            self.cvel[:5, 3]= np.array([4.48,4.49, 4.51, 4.52, 4.6])
+        return
 
     def get_paraind(self):
         """
@@ -702,12 +750,7 @@ class isomod(object):
                 else:
                     valmin  = val - val*self.para.paraindex[2, i]/100.
                     valmax  = val + val*self.para.paraindex[2, i]/100.
-                ###
-                # if self.para.paraindex[0, i] == 1 and i == 12:
-                #     valmin  = 0.
-                #     valmax  = 5.
-                ###
-                valmin      = max (0.,valmin)
+                valmin      = max (0., valmin)
                 valmax      = max (valmin + 0.0001, valmax)
                 if (int(self.para.paraindex[0, i]) == 0 and i == 0 \
                     and int(self.para.paraindex[5, i]) == 0): # if it is the upper sedi:

@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import matplotlib
 import copy
+import numba
 
 def to_percent(y, position):
     # Ignore the passed in position. This has the effect of scaling the default
@@ -24,6 +25,13 @@ def to_percent(y, position):
         return s + r'$\%$'
     else:
         return s + '%'
+@numba.jit(numba.float64[:](numba.float64[:]))
+def _get_running_min(data):
+    N       = data.size
+    outdata = np.zeros(N, dtype=float)
+    for i in range(N):
+        outdata[i]  = data[:(i+1)].min()
+    return outdata
     
 class postvpr(object):
     """
@@ -81,7 +89,7 @@ class postvpr(object):
         self.code       = ''
         return
     
-    def read_inv_data(self, infname, verbose=True):
+    def read_inv_data(self, infname, verbose=True, thresh_misfit=None):
         """
         read inversion results from an input compressed npz file
         """
@@ -98,7 +106,7 @@ class postvpr(object):
         self.misfit     = self.invdata[:, self.npara+3]
         self.min_misfit = self.misfit[self.ind_acc + self.ind_rej].min()
         self.ind_min    = np.where(self.misfit == self.min_misfit)[0][0]
-        self.get_thresh_model()
+        self.get_thresh_model(thresh_misfit = thresh_misfit)
         self.numbacc    = np.where(self.ind_acc)[0].size
         self.numbrej    = np.where(self.ind_rej)[0].size
         if verbose:
@@ -110,11 +118,14 @@ class postvpr(object):
             print 'minimum misfit = '+str(self.min_misfit)
         return
     
-    def get_thresh_model(self):
+    def get_thresh_model(self, thresh_misfit=None):
         """
         get the index for the finalized accepted model
         """
-        thresh_val      = self.min_misfit*self.factor+ self.thresh
+        if thresh_misfit is None:
+            thresh_val  = self.min_misfit*self.factor+ self.thresh
+        else:
+            thresh_val  = thresh_misfit
         ind_thresh      = self.ind_acc*(self.misfit<= thresh_val)
         if self.stdfactor is not None:
             if self.data.dispR.npper > 0:
@@ -265,6 +276,10 @@ class postvpr(object):
         self.avg_misfit = self.vprfwrd.data.misfit
         return
     
+    #------------------------
+    # functions for plotting
+    #------------------------
+    
     def plot_rf(self, title='Receiver function', obsrf=True, minrf=True, avgrf=True, assemrf=True, showfig=True):
         """
         plot receiver functions
@@ -377,7 +392,7 @@ class postvpr(object):
             plt.show()
         return
     
-    def plot_profile(self, title='Vs profile', minvpr=True, avgvpr=True, assemvpr=True, realvpr=False, showfig=True, layer=False):
+    def plot_profile(self, title='Vs profile', alpha=0.01, minvpr=True, avgvpr=True, assemvpr=True, realvpr=False, showfig=True, layer=False):
         """
         plot vs profiles
         =================================================================================================
@@ -400,10 +415,10 @@ class postvpr(object):
                     self.temp_model.get_para_model(paraval=paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
                         numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
                 if layer:
-                    plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=0.01, lw=3)
+                    plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=alpha, lw=3)
                 else:
                     zArr, VsvArr    =  self.temp_model.get_grid_mod()
-                    plt.plot(VsvArr, zArr, '-',color='grey',  alpha=0.01, lw=3)
+                    plt.plot(VsvArr, zArr, '-',color='grey',  alpha=alpha, lw=3)
         if minvpr:
             if layer:
                 plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'y-', lw=3, label='min model')
@@ -573,8 +588,93 @@ class postvpr(object):
             plt.show()
         return
     
-
-    
+    def plot_misfit_evolve(self, is_acc=False, is_runmin=False, step4uwalk=1500, Nplt=1e9, normed=False, \
+                            mininitial=False, alpha=0.5, showfig=True):
+        Ntotal      = self.misfit.size
+        Nuwalk      = int(Ntotal/step4uwalk)
+        if (Nuwalk*step4uwalk - Ntotal) != 0.:
+            raise ValueError('Incompatible number of steps for uniform random walk with the total number of runs!')
+        ax          = plt.subplot()
+        misfit      = np.zeros(step4uwalk)
+        iterations  = np.arange(step4uwalk)+1.
+        if mininitial:
+            ind0    = int(np.ceil(self.ind_min/step4uwalk)*step4uwalk)
+            ind1    = ind0 + step4uwalk
+            misfit  = self.misfit[ind0:ind1]
+            if is_acc:
+                ind_acc = self.ind_acc[ind0:ind1]
+                mt_plt  = misfit[ind_acc]
+                iter_plt= iterations[ind_acc]
+            elif is_runmin:
+                mt_plt  = _get_running_min(misfit)
+                iter_plt= iterations  
+            else:
+                mt_plt  = misfit
+                iter_plt= iterations
+            if normed:
+                plt.plot(iter_plt, mt_plt/mt_plt.min(), '-',  alpha=alpha, lw=2)
+            else:
+                plt.plot(iter_plt, mt_plt, '-',  alpha=alpha, lw=2)
+                
+        for i in range(Nuwalk):
+            if i >= Nplt:
+                break
+            ind0    = i * step4uwalk
+            ind1    = (i+1) * step4uwalk
+            misfit  = self.misfit[ind0:ind1]
+            if is_acc:
+                ind_acc = self.ind_acc[ind0:ind1]
+                mt_plt  = misfit[ind_acc]
+                iter_plt= iterations[ind_acc]
+            elif is_runmin:
+                mt_plt  = _get_running_min(misfit)
+                iter_plt= iterations  
+            else:
+                mt_plt  = misfit
+                iter_plt= iterations
+            if normed:
+                plt.plot(iter_plt, mt_plt/mt_plt.min(), '-',  alpha=alpha, lw=2)
+            else:
+                plt.plot(iter_plt, mt_plt, '-',  alpha=alpha, lw=2)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel('Iterations', fontsize=30)
+        if normed:
+            plt.ylabel('normed misfit', fontsize=30)
+        else:
+            plt.ylabel('misfit', fontsize=30)
+        if showfig:
+            plt.show()
+            
+    def plot_num_threshmodel(self, thresh_misfit=None, step4uwalk=1500, Nplt=1e9, showfig=True):
+        Ntotal      = self.misfit.size
+        Nuwalk      = int(Ntotal/step4uwalk)
+        if thresh_misfit is None:
+            thresh_val  = self.min_misfit*self.factor+ self.thresh
+        else:
+            thresh_val  = thresh_misfit
+        if (Nuwalk*step4uwalk - Ntotal) != 0.:
+            raise ValueError('Incompatible number of steps for uniform random walk with the total number of runs!')
+        ax          = plt.subplot()
+        Nacc_arr    = np.zeros(Nuwalk)
+        for i in range(Nuwalk):
+            if i >= Nplt:
+                break
+            ind0    = i * step4uwalk
+            ind1    = (i+1) * step4uwalk
+            misfit  = self.misfit[ind0:ind1]
+            ind_acc = self.ind_acc[ind0:ind1]
+            Nacc    = np.where(misfit[ind_acc]<thresh_val)[0].size
+            Nacc_arr[i]\
+                    = Nacc
+        plt.plot(Nacc_arr, 'o', lw=2)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel('Initial point index', fontsize=30)
+        plt.ylabel('Number of accepted models', fontsize=30)
+        if showfig:
+            plt.show() 
+            
     
     
     

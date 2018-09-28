@@ -610,12 +610,14 @@ class invhdf5(h5py.File):
     # function for MC inversion runs
     #==================================================================
     
-    def mc_inv_iso(self, ingrdfname=None, phase=True, group=False, outdir='./workingdir', vp_water=1.5, monoc=True,
-            verbose=False, step4uwalk=1500, numbrun=15000, subsize=1000, nprocess=None, parallel=True, skipmask=True):
+    def mc_inv_iso(self, use_ref=False, ingrdfname=None, phase=True, group=False, outdir='./workingdir', vp_water=1.5, monoc=True,
+            verbose=False, step4uwalk=1500, numbrun=15000, subsize=1000, nprocess=None, parallel=True, skipmask=True,\
+            Ntotalruns=10, misfit_thresh=1., Nmodelthresh=200):
         """
         Bayesian Monte Carlo inversion of surface wave data for an isotropic model
         ==================================================================================================================
         ::: input :::
+        use_ref     - use reference input model or not(default = False, use ak135 instead)
         ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
         phase/group - include phase/group velocity dispersion data or not
         outdir      - output directory
@@ -627,6 +629,13 @@ class invhdf5(h5py.File):
         nprocess    - number of process
         parallel    - run the inversion in parallel or not
         skipmask    - skip masked grid points or not
+        Ntotalruns      - number of times of total runs, the code would run at most numbrun*Ntotalruns iterations
+        misfit_thresh   - threshold misfit value to determine "good" models
+        Nmodelthresh    - required number of "good" models
+        ---
+        version history:
+                    - Added the functionality of adding addtional runs if not enough good models found, Sep 28th, 2018
+                    - Added the functionality of using ak135 model as intial model, Sep 28th, 2018
         ==================================================================================================================
         """
         if not os.path.isdir(outdir):
@@ -689,12 +698,16 @@ class invhdf5(h5py.File):
             #-----------------------------
             # initial model parameters
             #-----------------------------
-            vsdata              = self[grd_id+'/reference_vs'].value
             crtthk              = self[grd_id].attrs['crust_thk']
             sedthk              = self[grd_id].attrs['sedi_thk']
             topovalue           = self[grd_id].attrs['topo']
-            vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk,\
+            if use_ref:
+                vsdata          = self[grd_id+'/reference_vs'].value
+                vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk,\
                             topovalue=topovalue, maxdepth=200., vp_water=vp_water)
+            else:
+                vpr.model.isomod.parameterize_ak135(crtthk=crtthk, sedthk=sedthk, topovalue=topovalue, \
+                        maxdepth=200., vp_water=vp_water)
             vpr.getpara()
             # # # if np.random.rand() > 0.9 and topovalue<0.:
             # # #     print grd_id
@@ -703,13 +716,14 @@ class invhdf5(h5py.File):
             # # #     continue
             # # # if not (np.random.rand() > 0.9 and topovalue<0.):
             # # #     continue
-            # if grd_lon != -155. or grd_lat != 68.:
-            #     continue
-            # return vpr
+            # # # if grd_lon != -145 or grd_lat != 60.:
+            # # #     continue
+            # # # return vpr
             print '--- MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
             if parallel:
-                vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=1.,\
-                   monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, subsize=subsize, nprocess=nprocess)
+                vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=1., Ntotalruns=Ntotalruns, \
+                    misfit_thresh=misfit_thresh, Nmodelthresh=Nmodelthresh, monoc=monoc, pfx=grd_id, verbose=verbose,\
+                        step4uwalk=step4uwalk, numbrun=numbrun, subsize=subsize, nprocess=nprocess)
             else:
                 vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=1., \
                    monoc=monoc, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
@@ -718,7 +732,7 @@ class invhdf5(h5py.File):
     #==================================================================
     # function to read MC inversion results
     #==================================================================
-    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5, stdfactor=2, skipmask=True, avgqc=True, Nmin=500):
+    def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5, stdfactor=2, skipmask=True, avgqc=True, Nmin=100):
         """
         read the inversion results in to data base
         ==================================================================================================================
@@ -730,6 +744,7 @@ class invhdf5(h5py.File):
                         misfit < min_misfit*factor + thresh
         skipmask    - skip masked grid points or not
         avgqc       - turn on quality control for average model or not
+        Nmin        - required minimum number of accepted model
         ::: NOTE :::
         mask_inv array will be updated according to the existence of inversion results
         ==================================================================================================================
@@ -905,11 +920,15 @@ class invhdf5(h5py.File):
                 # print 'WARNING: grid data N/A at: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
             try:
-                paraval             = grp[dtype+'_paraval'].value
+                paraval                 = grp[dtype+'_paraval'].value
             except KeyError:
                 # print 'WARNING: no data at grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
-            data[ind_lat, ind_lon]  = paraval[pindex]
+            try:
+                float(pindex)
+                data[ind_lat, ind_lon]  = paraval[pindex]
+            except ValueError:
+                data[ind_lat, ind_lon]  = grp.attrs[pindex]
             if isthk:
                 topovalue               = grp.attrs['topo']
                 data[ind_lat, ind_lon]  = data[ind_lat, ind_lon] - topovalue
@@ -1298,7 +1317,7 @@ class invhdf5(h5py.File):
          
     def plot_paraval(self, pindex, is_smooth=True, dtype='avg', sigma=1, width = 50., \
             ingrdfname=None, isthk=False, shpfx=None, outfname=None, clabel='', cmap='cv', \
-                projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
+                projection='lambert', lonplt=[], latplt=[], hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
         """
         plot the one given parameter in the paraval array
         ===================================================================================================
@@ -1320,9 +1339,20 @@ class invhdf5(h5py.File):
         ===================================================================================================
         """
         is_interp       = self.attrs['is_interp']
+        if pindex is 'min_misfit' or pindex is 'avg_misfit':
+            is_interp   = False
         data, data_smooth\
                         = self.get_smooth_paraval(pindex=pindex, dtype=dtype,\
                             sigma=sigma, width = width, isthk=isthk, do_interp=is_interp)
+        # return data
+        if pindex is 'min_misfit' or pindex is 'avg_misfit':
+            indmin      = np.where(data==data.min())
+            print indmin
+            print 'minimum overall misfit = '+str(data.min())+' longitude/latitude ='\
+                        + str(self.lonArr[indmin[0], indmin[1]])+'/'+str(self.latArr[indmin[0], indmin[1]])
+            indmax      = np.where(data==data.max())
+            print 'maximum overall misfit = '+str(data.max())+' longitude/latitude ='\
+                        + str(self.lonArr[indmax[0], indmax[1]])+'/'+str(self.latArr[indmax[0], indmax[1]])
         if is_interp:
             mask        = self.attrs['mask_interp']
         else:
@@ -1393,6 +1423,9 @@ class invhdf5(h5py.File):
         cb.draw_all()
         # # cb.solids.set_rasterized(True)
         cb.solids.set_edgecolor("face")
+        if len(lonplt) > 0 and len(lonplt) == len(latplt): 
+            xc, yc      = m(lonplt, latplt)
+            m.plot(xc, yc,'go', lw = 3)
         # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()

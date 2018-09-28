@@ -1,5 +1,6 @@
 
 import surfdbase
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180919_3d.h5')
 import copy
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180902_3d.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180907.h5')
@@ -7,18 +8,21 @@ import copy
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180915.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180917.h5')
 # 
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180919.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180919_single.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180919.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180919_3d.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180822_3d.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20180928.h5')
 #-------------------------
 # before inversion
 #-------------------------
 # dset.read_raytomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2, Tmin=8., Tmax=50.)
 # dset.read_crust_thickness()
 # dset.read_sediment_thickness()
-# dset.read_CU_model()
+# # dset.read_CU_model()
 # dset.read_etopo(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
-# # # 
-# # # # # # group
+# # # # 
+# # # group
 # dset.read_raytomo_dbase_group(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_20180823_gr.h5', runid=2, Tmin=8., Tmax=50.)
 
 # #-------------------------
@@ -33,23 +37,31 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # # dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180917_150000_both',
 # #                 numbrun=150000, nprocess=35, verbose=False, group=True)
 # 
-# dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180919_150000_both',
-#                 numbrun=150000, nprocess=35, verbose=False, group=True)
+dset.mc_inv_iso(use_ref=False, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180928_150000_both',
+                numbrun=150000, nprocess=35, verbose=False, group=True)
 
 # dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180915_150000_both',
 #                 numbrun=150000, nprocess=35, verbose=False, group=False)
 
+
+
 # vpr = dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180919_150000_both',
 #                 numbrun=150000, nprocess=30, verbose=False, group=True)
-# # vpr_ph          = copy.deepcopy(vpr)
-# # vpr_ph.data.dispR.isgroup  \
-# #                 = False
-# # 
-# # vpr_gr          = copy.deepcopy(vpr)
-# # vpr_gr.data.dispR.isphase  \
-# #                 = False
-# 
-# vpr.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='BOTH', wdisp=1., nprocess=35, verbose=True, numbrun=150000)
+
+# vpr = dset.mc_inv_iso(outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180928_150000_both',
+#                 numbrun=150000, nprocess=30, verbose=False, group=True)
+
+
+# # # # vpr_ph          = copy.deepcopy(vpr)
+# # # # vpr_ph.data.dispR.isgroup  \
+# # # #                 = False
+# # # # 
+# # # # vpr_gr          = copy.deepcopy(vpr)
+# # # # vpr_gr.data.dispR.isphase  \
+# # # #                 = False
+# # # 
+# vpr.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='BOTH', wdisp=1., nprocess=35, verbose=True, numbrun=150000, step4uwalk=1500)
+# vpr.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='BOTH', wdisp=1., nprocess=8, verbose=True, numbrun=150000)
 # vpr_gr.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='GR', wdisp=1., nprocess=35, verbose=True, numbrun=150000)
 # vpr_ph.mc_joint_inv_iso_mp(outdir='./workingdir', dispdtype='both', pfx='PH', wdisp=1., nprocess=35, verbose=True, numbrun=150000)
 #-------------------------

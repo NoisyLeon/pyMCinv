@@ -1,6 +1,6 @@
 import mcpost
 import numpy as np
-vpr = mcpost.postvpr(thresh=0.2)
+# vpr = mcpost.postvpr(thresh=0.2)
 # # vpr.read_inv_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results/mc_inv.TA.TOLK.npz')
 # # vpr.read_data('/scratch/summit/life9360/ALASKA_work/mc_inv_files/mc_results/mc_data.TA.TOLK.npz')
 # 
@@ -43,11 +43,10 @@ vpr = mcpost.postvpr(thresh=0.2)
 # vpr.read_data('synthetic_working/mc_data.CU.LF.npz')
 
 
-vpr = mcpost.postvpr(thresh=0.5, factor=1.)
+vpr = mcpost.postvpr(thresh=0.5, factor=1., stdfactor=20.)
 vpr.read_data('/home/leon/code/pyMCinv/workingdir/mc_data.BOTH.npz')
+# vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.BOTH.npz', thresh_misfit=1.)
 vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.BOTH.npz')
-
-
 vpr.get_vmodel()
 
 # vpr = mcpost.postvpr(thresh=0.5, factor=1.)
@@ -64,3 +63,9 @@ vpr.get_vmodel()
 # vpr_gr.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.GR.npz')
 # vpr_gr.read_data('/home/leon/code/pyMCinv/workingdir/mc_data.BOTH.npz')
 # vpr_gr.get_vmodel()
+
+# vpr = mcpost.postvpr(thresh=0.5, factor=1., stdfactor=3.)
+# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180919_150000_both/mc_inv.206.0_64.5.npz')
+# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20180919_150000_both/mc_data.206.0_64.5.npz')
+# vpr.get_vmodel()
+
