@@ -11,6 +11,17 @@ Module for handling input data for Bayesian Monte Carlo inversion.
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import numba
+
+@numba.jit(numba.float64(numba.float64[:], numba.int64))
+def _fast_compute_expect_misfit(stdarr, N):
+    temp    = 0
+    Ndata   = stdarr.size
+    for i in range(N):
+        temp_misfit = np.sqrt(((np.random.normal(scale=stdarr))**2/stdarr**2).sum()/Ndata)
+        temp        +=temp_misfit
+    expected_misfit = temp/N
+    return expected_misfit
 
 class rf(object):
     """
@@ -618,36 +629,28 @@ class disp(object):
             tS                  = np.sqrt(tS*50.)
         self.pL                 = np.exp(-0.5 * tS)
         return
-# #    
-#     cpdef get_res_tti(self):
-#         cdef float[:] r1, r2, r3    
-#         cdef Py_ssize_t i
-#         cdef float phidiff
-#         
-#         r1   = np.zeros(self.npper, dtype=np.float64)
-#         r2   = np.zeros(self.npper, dtype=np.float64)
-#         r3   = np.zeros(self.npper, dtype=np.float64)
-#         for i in range(self.npper):
-#             r1[i]   = (self.pvelo[i] - self.pvelp[i])/self.stdpvelo[i]
-#             print r1[i]
-#             r2[i]   = (self.pampo[i] - self.pampp[i])/self.stdpampo[i]
-#             print r2[i]
-#             phidiff = abs(self.pphio[i] - self.pphip[i])
-#             if phidiff > 90.:
-#                 phidiff = 180. - phidiff
-#             r3[i]   = phidiff/self.stdpphio[i]
-#             print r3[i]
-#         return r1, r2, r3
-#     
-#     cpdef get_res_pvel(self):
-#         cdef float[:] r  
-#         cdef Py_ssize_t i
-#         
-#         r           = np.zeros(self.npper, dtype=np.float64)
-#         for i in range(self.npper):
-#             r[i]    = (self.pvelo[i] - self.pvelp[i])/self.stdpvelo[i]
-#         return r
-# # 
+
+    def expected_misfit(self):
+        # misfit for phase velocities
+        stdarr      = np.array([], dtype=np.float64)
+        if self.isphase: # isphase is determined when reading phase velocity data
+            stdarr  = np.append(stdarr, self.stdpvelo)
+        if self.isgroup: # isgroup is determined when reading group velocity data
+            stdarr  = np.append(stdarr, self.stdgvelo)
+        
+        # self.exp_misfit\
+        #             = _fast_compute_expect_misfit(stdarr, 1000000)
+        # temp1           = 0.
+        # temp2           = 0.
+        # if self.isphase: # isphase is determined when reading phase velocity data
+        #     temp1       += ((np.random.normal(scale=self.stdpvelo))**2/self.stdpvelo**2).sum()
+        # # misfit for group velocities
+        # if self.isgroup: # isgroup is determined when reading group velocity data
+        #     temp2       += ((np.random.normal(scale=self.stdgvelo))**2/self.stdgvelo**2).sum()
+        # # misfit for both
+        # temp            = temp1 + temp2
+        # self.exp_misfit = np.sqrt(temp/(self.npper+self.ngper))
+        return 
         
 class data1d(object):
     """

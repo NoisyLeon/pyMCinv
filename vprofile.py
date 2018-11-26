@@ -241,10 +241,18 @@ class vprofile1d(object):
             self.TRpiso     = self.data.dispR.pper.copy()
         if self.data.dispR.ngper>0:
             self.TRgiso     = self.data.dispR.gper.copy()
+        # added 11/05/2018
+        if self.data.dispR.npper>0 and self.data.dispR.ngper>0:
+            if not np.allclose(self.TRpiso[:self.data.dispR.ngper], self.TRgiso):
+                raise ValueError('incompatible phase/group periods!')
         if self.data.dispL.npper>0:
             self.TLpiso     = self.data.dispL.pper.copy()
         if self.data.dispL.ngper>0:
             self.TLgiso     = self.data.dispL.gper.copy()
+        # added 11/05/2018
+        if self.data.dispL.npper>0 and self.data.dispL.ngper>0:
+            if not np.allclose(self.TLpiso[:self.data.dispL.ngper], self.TLgiso):
+                raise ValueError('incompatible phase/group periods!')
         return
 
     def compute_fsurf(self, wtype='ray'):
@@ -267,7 +275,8 @@ class vprofile1d(object):
             (ur0,ul0,cr0,cl0)       = fast_surf.fast_surf(self.model.nlay, ilvry, \
                                         self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
             self.data.dispR.pvelp   = cr0[:nper]
-            self.data.dispR.gvelp   = ur0[:nper]
+            # modified 11/05/2018
+            self.data.dispR.gvelp   = ur0[:self.data.dispR.ngper]
             # replace NaN value with oberved value
             # added Aug 30th, 2018
             index_nan               = np.isnan(self.data.dispR.gvelp)
@@ -355,7 +364,7 @@ class vprofile1d(object):
     #-------------------------------------------------
     
     def mc_joint_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., numbcheck=None, misfit_thresh=1., \
-                   monoc=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, init_run=True, savedata=True):
+                   isconstrt=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, init_run=True, savedata=True):
         """
         Bayesian Monte Carlo joint inversion of receiver function and surface wave data for an isotropic model
         =================================================================================================================
@@ -366,7 +375,7 @@ class vprofile1d(object):
         rffactor        - factor for downweighting the misfit for likelihood computation of rf
         numbcheck       - number of runs that a checking of misfit value should be performed
         misfit_thresh   - threshold misfit value for checking
-        monoc           - require monotonical increase in the crust or not
+        isconstrt       - require model constraints or not
         pfx             - prefix for output, typically station id
         step4uwalk      - step interval for uniform random walk in the parameter space
         numbrun         - total number of runs
@@ -389,12 +398,6 @@ class vprofile1d(object):
         self.get_period()
         self.update_mod(mtype = 'iso')
         self.get_vmodel(mtype = 'iso')
-        if dispdtype == 'both':
-            try:
-                if not np.allclose( self.data.dispR.pper, self.data.dispR.gper):
-                    raise ValueError('Incompatible period arrays for phase/group!')
-            except AttributeError:
-                raise ValueError('Incompatible period arrays for phase/group!')
         # output arrays
         outmodarr       = np.zeros((numbrun, self.model.isomod.para.npara+9)) # original
         outdisparr_ph   = np.zeros((numbrun, self.data.dispR.npper))
@@ -402,9 +405,9 @@ class vprofile1d(object):
         outrfarr        = np.zeros((numbrun, self.data.rfr.npts))
         # initial run
         if init_run:
-            if wdisp > 0.:
+            if wdisp > 0. and wdisp <= 1.:
                 self.compute_fsurf()
-            if wdisp < 1.:
+            if wdisp < 1. and wdisp >= 0.:
                 self.compute_rftheo()
             self.get_misfit(wdisp=wdisp, rffactor=rffactor)
             # write initial model
@@ -483,18 +486,19 @@ class vprofile1d(object):
             # checking misfit after numbcheck runs
             # added Sep 27th, 2018
             #-----------------------------------------
-            if np.fmod(inew, step4uwalk) > numbcheck and not misfitchecked:
-                ind0            = int(np.ceil(inew/step4uwalk)*step4uwalk)
-                ind1            = inew-1
-                temp_min_misfit = outmodarr[ind0:ind1, self.model.isomod.para.npara+3].min()
-                if temp_min_misfit == 0.:
-                    raise ValueError('Error!')
-                if temp_min_misfit > misfit_thresh:
-                    # # # print 'min_misfit ='+str(temp_min_misfit)
-                    inew        = int(np.ceil(inew/step4uwalk)*step4uwalk) + step4uwalk
-                    if inew > numbrun:
-                        break
-                misfitchecked   = True
+            if (wdisp >= 0. and wdisp <=1.):
+                if np.fmod(inew, step4uwalk) > numbcheck and not misfitchecked:
+                    ind0            = int(np.ceil(inew/step4uwalk)*step4uwalk)
+                    ind1            = inew-1
+                    temp_min_misfit = outmodarr[ind0:ind1, self.model.isomod.para.npara+3].min()
+                    if temp_min_misfit == 0.:
+                        raise ValueError('Error!')
+                    if temp_min_misfit > misfit_thresh:
+                        # # # print 'min_misfit ='+str(temp_min_misfit)
+                        inew        = int(np.ceil(inew/step4uwalk)*step4uwalk) + step4uwalk
+                        if inew > numbrun:
+                            break
+                    misfitchecked   = True
             if (np.fmod(inew, 500) == 0) and verbose:
                 print pfx, 'step =',inew, 'elasped time =', time.time()-start,' sec'
             #------------------------------------------------------------------------------------------
@@ -532,9 +536,9 @@ class vprofile1d(object):
                 self.model.isomod   = newmod
                 self.get_vmodel()
                 # forward computation
-                if wdisp > 0.:
+                if wdisp > 0. and wdisp <= 1.:
                     self.compute_fsurf()
-                if wdisp < 1.:
+                if wdisp < 1. and wdisp >= 1.:
                     self.compute_rftheo()
                 self.get_misfit(wdisp=wdisp, rffactor=rffactor)
                 oldL                = self.data.L
@@ -550,7 +554,7 @@ class vprofile1d(object):
                 newmod.para.new_paraval(1)
                 newmod.para2mod()
                 newmod.update()
-                if monoc:
+                if isconstrt:
                     # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
                     # loop to find the "good" model, added on May 3rd, 2018
                     m0  = 0
@@ -648,23 +652,51 @@ class vprofile1d(object):
                 oldmisfit   = newmisfit
                 iacc        += 1
                 continue
-            # # # else:
-            # # #     if monoc:
-            # # #         newmod  = self.model.isomod.copy()
-            # # #         newmod.para.new_paraval(1)
-            # # #         newmod.para2mod()
-            # # #         newmod.update()
-            # # #         if not newmod.isgood(0, 1, 1, 0):
-            # # #             continue
-            # # #     else:
-            # # #         newmod  = self.model.isomod.copy()
-            # # #         newmod.para.new_paraval(0)
-            # # #     fidout.write("-2 %d 0 " % inew)
-            # # #     for i in xrange(newmod.para.npara):
-            # # #         fidout.write("%g " % newmod.para.paraval[i])
-            # # #     fidout.write("\n")
-            # # #     self.model.isomod   = newmod
-            # # #     continue
+            else:
+                newmod      = copy.deepcopy(self.model.isomod)
+                newmod.para.new_paraval(1)
+                newmod.para2mod()
+                newmod.update()
+                if isconstrt:
+                    # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
+                    # loop to find the "good" model, added on May 3rd, 2018
+                    m0  = 0
+                    m1  = 1
+                    # satisfying the constraint (7) in Shen et al., 2012
+                    if wdisp >= 1.:
+                        g0  = 2
+                        g1  = 2
+                    else:
+                        g0  = 1
+                        g1  = 0
+                    if newmod.mtype[0] == 5: # water layer, added May 16th, 2018
+                        m0  += 1
+                        m1  += 1
+                        g0  += 1
+                        g1  += 1
+                    itemp   = 0
+                    while (not newmod.isgood(m0, m1, g0, g1)) and itemp < 5000:
+                        itemp       += 1
+                        newmod      = copy.deepcopy(self.model.isomod)
+                        newmod.para.new_paraval(1)
+                        newmod.para2mod()
+                        newmod.update()
+                    if not newmod.isgood(m0, m1, g0, g1):
+                        print 'No good model found!'
+                        continue
+                self.model.isomod   = newmod
+                # accept the new model
+                outmodarr[inew-1, 0]                        = 1 # index for acceptance
+                outmodarr[inew-1, 1]                        = iacc
+                outmodarr[inew-1, 2:(newmod.para.npara+2)]  = newmod.para.paraval[:]
+                outmodarr[inew-1, newmod.para.npara+2]      = 1.
+                outmodarr[inew-1, newmod.para.npara+3]      = 0
+                outmodarr[inew-1, newmod.para.npara+4]      = self.data.rfr.L
+                outmodarr[inew-1, newmod.para.npara+5]      = self.data.rfr.misfit
+                outmodarr[inew-1, newmod.para.npara+6]      = self.data.dispR.L
+                outmodarr[inew-1, newmod.para.npara+7]      = self.data.dispR.misfit
+                outmodarr[inew-1, newmod.para.npara+8]      = time.time()-start
+                continue
         #-----------------------------------
         # write results to binary npz files
         #-----------------------------------
@@ -710,7 +742,7 @@ class vprofile1d(object):
         del outrfarr
         return
     
-    def mc_joint_inv_iso_mp(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., monoc=True, pfx='MC', \
+    def mc_joint_inv_iso_mp(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., isconstrt=True, pfx='MC', \
             verbose=False, step4uwalk=1500, numbrun=15000, savedata=True, subsize=1000, nprocess=None, merge=True, \
                 Ntotalruns=10, misfit_thresh=1., Nmodelthresh=200):
         """
@@ -721,7 +753,7 @@ class vprofile1d(object):
         disptype        - type of dispersion curves (ph/gr/both, default - ph)
         wdisp           - weight of dispersion curve data (0. ~ 1.)
         rffactor        - factor for downweighting the misfit for likelihood computation of rf
-        monoc           - require monotonical increase in the crust or not
+        isconstrt       - require monotonical increase in the crust or not
         pfx             - prefix for output, typically station id
         step4uwalk      - step interval for uniform random walk in the parameter space
         numbrun         - total number of runs
@@ -739,12 +771,6 @@ class vprofile1d(object):
         """
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
-        if dispdtype == 'both':
-            try:
-                if not np.allclose( self.data.dispR.pper, self.data.dispR.gper):
-                    raise ValueError('Incompatible period arrays for phase/group!')
-            except AttributeError:
-                raise ValueError('Incompatible period arrays for phase/group!')
         #-------------------------
         # prepare data
         #-------------------------
@@ -774,21 +800,21 @@ class vprofile1d(object):
                     print 'Subset:', isub,'in',Nsub,'sets'
                     cvpr_lst        = vpr_lst[isub*subsize:(isub+1)*subsize]
                     MCINV           = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
-                                        monoc=monoc, pfx=pfx, verbose=verbose, numbrun=step4uwalk)
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk)
                     pool            = multiprocessing.Pool(processes=nprocess)
                     pool.map(MCINV, cvpr_lst) #make our results with a map call
                     pool.close() #we are not adding any more processes
                     pool.join() #tell it to wait until all threads are done before going on
                 cvpr_lst            = vpr_lst[(isub+1)*subsize:]
                 MCINV               = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
-                                        monoc=monoc, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
                 pool                = multiprocessing.Pool(processes=nprocess)
                 pool.map(MCINV, cvpr_lst) #make our results with a map call
                 pool.close() #we are not adding any more processes
                 pool.join() #tell it to wait until all threads are done before going on
             else:
                 MCINV               = partial(mc4mp, outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor,\
-                                        monoc=monoc, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
                 pool                = multiprocessing.Pool(processes=nprocess)
                 pool.map(MCINV, vpr_lst) #make our results with a map call
                 pool.close() #we are not adding any more processes
@@ -881,13 +907,13 @@ class vprofile1d(object):
             print 'Elapsed time: '+str(etime-stime)+' secs'
         return
         
-def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, monoc, pfx, verbose, numbrun, misfit_thresh):
+def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, isconstrt, pfx, verbose, numbrun, misfit_thresh):
     # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor, misfit_thresh=misfit_thresh, \
-                       monoc=monoc, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
+                       isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
     else:
         invpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor, misfit_thresh=misfit_thresh, \
-                       monoc=monoc, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
+                       isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
     return 

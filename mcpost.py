@@ -15,6 +15,7 @@ from matplotlib.ticker import FuncFormatter
 import matplotlib
 import copy
 import numba
+import os
 
 def to_percent(y, position):
     # Ignore the passed in position. This has the effect of scaling the default
@@ -89,7 +90,7 @@ class postvpr(object):
         self.code       = ''
         return
     
-    def read_inv_data(self, infname, verbose=True, thresh_misfit=None):
+    def read_inv_data(self, infname, verbose=True, thresh_misfit=None, Nmax=None, Nmin=None):
         """
         read inversion results from an input compressed npz file
         """
@@ -106,7 +107,7 @@ class postvpr(object):
         self.misfit     = self.invdata[:, self.npara+3]
         self.min_misfit = self.misfit[self.ind_acc + self.ind_rej].min()
         self.ind_min    = np.where(self.misfit == self.min_misfit)[0][0]
-        self.get_thresh_model(thresh_misfit = thresh_misfit)
+        self.get_thresh_model(thresh_misfit = thresh_misfit, Nmax = Nmax, Nmin = Nmin)
         self.numbacc    = np.where(self.ind_acc)[0].size
         self.numbrej    = np.where(self.ind_rej)[0].size
         if verbose:
@@ -118,15 +119,37 @@ class postvpr(object):
             print 'minimum misfit = '+str(self.min_misfit)
         return
     
-    def get_thresh_model(self, thresh_misfit=None):
+    def get_thresh_model(self, thresh_misfit=None, Nmax=None, Nmin=None):
         """
         get the index for the finalized accepted model
+        adaptively change thresh and stdfactor to make accpeted model around a specified value(Nmin ~ Nmax)
         """
         if thresh_misfit is None:
             thresh_val  = self.min_misfit*self.factor+ self.thresh
         else:
             thresh_val  = thresh_misfit
         ind_thresh      = self.ind_acc*(self.misfit<= thresh_val)
+        # ind_thresh      = (self.misfit<= thresh_val)
+        # added 09/07/2018
+        # while loop to adjust threshold misfit value according to Nmax/Nmin
+        if Nmax is not None:
+            Nacc                = np.where(self.ind_acc)[0].size
+            if Nmax > Nacc:
+                print 'WARNING: Nmax is reset from '+str(Nmax)+' to '+str(Nacc)
+                Nmax            = Nacc
+            temp_ind            = np.where(ind_thresh)[0]
+            while (temp_ind.size > Nmax):
+                thresh_val      -= 0.05
+                ind_thresh      = self.ind_acc*(self.misfit<= thresh_val)
+                temp_ind        = np.where(ind_thresh)[0]
+        if Nmin is not None:
+            temp_ind            = np.where(ind_thresh)[0]
+            while (temp_ind.size < Nmin):
+                thresh_val      += 0.05
+                ind_thresh      = self.ind_acc*(self.misfit<= thresh_val)
+                temp_ind        = np.where(ind_thresh)[0]
+        self.thresh_val         = thresh_val
+        ind_thresh_temp         = ind_thresh.copy()
         if self.stdfactor is not None:
             if self.data.dispR.npper > 0:
                 cmax    = self.data.dispR.pvelo + self.stdfactor*self.data.dispR.stdpvelo
@@ -142,6 +165,28 @@ class postvpr(object):
                         =  ind_thresh * np.all(self.disppre_gr <= umax, axis=1)
                 ind_thresh   \
                         =  ind_thresh * np.all(self.disppre_gr >= umin, axis=1)
+            # added 09/07/2018
+            # while loop to adjust threshold misfit value according to Nmax/Nmin
+            if Nmin is not None:
+                temp_ind= np.where(ind_thresh)[0]
+                while (temp_ind.size < Nmin):
+                    self.stdfactor  += 0.5
+                    ind_thresh      = ind_thresh_temp.copy()
+                    if self.data.dispR.npper > 0:
+                        cmax    = self.data.dispR.pvelo + self.stdfactor*self.data.dispR.stdpvelo
+                        cmin    = self.data.dispR.pvelo - self.stdfactor*self.data.dispR.stdpvelo
+                        ind_thresh   \
+                                =  ind_thresh * np.all(self.disppre_ph <= cmax, axis=1)
+                        ind_thresh   \
+                                =  ind_thresh * np.all(self.disppre_ph >= cmin, axis=1)
+                    if self.data.dispR.ngper > 0:
+                        umax    = self.data.dispR.gvelo + self.stdfactor*self.data.dispR.stdgvelo
+                        umin    = self.data.dispR.gvelo - self.stdfactor*self.data.dispR.stdgvelo
+                        ind_thresh   \
+                                =  ind_thresh * np.all(self.disppre_gr <= umax, axis=1)
+                        ind_thresh   \
+                                =  ind_thresh * np.all(self.disppre_gr >= umin, axis=1)
+                    temp_ind        = np.where(ind_thresh)[0]
         self.ind_thresh = np.where(ind_thresh)[0]
         return
     
@@ -244,11 +289,11 @@ class postvpr(object):
         if self.data.dispR.npper>0:
             self.vprfwrd.TRpiso = self.data.dispR.pper.copy()
         if self.data.dispR.ngper>0:
-            self.vprfwrd.TRpiso = self.data.dispR.gper.copy()
+            self.vprfwrd.TRgiso = self.data.dispR.gper.copy()
         if self.data.dispL.npper>0:
             self.vprfwrd.TLpiso = self.data.dispL.pper.copy()
         if self.data.dispL.ngper>0:
-            self.vprfwrd.TLpiso = self.data.dispL.gper.copy()
+            self.vprfwrd.TLgiso = self.data.dispL.gper.copy()
         return
     
     def run_avg_fwrd(self, wdisp=0.2):
@@ -318,7 +363,7 @@ class postvpr(object):
         return
     
     def plot_disp(self, title='Dispersion curves', obsdisp=True, mindisp=True, avgdisp=True, assemdisp=True,\
-                  disptype='ph', alpha=0.05, showfig=True):
+                  disptype='ph', alpha=0.05, showfig=True, savefig=False, fname=None):
         """
         plot phase/group dispersion curves
         =================================================================================================
@@ -330,7 +375,7 @@ class postvpr(object):
         assemdisp   - plot the dispersion curves corresponding to the assemble of accepted models or not 
         =================================================================================================
         """
-        plt.figure()
+        plt.figure(figsize=[18, 9.6])
         ax  = plt.subplot()
         if assemdisp:
             for i in self.ind_thresh:
@@ -388,11 +433,17 @@ class postvpr(object):
             plt.ylabel('Velocity (km/s)', fontsize=30)
         plt.title(title+' '+self.code, fontsize=30)
         plt.legend(loc=0, fontsize=20)
+        if savefig:
+            if fname is None:
+                plt.savefig('disp.jpg')
+            else:
+                plt.savefig(fname)
         if showfig:
             plt.show()
         return
     
-    def plot_profile(self, title='Vs profile', alpha=0.01, minvpr=True, avgvpr=True, assemvpr=True, realvpr=False, showfig=True, layer=False):
+    def plot_profile(self, title='Vs profile', alpha=0.05, minvpr=True, avgvpr=True, assemvpr=True, realvpr=False,\
+            showfig=True, layer=False, savefig=False, fname=None):
         """
         plot vs profiles
         =================================================================================================
@@ -404,7 +455,7 @@ class postvpr(object):
         realvpr     - plot the real models or not, used for synthetic test only
         =================================================================================================
         """
-        plt.figure()
+        plt.figure(figsize=[8.6, 9.6])
         ax  = plt.subplot()
         if assemvpr:
             for i in self.ind_thresh:
@@ -412,7 +463,7 @@ class postvpr(object):
                 if self.waterdepth <= 0.:
                     self.temp_model.get_para_model(paraval=paraval)
                 else:
-                    self.temp_model.get_para_model(paraval=paraval, waterdepth=2.9, vpwater=self.vpwater, nmod=4, \
+                    self.temp_model.get_para_model(paraval=paraval, waterdepth=self.waterdepth, vpwater=self.vpwater, nmod=4, \
                         numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
                 if layer:
                     plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=alpha, lw=3)
@@ -443,16 +494,21 @@ class postvpr(object):
         plt.ylabel('Depth (km)', fontsize=30)
         plt.title(title+' '+self.code, fontsize=30)
         plt.legend(loc=0, fontsize=20)
+        plt.ylim([0, 200.])
+        # plt.xlim([2.5, 4.])
+        plt.gca().invert_yaxis()
+        # plt.xlabel('Velocity(km/s)', fontsize=30)
+        plt.legend(fontsize=20)
+        if savefig:
+            if fname is None:
+                plt.savefig('vs.jpg')
+            else:
+                plt.savefig(fname)
         if showfig:
-            plt.ylim([0, 200.])
-            # plt.xlim([2.5, 4.])
-            plt.gca().invert_yaxis()
-            # plt.xlabel('Velocity(km/s)', fontsize=30)
-            plt.legend(fontsize=20)
             plt.show()
         return
     
-    def plot_hist(self, pindex=0, bins=50, title='', xlabel='', showfig=True):
+    def plot_hist(self, pindex=0, bins=50, title='', xlabel='', showfig=True, savefig=False, fname=None):
         """
         Plot a histogram of one specified model parameter
         =================================================================================================
@@ -467,6 +523,7 @@ class postvpr(object):
         xlabel  - x axis label for the figure
         =================================================================================================
         """
+        plt.figure(figsize=[18, 9.6])
         ax      = plt.subplot()
         if pindex == -1:
             paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex] + (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, -2]
@@ -491,9 +548,38 @@ class postvpr(object):
             plt.axvline(x=min_paraval[pindex], c='r', linestyle='-.', label='min misfit value')
             plt.axvline(x=avg_paraval[pindex], c='y', label='average value')
         plt.legend(loc=0, fontsize=15)
+        if savefig:
+            if fname is None:
+                plt.savefig('hist.jpg')
+            else:
+                plt.savefig(fname)
         if showfig:
             plt.show()
         return
+    
+    def plot_all_paraval_hist(self, bins=50, title='', xlabel='', showfig=False, outdir='.'):
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        for pindex in range(13):
+            if pindex == 0:
+                self.plot_hist(pindex=pindex, bins=bins, title=title+' vs at top of sediments', xlabel='Vs (km/s)',\
+                            showfig=False, savefig=True, fname = outdir+'/'+title+'0.jpg')
+            elif pindex == 1:
+                self.plot_hist(pindex=pindex, bins=bins, title=title+' vs at bottom of sediments', xlabel='Vs (km/s)',\
+                            showfig=False, savefig=True, fname = outdir+'/'+title+'1.jpg')
+            elif pindex>= 2 and pindex <= 5:
+                self.plot_hist(pindex=pindex, bins=bins, title=title+' '+str(pindex-1)+' B spline coeffient in the crust', xlabel='Vs (km/s)',\
+                            showfig=False, savefig=True, fname = outdir+'/'+title+str(pindex)+'.jpg')
+            elif pindex>= 6 and pindex <= 10:
+                self.plot_hist(pindex=pindex, bins=bins, title=title+' '+str(pindex-5)+' B spline coeffient in the mantle', xlabel='Vs (km/s)',\
+                            showfig=False, savefig=True, fname = outdir+'/'+title+str(pindex)+'.jpg')
+            elif pindex == 11:
+                self.plot_hist(pindex=pindex, bins=bins, title=title+' sediment thickness', xlabel='km',\
+                            showfig=False, savefig=True, fname = outdir+'/'+title+'11.jpg')
+            else:
+                self.plot_hist(pindex=pindex, bins=bins, title=title+' crustal thickness', xlabel='km',\
+                            showfig=False, savefig=True, fname = outdir+'/'+title+'12.jpg')
+            
     
     def plot_hist_two_group(self, x1min, x1max, x2min, x2max, ind_s, ind_p, bins1=50, bins2=50,  title='', xlabel='', showfig=True):
         """
