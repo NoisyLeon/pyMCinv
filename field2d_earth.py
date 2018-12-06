@@ -375,7 +375,7 @@ class Field2d(object):
         self.Zarr   = (ZarrIn.reshape(self.Nlat, self.Nlon))[::-1, :]
         return
     
-    def gauss_smoothing(self, workingdir, outfname, tension=0.0, width=50.):
+    def gauss_smoothing(self, workingdir, outfname, tension=0.0, sigma=50.):
         """
         Perform a Gaussian smoothing
         """
@@ -390,8 +390,10 @@ class Field2d(object):
         tempGMT     = workingdir+'/'+outfname+'_GMT.sh'
         grdfile     = workingdir+'/'+outfname+'.grd'
         outgrd      = workingdir+'/'+outfname+'_filtered.grd'
+        # http://gmt.soest.hawaii.edu/doc/5.3.2/grdfilter.html
+        # Gaussian: Weights are given by the Gaussian function, where width is 6 times the conventional Gaussian sigma.
+        width       = 6.*(sigma/2.)
         #
-        width       = 6.*width
         with open(tempGMT,'wb') as f:
             REG     = '-R'+str(self.minlon)+'/'+str(self.maxlon)+'/'+str(self.minlat)+'/'+str(self.maxlat)
             f.writelines('gmt gmtset MAP_FRAME_TYPE fancy \n')
@@ -400,6 +402,7 @@ class Field2d(object):
             else:
                 f.writelines('gmt surface %s -T%g -G%s -I%g/%g %s \n' %( workingdir+'/'+outfname, tension, grdfile, self.dlon, self.dlat, REG ))
             f.writelines('gmt grdfilter %s -D4 -Fg%g -G%s %s \n' %( grdfile, width, outgrd, REG))
+            # f.writelines('gmt grdfilter %s -D4 -Fc%g -G%s %s \n' %( grdfile, width, outgrd, REG))
             f.writelines('gmt grd2xyz %s %s > %s \n' %( outgrd, REG, fnameHD ))
         call(['bash', tempGMT])
         os.remove(grdfile)

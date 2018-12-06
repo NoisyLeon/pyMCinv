@@ -49,9 +49,9 @@ import numpy as np
 # vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.BOTH.npz')
 # vpr.get_vmodel()
 
-vpr = mcpost.postvpr(thresh=0.5, factor=1.)
-vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir_prior/mc_inv.PH.npz')
-vpr.read_data('/home/leon/code/pyMCinv/workingdir_prior/mc_data.PH.npz')
+vpr = mcpost.postvpr(thresh=0.2, factor=1.)
+vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir_crust_miller/mc_inv.BOTH.npz')
+vpr.read_data('/home/leon/code/pyMCinv/workingdir_crust_miller/mc_data.BOTH.npz')
 vpr.get_vmodel()
 # 
 # vpr_ph = mcpost.postvpr(thresh=0.2, factor=1.)
@@ -65,8 +65,8 @@ vpr.get_vmodel()
 # vpr_gr.get_vmodel()
 
 # vpr = mcpost.postvpr(thresh=0.1, factor=1., stdfactor=3.)
-# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_inv.215.0_61.0.npz')
-# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_data.215.0_61.0.npz')
+# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_inv.213.0_63.0.npz')
+# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_data.213.0_63.0.npz')
 # vpr.get_vmodel()
 
 # vpr = mcpost.postvpr(thresh=0.5, factor=1., stdfactor=2.)

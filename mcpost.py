@@ -108,6 +108,7 @@ class postvpr(object):
         self.min_misfit = self.misfit[self.ind_acc + self.ind_rej].min()
         self.ind_min    = np.where(self.misfit == self.min_misfit)[0][0]
         self.get_thresh_model(thresh_misfit = thresh_misfit, Nmax = Nmax, Nmin = Nmin)
+        self.mean_misfit= (self.misfit[self.ind_thresh,]).mean()
         self.numbacc    = np.where(self.ind_acc)[0].size
         self.numbrej    = np.where(self.ind_rej)[0].size
         if verbose:
@@ -196,8 +197,12 @@ class postvpr(object):
         """
         self.min_paraval    = self.invdata[self.ind_min, 2:(self.npara+2)]
         self.avg_paraval    = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
-        # standard error of the mean
-        self.sem_paraval    = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).std(axis=0) / np.sqrt((self.invdata[self.ind_thresh, 2:(self.npara+2)]).size)
+        # uncertainties, note that crustal thickness is determined by the last two parameters
+        # thus, the last element of the sem and std array is for crustal thickness, NOT the crustal thickness excluding sediments
+        temp_paraval        = self.invdata[self.ind_thresh, 2:(self.npara+2)]
+        temp_paraval[:, -1] += temp_paraval[:, -2]
+        self.sem_paraval    = (temp_paraval).std(axis=0) / np.sqrt(temp_paraval.shape[0])
+        self.std_paraval    = (temp_paraval).std(axis=0)
         return
     
     def get_vmodel(self, real_paraval=None):
@@ -392,12 +397,12 @@ class postvpr(object):
                     plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
         if obsdisp:
             if disptype == 'ph':
-                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=1, label='observed')
+                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=1, label='observed')
             elif disptype == 'gr':
-                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='b', lw=1, label='observed')
+                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo, fmt='o', color='b', lw=1, label='observed')
             else:
-                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo,color='b', lw=1, label='observed phase')
-                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo,color='k', lw=1, label='observed group')
+                plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=1, label='observed phase')
+                plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo, fmt='o', color='k', lw=1, label='observed group')
         if mindisp:
             if disptype == 'ph':
                 disp_min    = self.disppre_ph[self.ind_min, :]
@@ -542,8 +547,8 @@ class postvpr(object):
         min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
         avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
         if pindex == -1:
-            plt.axvline(x=min_paraval[pindex]+min_paraval[-2], c='r', linestyle='-.', label='min misfit value')
-            plt.axvline(x=avg_paraval[pindex]+avg_paraval[-2], c='y', label='average value')
+            plt.axvline(x=min_paraval[pindex] + min_paraval[-2], c='r', linestyle='-.', label='min misfit value')
+            plt.axvline(x=avg_paraval[pindex] + avg_paraval[-2], c='y', label='average value')
         else:
             plt.axvline(x=min_paraval[pindex], c='r', linestyle='-.', label='min misfit value')
             plt.axvline(x=avg_paraval[pindex], c='y', label='average value')
@@ -580,7 +585,6 @@ class postvpr(object):
                 self.plot_hist(pindex=pindex, bins=bins, title=title+' crustal thickness', xlabel='km',\
                             showfig=False, savefig=True, fname = outdir+'/'+title+'12.jpg')
             
-    
     def plot_hist_two_group(self, x1min, x1max, x2min, x2max, ind_s, ind_p, bins1=50, bins2=50,  title='', xlabel='', showfig=True):
         """
         Plot a histogram of one specified model parameter

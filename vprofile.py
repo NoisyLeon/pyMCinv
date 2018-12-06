@@ -744,7 +744,7 @@ class vprofile1d(object):
     
     def mc_joint_inv_iso_mp(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., isconstrt=True, pfx='MC', \
             verbose=False, step4uwalk=1500, numbrun=15000, savedata=True, subsize=1000, nprocess=None, merge=True, \
-                Ntotalruns=10, misfit_thresh=1., Nmodelthresh=200):
+                Ntotalruns=10, misfit_thresh=2.0, Nmodelthresh=200):
         """
         Parallelized version of mc_joint_inv_iso
         ==================================================================================================================

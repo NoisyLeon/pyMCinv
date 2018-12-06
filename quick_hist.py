@@ -14,7 +14,7 @@ def to_percent(y, position):
         return s + '%'
     
 ax      = plt.subplot()
-inarr   = np.loadtxt('fitratio.txt')
+inarr   = np.loadtxt('avg_misfit.txt')
 data    = inarr[:, 2]
 plt.hist(data, bins=50, normed=True)
 outstd  = data.std()
