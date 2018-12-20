@@ -1626,7 +1626,7 @@ class invhdf5(h5py.File):
         ===================================================================================================
         """
         is_interp       = self.attrs['is_interp']
-        if pindex is 'min_misfit' or pindex is 'avg_misfit' or pindex is 'fitratio':
+        if pindex is 'min_misfit' or pindex is 'avg_misfit' or pindex is 'fitratio' or pindex is 'mean_misfit':
             is_interp   = False
         data, data_smooth\
                         = self.get_smooth_paraval(pindex=pindex, dtype=dtype,\
@@ -1918,14 +1918,16 @@ class invhdf5(h5py.File):
         
         # 
         xc, yc      = m(np.array([-160, -150]), np.array([62, 58]))
-        m.plot(xc, yc,'k', lw = 3)
+        m.plot(xc, yc,'k', lw = 5, color='black')
+        m.plot(xc, yc,'k', lw = 3, color='white')
         
         xc, yc      = m(np.array([-151, -150]), np.array([69, 58]))
-        m.plot(xc, yc,'k', lw = 3)
+        m.plot(xc, yc,'k', lw = 5, color='black')
+        m.plot(xc, yc,'k', lw = 3, color='white')
         
         xc, yc      = m(np.array([-130, -150]), np.array([68, 58]))
-        m.plot(xc, yc,'k', lw = 3)
-        
+        m.plot(xc, yc,'k', lw = 5, color='black')
+        m.plot(xc, yc,'k', lw = 3, color='white')
         # 
         # xc, yc      = m(np.array([-164.5]), np.array([60.]))
         # m.plot(xc, yc,'x', lw = 3, ms=15)
