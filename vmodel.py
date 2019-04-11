@@ -43,6 +43,7 @@ class model1d(object):
         self.flat   = False
         self.tilt   = False
         self.isomod = modparam.isomod()
+        self.vtimod = modparam.vtimod()
         self.nlay   = 0
         self.ngrid  = 0
         return
@@ -262,6 +263,60 @@ class model1d(object):
         self.vel2love()
         return
     
+    def get_vti_vmodel(self):
+        """
+        get the Vertical TI (VTI) model from vtimod
+        """
+        hArr, vph, vpv, vsh, vsv, eta, rho, qs, qp, nlay\
+                                = self.vtimod.get_vmodel()
+        self.vsv                = vsv.copy()
+        self.vsh                = vsh.copy()
+        self.vpv                = vpv.copy()
+        self.vph                = vph.copy()
+        self.eta                = eta
+        self.rho                = rho
+        self.h                  = hArr
+        self.qs                 = qs
+        self.qp                 = qp
+        self.nlay               = nlay
+        self.ngrid              = 2*nlay
+        # store grid point model
+        indlay                  = np.arange(nlay, dtype=np.int32)
+        indgrid0                = indlay*2
+        indgrid1                = indlay*2+1
+        self.VsvArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.VshArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.VpvArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.VphArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.qsArr              = np.ones(self.ngrid, dtype=np.float64)
+        self.qpArr              = np.ones(self.ngrid, dtype=np.float64)
+        self.rhoArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.etaArr             = np.ones(self.ngrid, dtype=np.float64)
+        self.zArr               = np.zeros(self.ngrid, dtype=np.float64)
+        depth                   = hArr.cumsum()
+        # model arrays
+        self.VsvArr[indgrid0]   = vsv[:]
+        self.VsvArr[indgrid1]   = vsv[:]
+        self.VshArr[indgrid0]   = vsh[:]
+        self.VshArr[indgrid1]   = vsh[:]
+        self.VpvArr[indgrid0]   = vpv[:]
+        self.VpvArr[indgrid1]   = vpv[:]
+        self.VphArr[indgrid0]   = vph[:]
+        self.VphArr[indgrid1]   = vph[:]
+        self.rhoArr[indgrid0]   = rho[:]
+        self.rhoArr[indgrid1]   = rho[:]
+        self.qsArr[indgrid0]    = qs[:]
+        self.qsArr[indgrid1]    = qs[:]
+        self.qpArr[indgrid0]    = qp[:]
+        self.qpArr[indgrid1]    = qp[:]
+        # depth array
+        indlay2                 = np.arange(nlay-1, dtype=np.int32)
+        indgrid2                = indlay2*2+2
+        self.zArr[indgrid1]     = depth
+        self.zArr[indgrid2]     = depth[:-1]
+        self.vel2love()
+        return
+    
     def is_layer_model(self):
         """
         Check if the grid point model is a layerized one or not
@@ -335,6 +390,45 @@ class model1d(object):
         self.get_iso_vmodel()
         return
     
+    def get_para_model_vti(self, paraval, waterdepth=-1., vpwater=1.5, nmod=3, numbp=np.array([2, 4, 5]),\
+                mtype = np.array([4, 2, 2]), vpvs = np.array([2., 1.75, 1.75]), maxdepth=200., use_gamma=True):
+        """
+        get a VTI velocity model given a parameter array
+        ======================================================================================
+        ::: input parameters :::
+        paraval     - parameter array of numpy array type
+        nmod        - number of model groups (default - 3)
+        numbp       - number of control points/basis (1D int array with length nmod)
+                        2 - sediments; 4 - crust; 5 - mantle
+        mtype       - model parameterization types (1D int array with length nmod)
+                        2   - B spline in the crust and mantle
+                        4   - gradient layer in sediments
+                        5   - water layer
+        vpvs        - vp/vs ratio
+        maxdepth    - maximum depth ( unit - km)
+        ======================================================================================
+        """
+        self.vtimod.init_arr(nmod=nmod)
+        self.vtimod.numbp           = numbp[:]
+        self.vtimod.mtype           = mtype[:]
+        self.vtimod.vpvs            = vpvs[:]
+        if use_gamma:
+            self.vtimod.get_paraind_gamma()
+        else:
+            self.vtimod.get_paraind()
+        self.vtimod.para.paraval[:] = paraval[:]
+        if self.vtimod.mtype[0] == 5:
+            if waterdepth <= 0.:
+                raise ValueError('Water depth for water layer should be non-zero!')
+            self.vtimod.cvpv[0, 0]  = vpwater
+            self.vtimod.cvph[0, 0]  = vpwater
+            self.vtimod.thickness[0]= waterdepth
+        self.vtimod.para2mod()
+        self.vtimod.thickness[-1]   = maxdepth - (self.vtimod.thickness[:-1]).sum()
+        self.vtimod.update()
+        self.get_vti_vmodel()
+        return
+    
     def get_grid_mod(self):
         """
         return a grid model (depth and vs arrays)
@@ -347,7 +441,7 @@ class model1d(object):
         indgrid_out = np.array([], dtype=np.int32)
         ind_top     = 0
         for i in range(self.isomod.nmod-1):
-            ind_dis = np.where(abs(self.zArr - depth_dis[i])<1e-8)[0]
+            ind_dis = np.where(abs(self.zArr - depth_dis[i])<1e-10)[0]
             if ind_dis.size != 2:
                 print ind_dis, depth_dis[i]
                 raise ValueError('Check index at discontinuity!')
@@ -363,21 +457,3 @@ class model1d(object):
         VsvArr      = self.VsvArr[indgrid_out]
         return zArr, VsvArr
         
-    
-    
-    
-    
-    
-    
-
-        
-    
-    
-    
-        
-        
-    
-    
-    
-    
-    

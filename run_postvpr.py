@@ -48,12 +48,12 @@ import numpy as np
 # # vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.BOTH.npz', thresh_misfit=1.)
 # vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.BOTH.npz')
 # vpr.get_vmodel()
-
-vpr = mcpost.postvpr(thresh=0.2, factor=1.)
-vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir_crust_miller/mc_inv.BOTH.npz')
-vpr.read_data('/home/leon/code/pyMCinv/workingdir_crust_miller/mc_data.BOTH.npz')
-vpr.get_vmodel()
 # 
+# vpr = mcpost.postvpr(thresh=0.5, factor=1.)
+# vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir_highVcheck/mc_inv.BOTH.npz')
+# vpr.read_data('/home/leon/code/pyMCinv/workingdir_highVcheck/mc_data.BOTH.npz')
+# vpr.get_vmodel()
+# # 
 # vpr_ph = mcpost.postvpr(thresh=0.2, factor=1.)
 # vpr_ph.read_inv_data('/home/leon/code/pyMCinv/workingdir/mc_inv.PH.npz')
 # vpr_ph.read_data('/home/leon/code/pyMCinv/workingdir/mc_data.BOTH.npz')
@@ -64,14 +64,15 @@ vpr.get_vmodel()
 # vpr_gr.read_data('/home/leon/code/pyMCinv/workingdir/mc_data.BOTH.npz')
 # vpr_gr.get_vmodel()
 
-# vpr = mcpost.postvpr(thresh=0.1, factor=1., stdfactor=3.)
-# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_inv.213.0_63.0.npz')
-# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_data.213.0_63.0.npz')
-# vpr.get_vmodel()
+vpr = mcpost.postvpr(thresh=0.5, factor=1., stdfactor=3.)
+vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190318_150000_both_crust1_no_ocsi/mc_inv.189.0_64.5.npz')
+vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190318_150000_both_crust1_no_ocsi/mc_data.189.0_64.5.npz')
+vpr.get_vmodel()
 
 # vpr = mcpost.postvpr(thresh=0.5, factor=1., stdfactor=2.)
-# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_inv.192.0_64.0.npz', Nmax=4000, Nmin=300)
-# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both/mc_data.192.0_64.0.npz')
+# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181202_150000_both_miller/mc_inv.206.0_64.0.npz')
+# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181202_150000_both_miller/mc_data.206.0_64.0.npz')
+# vpr.code = '206.0_64.0'
 # vpr.get_vmodel()
 
 

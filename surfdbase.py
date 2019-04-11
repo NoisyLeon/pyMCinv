@@ -30,7 +30,7 @@ import multiprocessing
 from subprocess import call
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm, interp
 import obspy
-import vprofile, mcpost, vmodel
+import vprofile, mcpost, mcpost_vti, vmodel
 import time
 import numpy.ma as ma
 import field2d_earth
@@ -49,6 +49,32 @@ def _get_vs_2d(z0, z1, zArr, vs_3d):
             vs_out[ilat, ilon]\
                     = vs_temp
     return vs_out
+
+def read_slab_contour(infname, depth):
+    ctrlst  = []
+    lonlst  = []
+    latlst  = []
+    with open(infname, 'rb') as fio:
+        newctr  = False
+        for line in fio.readlines():
+            if line.split()[0] is '>':
+                newctr  = True
+                if len(lonlst) != 0:
+                    ctrlst.append([lonlst, latlst])
+                lonlst  = []
+                latlst  = []
+                z       = -float(line.split()[1])
+                if z == depth:
+                    skipflag    = False
+                else:
+                    skipflag    = True
+                continue
+            if skipflag:
+                continue
+            lonlst.append(float(line.split()[0]))
+            latlst.append(float(line.split()[1]))
+    return ctrlst
+                    
     
 def discrete_cmap(N, base_cmap=None):
     """Create an N-bin discrete colormap from the specified input map"""
@@ -65,8 +91,26 @@ def discrete_cmap(N, base_cmap=None):
     return base.from_list(cmap_name, color_list, N)
 
 
+def plot_fault_lines(mapobj, infname, lw=2, color='red'):
+    with open(infname, 'rb') as fio:
+        is_new  = False
+        lonlst  = []
+        latlst  = []
+        for line in fio.readlines():
+            if line.split()[0] == '>':
+                x, y  = mapobj(lonlst, latlst)
+                mapobj.plot(x, y,  lw = lw, color=color)
+                # # # m.plot(xslb, yslb,  lw = 3, color='white')
+                lonlst  = []
+                latlst  = []
+                continue
+            lonlst.append(float(line.split()[0]))
+            latlst.append(float(line.split()[1]))
+        x, y  = mapobj(lonlst, latlst)
+        mapobj.plot(x, y,  lw = lw, color=color)
+
 class invhdf5(h5py.File):
-    """ An object to for MCMC inversion based on HDF5 database
+    """ An object to for Markov Chain Monte Carlo inversion based on HDF5 database
     ===================================================================================================================
     version history:
            - first version
@@ -88,7 +132,7 @@ class invhdf5(h5py.File):
         """
         outstr  = '================================================= Marcov Chain Monte Carlo Inversion Database ===============================================\n'
         outstr  += self.__str__()+'\n'
-        outstr  += '--------------------------------------------------------------------------------------------------------------------------------------------\n'
+        outstr  += '-------------------------------------------------------------- headers ---------------------------------------------------------------------\n'
         try:
             minlon          = self.attrs['minlon']
             maxlon          = self.attrs['maxlon']
@@ -103,55 +147,179 @@ class invhdf5(h5py.File):
         except:
             print 'Empty Database!'
             return
-        outstr      += 'minlon/maxlon           - '+str(minlon)+'/'+str(maxlon)+'\n'
-        outstr      += 'minlat/maxlat           - '+str(minlat)+'/'+str(maxlat)+'\n'
-        outstr      += 'dlon/dlat               - '+str(dlon)+'/'+str(dlat)+'\n'
-        if is_interp:
-            outstr  += 'dlon_interp/dlat_interp - '+str(dlon_interp)+'/'+str(dlat_interp)+'\n'
-        outstr  += '--------------------------------------------------------------------------------------------------------------------------------------------\n'
+        outstr      += '--- minlon/maxlon                                       - '+str(minlon)+'/'+str(maxlon)+'\n'
+        outstr      += '--- minlat/maxlat                                       - '+str(minlat)+'/'+str(maxlat)+'\n'
+        outstr      += '--- dlon/dlat                                           - '+str(dlon)+'/'+str(dlat)+'\n'
+        try:
+            outstr  += '--- mask_inv (mask_ray_interp - hybridtomo(later updated after read_inv); mask_inv/mask_LD/mask_HD - raytomo) \n' + \
+                       '                                                        - shape = ' +str(self.attrs['mask_inv'].shape)+'\n'
+        except:
+            outstr  += '--- mask_inv array NOT initialized  \n'
+        if is_interp:   
+            outstr  += '--- dlon_interp/dlat_interp (initialized in get_raytomo_mask/get_hybrid_mask) \n'+ \
+                       '                                                        - '+str(dlon_interp)+'/'+str(dlat_interp)+'\n'
+        try:
+            outstr  += '--- mask_interp (mask_ray - hybridtomo( could be a combination of ray/lov database); mask_inv - raytomo) \n' + \
+                       '                                                        - shape = '+str(self.attrs['mask_interp'].shape)+'\n'
+        except:
+            outstr  += '--- mask_interp array NOT initialized  \n'
+        outstr      += '---------------------------------------------------------- grid point data -----------------------------------------------------------------\n'
+        grd_grp     = self['grd_pts']
+        Ngrid       = len(grd_grp.keys())
+        outstr      += '--- number of grid points                               - ' +str(Ngrid)+'\n'
+        grdid       = grd_grp.keys()[0]
+        grdgrp      = grd_grp[grdid]
+        outstr      += '--- attributes (data) \n'
+        try:
+            topo    = grdgrp.attrs['topo']
+            outstr  += '    etopo_source                                        - '+grdgrp.attrs['etopo_source']+'\n'
+        except:
+            outstr  += '    etopo_source                                        - NO \n'
+        try:
+            sedthk  = grdgrp.attrs['sedi_thk']
+            outstr  += '    sedi_thk_source                                     - '+grdgrp.attrs['sedi_thk_source']+'\n'
+        except:
+            outstr  += '    sedi_thk_source                                     - NO \n'
+        try:
+            sedthk  = grdgrp.attrs['crust_thk']
+            outstr  += '    crust_thk_source                                    - '+grdgrp.attrs['crust_thk_source']+'\n'
+        except:
+            outstr  += '    crust_thk_source                                    - NO \n'
+        outstr      += '--- attributes (inversion results) \n'
+        try:
+            avg_misfit  = grdgrp.attrs['avg_misfit']
+            min_misfit  = grdgrp.attrs['min_misfit']
+            mean_misfit = grdgrp.attrs['mean_misfit']
+            outstr  += '    avg_misfit/min_misfit/mean_misfit                   - detected    \n'
+        except:
+            outstr  += '    avg_misfit/min_misfit/mean_misfit                   - NO    \n'
+        #----------------------
+        outstr      += '--- arrays (data) \n'
+        try:
+            disp_gr_ray     = grdgrp['disp_gr_ray']
+            outstr  += '    disp_gr_ray (Rayleigh wave group dispersion)        - shape = '+str(disp_gr_ray.shape)+'\n'
+        except:
+            outstr  += '    disp_gr_ray (Rayleigh wave group dispersion)        - NO \n'
+        try:
+            disp_ph_ray     = grdgrp['disp_ph_ray']
+            outstr  += '    disp_ph_ray (Rayleigh wave phase dispersion)        - shape = '+str(disp_ph_ray.shape)+'\n'
+        except:
+            outstr  += '    disp_ph_ray (Rayleigh wave phase dispersion)        - NO \n'
+        try:
+            disp_gr_lov     = grdgrp['disp_gr_lov']
+            outstr  += '    disp_gr_lov (Love wave group dispersion)            - shape = '+str(disp_gr_lov.shape)+'\n'
+        except:
+            outstr  += '    disp_gr_lov (Love wave group dispersion)            - NO \n'
+        try:
+            disp_ph_lov     = grdgrp['disp_ph_lov']
+            outstr  += '    disp_ph_lov (Love wave phase dispersion)            - shape = '+str(disp_ph_lov.shape)+'\n'
+        except:
+            outstr  += '    disp_ph_lov (Love wave phase dispersion)            - NO \n'
+        #----------------------
+        outstr      += '--- arrays (inversion results, avg model) \n'
+        try:
+            avg_gr_ray      = grdgrp['avg_gr_ray']
+            outstr  += '    avg_gr_ray (Rayleigh group disperion from avg model)- shape = '+str(avg_gr_ray.shape)+'\n'
+        except:
+            outstr  += '    avg_gr_ray (Rayleigh group disperion from avg model)- NO \n'
+        try:
+            avg_ph_ray      = grdgrp['avg_ph_ray']
+            outstr  += '    avg_ph_ray (Rayleigh phase disperion from avg model)- shape = '+str(avg_ph_ray.shape)+'\n'
+        except:
+            outstr  += '    avg_ph_ray (Rayleigh phase disperion from avg model)- NO \n'
+        try:
+            avg_paraval     = grdgrp['avg_paraval']
+            outstr  += '    avg_paraval (model parameter array of avg model)    - shape = '+str(avg_paraval.shape)+'\n'
+        except:
+            outstr  += '    avg_paraval (model parameter array of avg model)    - NO \n'
+        # min
+        outstr      += '--- arrays (inversion results, min model) \n'
+        try:
+            min_gr_ray      = grdgrp['min_gr_ray']
+            outstr  += '    min_gr_ray (Rayleigh group disperion from min model)- shape = '+str(min_gr_ray.shape)+'\n'
+        except:
+            outstr  += '    min_gr_ray (Rayleigh group disperion from min model)- NO \n'
+        try:
+            min_ph_ray      = grdgrp['min_ph_ray']
+            outstr  += '    min_ph_ray (Rayleigh phase disperion from min model)- shape = '+str(min_ph_ray.shape)+'\n'
+        except:
+            outstr  += '    avg_ph_ray (Rayleigh phase disperion from min model)- NO \n'
+        try:
+            min_paraval     = grdgrp['min_paraval']
+            outstr  += '    min_paraval (model parameter array of min model)    - shape = '+str(min_paraval.shape)+'\n'
+        except:
+            outstr  += '    min_paraval (model parameter array of min model)    - NO \n'
+        ################
+        outstr      += '--- arrays (inversion results, statistical) \n'
+        try:
+            sem_paraval     = grdgrp['sem_paraval']
+            outstr  += '    sem_paraval (SEM of model parameter array)          - shape = '+str(sem_paraval.shape)+'\n'
+        except:
+            outstr  += '    sem_paraval (SEM of model parameter array)          - NO \n'
+        try:
+            std_paraval     = grdgrp['std_paraval']
+            outstr  += '    std_paraval (STD of model parameter array)          - shape = '+str(std_paraval.shape)+'\n'
+        except:
+            outstr  += '    std_paraval (STD of model parameter array)          - NO \n'
+        try:
+            zArr_ensemble   = grdgrp['zArr_ensemble']
+            outstr  += '    zArr_ensemble (depth array for ensemble of models)  - shape = '+str(zArr_ensemble.shape)+'\n'
+        except:
+            outstr  += '    zArr_ensemble (depth array for ensemble of models)    - NO \n'
+        try:
+            vs_lower_bound  = grdgrp['vs_lower_bound']
+            vs_upper_bound  = grdgrp['vs_upper_bound']
+            vs_mean         = grdgrp['vs_mean']
+            vs_std          = grdgrp['vs_std']
+            outstr  += '    vs arrays (upper/lower bounds, std, mean)           - shape = '+str(vs_mean.shape)+'\n'
+        except:
+            outstr  += '    vs arrays (upper/lower bounds, std, mean)           - NO \n'
+        outstr  += '--------------------------------------------------------------- Models ---------------------------------------------------------------------\n'
         subgrps     = self.keys()
         if 'mask' in subgrps:
             outstr  += '--- mask array detected    \n'
         if 'topo' in subgrps:
-            outstr  += '--- topo array(topography data for dlon/dlat) detected    \n'
+            outstr  += '--- topo array (topography data for dlon/dlat)    \n' +\
+                       '                                                        - shape = '+str(self['topo'].shape)+'\n'
         if 'topo_interp' in subgrps:
-            outstr  += '--- topo_interp array(topography data for dlon_interp/dlat_interp) detected    \n'
+            outstr  += '--- topo_interp array (topography data for dlon_interp/dlat_interp)     \n'+\
+                       '                                                        - shape = '+str(self['topo_interp'].shape)+'\n'
         # average model
         if 'avg_paraval' in subgrps:
-            outstr  += '=== average model \n'
+            outstr  += '!!! average model \n'
             subgrp  = self['avg_paraval']
             if '0_org' in subgrp.keys():
                 outstr\
-                    += '--- original model parameters detected \n'
+                    += '--- original model parameters (2D arrays)               - shape = '+str(subgrp['0_org'].shape)+'\n'
             if 'vs_org' in subgrp.keys():
                 outstr\
-                    += '--- original 3D model detected \n'
+                    += '--- original 3D model  (3D arrays)                      - shape = '+str(subgrp['vs_org'].shape)+'\n'
             if '0_smooth' in subgrp.keys():
                 outstr\
-                    += '--- smooth model parameters detected \n'
-            if '3d_smooth' in subgrp.keys():
+                    += '--- smooth model parameters (2D arrays)                 - shape = '+str(subgrp['0_smooth'].shape)+'\n'
+            if 'vs_smooth' in subgrp.keys():
                 outstr\
-                    += '--- smooth 3D model detected \n'
+                    += '--- smooth 3D model  (3D arrays)                        - shape = '+str(subgrp['vs_smooth'].shape)+'\n'
         # minimum misfit model
         if 'min_paraval' in subgrps:
-            outstr  += '=== minimum misfit model \n'
+            outstr  += '!!! minimum misfit model \n'
             subgrp  = self['min_paraval']
             if '0_org' in subgrp.keys():
                 outstr\
-                    += '--- original model parameters detected \n'
+                    += '--- original model parameters (2D arrays)               - shape = '+str(subgrp['0_org'].shape)+'\n'
             if 'vs_org' in subgrp.keys():
                 outstr\
-                    += '--- original 3D model detected \n'
+                    += '--- original 3D model  (3D arrays)                      - shape = '+str(subgrp['vs_org'].shape)+'\n'
             if '0_smooth' in subgrp.keys():
                 outstr\
-                    += '--- smooth model parameters detected \n'
-            if '3d_smooth' in subgrp.keys():
+                    += '--- smooth model parameters (2D arrays)                 - shape = '+str(subgrp['0_smooth'].shape)+'\n'
+            if 'vs_smooth' in subgrp.keys():
                 outstr\
-                    += '--- smooth 3D model detected \n'
+                    += '--- smooth 3D model  (3D arrays)                        - shape = '+str(subgrp['vs_smooth'].shape)+'\n'
         outstr += '============================================================================================================================================\n'
         print outstr
         return
-    
+#     
     def _get_lon_lat_arr(self, is_interp=False):
         """Get longitude/latitude array
         """
@@ -182,7 +350,7 @@ class invhdf5(h5py.File):
     # functions before MC inversion runs
     #==================================================================
     def read_hybridtomo_dbase(self, inh5fname, runid, dtype='ph', wtype='ray', create_header=True, \
-                           Tmin=-999, Tmax=999, verbose=False, semfactor=2.):
+                Tmin=-999, Tmax=999, verbose=False, semfactor=2.):
         """
         read hybrid tomography database
         =================================================================================
@@ -228,12 +396,14 @@ class invhdf5(h5py.File):
         # create mask_inv array indicating inversions
         self.attrs.create(name='mask_inv', data = mask_ray)
         Traymax             = grp.attrs['T_ray_max']
+        # added on 2019-03-17
+        grd_grp             = self.require_group('grd_pts')
         for ilat in range(self.Nlat):
             for ilon in range(self.Nlon):
                 if mask_ray[ilat, ilon]:
                     continue
                 data_str    = str(self.lons[ilon])+'_'+str(self.lats[ilat])
-                group       = self.create_group( name = data_str )
+                group       = grd_grp.require_group( name = data_str )
                 disp_v      = np.array([])
                 disp_un     = np.array([])
                 T           = np.array([])
@@ -324,13 +494,18 @@ class invhdf5(h5py.File):
             self.attrs.create(name = 'dlat', data=dlat_interp)
         self._get_lon_lat_arr()
         # create mask_ray array indicating inversions
-        self.attrs.create(name='mask_inv', data = mask)
+        if wtype == 'lov':
+            mask_inv    = mask + self.attrs['mask_inv']
+            self.attrs.create(name='mask_inv', data = mask_inv)
+        else:
+            self.attrs.create(name='mask_inv', data = mask)
+        grd_grp             = self.require_group('grd_pts')
         for ilat in range(self.Nlat):
             for ilon in range(self.Nlon):
                 if mask[ilat, ilon]:
                     continue
                 data_str    = str(self.lons[ilon])+'_'+str(self.lats[ilat])
-                group       = self.create_group( name = data_str )
+                group       = grd_grp.create_group( name = data_str )
                 disp_v      = np.array([])
                 disp_un     = np.array([])
                 T           = np.array([])
@@ -398,17 +573,18 @@ class invhdf5(h5py.File):
         mask            = mask_org + mask_new
         self.attrs.create(name='mask_inv', data = mask)
         self._get_lon_lat_arr()
+        grd_grp         = self.require_group('grd_pts')
         for ilat in range(self.Nlat):
             for ilon in range(self.Nlon):
                 if mask[ilat, ilon]:
                     continue
                 data_str    = str(self.lons[ilon])+'_'+str(self.lats[ilat])
                 try:
-                    group   = self[data_str]
+                    group   = grd_grp[data_str]
                 except:
                     if create_grp:
                         group  \
-                            = self.create_group( name = data_str )
+                            = grd_grp.create_group( name = data_str )
                     else:
                         continue
                 disp_v      = np.array([])
@@ -461,8 +637,9 @@ class invhdf5(h5py.File):
                     -= 360.
         else:
             replace_moho    = None
-        for grp_id in self.keys():
-            grp     = self[grp_id]
+        grd_grp     = self.require_group('grd_pts')
+        for grp_id in grd_grp.keys():
+            grp     = grd_grp[grp_id]
             split_id= grp_id.split('_')
             grd_lon = float(split_id[0])
             if grd_lon > 180.:
@@ -507,8 +684,9 @@ class invhdf5(h5py.File):
         latArr      = latArr.reshape(latArr.size/360, 360)
         depthArr    = inArr[:, 2]
         depthArr    = depthArr.reshape(depthArr.size/360, 360)
-        for grp_id in self.keys():
-            grp     = self[grp_id]
+        grd_grp     = self.require_group('grd_pts')
+        for grp_id in grd_grp.keys():
+            grp     = grd_grp[grp_id]
             split_id= grp_id.split('_')
             grd_lon = float(split_id[0])
             if grd_lon > 180.:
@@ -534,8 +712,9 @@ class invhdf5(h5py.File):
         indset      = h5py.File(infname)
         lons        = np.mgrid[0.:359.:2.]
         lats        = np.mgrid[-88.:89.:2.]
-        for grp_id in self.keys():
-            grp         = self[grp_id]
+        grd_grp     = self.require_group('grd_pts')
+        for grp_id in grd_grp.keys():
+            grp         = grd_grp[grp_id]
             split_id    = grp_id.split('_')
             try:
                 grd_lon = float(split_id[0])
@@ -591,8 +770,9 @@ class invhdf5(h5py.File):
         etopo       = etopodbase.variables['z'][:]
         lons        = etopodbase.variables['x'][:]
         lats        = etopodbase.variables['y'][:]
-        for grp_id in self.keys():
-            grp     = self[grp_id]
+        grd_grp     = self['grd_pts']
+        for grp_id in grd_grp.keys():
+            grp     = grd_grp[grp_id]
             split_id= grp_id.split('_')
             try:
                 grd_lon     = float(split_id[0])
@@ -666,9 +846,9 @@ class invhdf5(h5py.File):
         self._get_lon_lat_arr(is_interp=True)
         if mask.shape == self.lonArr.shape:
             try:
-                mask_org\
-                    = self.attrs['mask_interp']
-                mask+= mask_org
+                mask_org    = self.attrs['mask_interp']
+                mask        += mask_org
+                self.attrs.create(name = 'mask_interp', data = mask)
             except KeyError:
                 self.attrs.create(name = 'mask_interp', data = mask)
         else:
@@ -679,7 +859,28 @@ class invhdf5(h5py.File):
     #==================================================================
     # function inspection of the input data
     #==================================================================
-    def plot_disp(self, lon, lat, wtype='ray', derivegr=True, ploterror=False, showfig=True):
+#     
+    def get_disp(self, lon, lat, wtype='ray'):
+        if lon < 0.:
+            lon     += 360.
+        data_str    = str(lon)+'_'+str(lat)
+        grd_grp     = self['grd_pts']
+        try:
+            grp     = grd_grp[data_str]
+        except:
+            print 'No data at longitude =',lon,' lattitude =',lat
+            return
+        try:
+            disp_ph = grp['disp_ph_'+wtype]
+        except:
+            pass
+        try:
+            disp_gr = grp['disp_gr_'+wtype]
+        except:
+            pass
+        return disp_ph, disp_gr
+    
+    def plot_disp(self, lon, lat, wtype='ray', derivegr=False, ploterror=False, showfig=True):
         """
         plot dispersion data given location of the grid point
         ==========================================================================================
@@ -694,8 +895,9 @@ class invhdf5(h5py.File):
         if lon < 0.:
             lon     += 360.
         data_str    = str(lon)+'_'+str(lat)
+        grd_grp     = self['grd_pts']
         try:
-            grp     = self[data_str]
+            grp     = grd_grp[data_str]
         except:
             print 'No data at longitude =',lon,' lattitude =',lat
             return
@@ -760,6 +962,65 @@ class invhdf5(h5py.File):
         if showfig:
             plt.show()
         return
+    
+    def plot_disp_vti(self, lon, lat, plot_group=False, ploterror=False, showfig=True):
+        """
+        plot dispersion data for inversion of VTI model given location of the grid point
+        ==========================================================================================
+        ::: input :::
+        lon/lat     - location of the grid point
+        plot_group  - plot the group velocities or not
+        ploterror   - plot uncertainties or not
+        showfig     - show the figure or not
+        ==========================================================================================
+        """
+        if lon < 0.:
+            lon     += 360.
+        data_str    = str(lon)+'_'+str(lat)
+        grd_grp     = self['grd_pts']
+        try:
+            grp     = grd_grp[data_str]
+        except:
+            print 'No data at longitude =',lon,' lattitude =',lat
+            return
+        plt.figure()
+        ax  = plt.subplot()
+        try:
+            disp_ph_ray = grp['disp_ph_ray']
+            if ploterror:
+                plt.errorbar(disp_ph_ray[0, :], disp_ph_ray[1, :], yerr=disp_ph_ray[2, :], color='b', lw=3, label='phase')
+            else:
+                plt.plot(disp_ph_ray[0, :], disp_ph_ray[1, :], 'bo-', lw=3, ms=10, label='phase')
+        except:
+            pass
+        try:
+            disp_ph_lov = grp['disp_ph_lov']
+            if ploterror:
+                plt.errorbar(disp_ph_lov[0, :], disp_ph_lov[1, :], yerr=disp_ph_lov[2, :], color='k', lw=3, label='phase')
+            else:
+                plt.plot(disp_ph_lov[0, :], disp_ph_lov[1, :], 'ko-', lw=3, ms=10, label='phase')
+        except:
+            pass
+        if plot_group:
+            try:
+                disp_gr_ray = grp['disp_gr_ray']
+                if ploterror:
+                    plt.errorbar(disp_gr_ray[0, :], disp_gr_ray[1, :], yerr=disp_gr_ray[2, :], color='r', lw=3, label='group')
+                else:
+                    plt.plot(disp_gr_ray[0, :], disp_gr_ray[1, :], 'ro-', lw=3, ms=10, label='group')
+            except:
+                pass
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel('Period (sec)', fontsize=30)
+        plt.ylabel('Velocity (km/sec)', fontsize=30)
+        if lon > 180.:
+            lon     -= 360.
+        plt.title('longitude = '+str(lon)+' latitude = '+str(lat), fontsize=30)
+        plt.legend(loc=0, fontsize=20)
+        if showfig:
+            plt.show()
+        return
     #==================================================================
     # function for MC inversion runs
     #==================================================================
@@ -793,10 +1054,13 @@ class invhdf5(h5py.File):
                     - Added the functionality of using ak135 model as intial model, Sep 28th, 2018
         ==================================================================================================================
         """
+        start_time_total    = time.time()
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
+        grd_grp     = self['grd_pts']
+        # get the list for inversion
         if ingrdfname is None:
-            grdlst  = self.keys()
+            grdlst  = grd_grp.keys()
         else:
             grdlst  = []
             with open(ingrdfname, 'r') as fid:
@@ -831,13 +1095,13 @@ class invhdf5(h5py.File):
             vpr                 = vprofile.vprofile1d()
             if phase:
                 try:
-                    indisp      = self[grd_id+'/disp_ph_ray'].value
+                    indisp      = grd_grp[grd_id+'/disp_ph_ray'].value
                     vpr.get_disp(indata=indisp, dtype='ph', wtype='ray')
                 except KeyError:
                     print 'WARNING: No phase dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
             if group:
                 try:
-                    indisp      = self[grd_id+'/disp_gr_ray'].value
+                    indisp      = grd_grp[grd_id+'/disp_gr_ray'].value
                     vpr.get_disp(indata=indisp, dtype='gr', wtype='ray')
                 except KeyError:
                     print 'WARNING: No group dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
@@ -847,30 +1111,24 @@ class invhdf5(h5py.File):
             #-----------------------------
             # initial model parameters
             #-----------------------------
-            crtthk              = self[grd_id].attrs['crust_thk']
-            sedthk              = self[grd_id].attrs['sedi_thk']
-            topovalue           = self[grd_id].attrs['topo']
+            crtthk              = grd_grp[grd_id].attrs['crust_thk']
+            sedthk              = grd_grp[grd_id].attrs['sedi_thk']
+            topovalue           = grd_grp[grd_id].attrs['topo']
             if use_ref:
-                vsdata          = self[grd_id+'/reference_vs'].value
+                vsdata          = grd_grp[grd_id+'/reference_vs'].value
                 vpr.model.isomod.parameterize_input(zarr=vsdata[:, 0], vsarr=vsdata[:, 1], crtthk=crtthk, sedthk=sedthk,\
                             topovalue=topovalue, maxdepth=200., vp_water=vp_water)
             else:
                 vpr.model.isomod.parameterize_ak135(crtthk=crtthk, sedthk=sedthk, topovalue=topovalue, \
                         maxdepth=200., vp_water=vp_water)
             vpr.getpara()
-            # # # if np.random.rand() > 0.9 and topovalue<0.:
-            # # #     print grd_id
-            # # #     return vpr, vsdata
-            # # # else:
-            # # #     continue
-            # # # if not (np.random.rand() > 0.9 and topovalue<0.):
-            # # #     continue
             if (not outlon is None) and (not outlat is None):
                 if grd_lon != outlon or grd_lat != outlat:
                     continue
                 else:    
                     return vpr
-            print '--- MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+            start_time_grd  = time.time()
+            print '=== MC inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
             if parallel:
                 vpr.mc_joint_inv_iso_mp(outdir=outdir, dispdtype=dispdtype, wdisp=1., Ntotalruns=Ntotalruns, \
                     misfit_thresh=misfit_thresh, Nmodelthresh=Nmodelthresh, isconstrt=isconstrt, pfx=grd_id, verbose=verbose,\
@@ -878,13 +1136,149 @@ class invhdf5(h5py.File):
             else:
                 vpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=1., \
                    isconstrt=isconstrt, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun)
+            # end_time_grd    = time.time()
+            end_time    = time.time()
+            print '--- Elasped time = '+str(end_time - start_time_grd) + ' sec; total elasped time = '+str(end_time - start_time_total)
         return
     
+    def mc_inv_vti(self, solver_type=1, use_ref=True, ingrdfname=None, phase=True, group=False, outdir='./workingdir', vp_water=1.5,\
+            isconstrt=True, verbose=False, step4uwalk=1500, numbrun=15000, subsize=1000, nprocess=None, parallel=True, skipmask=True,\
+            Ntotalruns=10, misfit_thresh=1.0, Nmodelthresh=200, outlon=None, outlat=None):
+        """
+        Bayesian Monte Carlo inversion of VTI model
+        ==================================================================================================================
+        ::: input :::
+        solver_type     - type of solver
+                            0   - fast_surf
+                            1   - tcps
+        use_ref         - use reference input model or not(default = True, use Vsv model from isotropic inversion)
+        ingrdfname      - input grid point list file indicating the grid points for surface wave inversion
+        phase/group     - include phase/group velocity dispersion data or not
+        outdir          - output directory
+        vp_water        - P wave velocity in water layer (default - 1.5 km/s)
+        isconstrt       - require monotonical increase in the crust or not
+        step4uwalk      - step interval for uniform random walk in the parameter space
+        numbrun         - total number of runs
+        subsize         - size of subsets, used if the number of elements in the parallel list is too large to avoid deadlock
+        nprocess        - number of process
+        parallel        - run the inversion in parallel or not
+        skipmask        - skip masked grid points or not
+        Ntotalruns      - number of times of total runs, the code would run at most numbrun*Ntotalruns iterations
+        misfit_thresh   - threshold misfit value to determine "good" models
+        Nmodelthresh    - required number of "good" models
+        outlon/outlat   - output a vprofile object given longitude and latitude
+        ---
+        version history:
+                    - first version (2019-03-28)
+        ==================================================================================================================
+        """
+        start_time_total    = time.time()
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        grd_grp     = self['grd_pts']
+        # get the list for inversion
+        if ingrdfname is None:
+            grdlst  = grd_grp.keys()
+        else:
+            grdlst  = []
+            with open(ingrdfname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    lon     = float(sline[0])
+                    if lon < 0.:
+                        lon += 360.
+                    if sline[2] == '1':
+                        grdlst.append(str(lon)+'_'+sline[1])
+        if phase and group:
+            dispdtype   = 'both'
+        elif phase and not group:
+            dispdtype   = 'ph'
+        else:
+            dispdtype   = 'gr'
+        igrd        = 0
+        Ngrd        = len(grdlst)
+        for grd_id in grdlst:
+            split_id= grd_id.split('_')
+            try:
+                grd_lon     = float(split_id[0])
+            except ValueError:
+                continue
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat = float(split_id[1])
+            igrd    += 1
+            #-----------------------------
+            # get data
+            #-----------------------------
+            vpr                 = vprofile.vprofile1d()
+            if phase:
+                try:
+                    disp_ph_lov = grd_grp[grd_id+'/disp_ph_lov'].value
+                    vpr.get_disp(indata=disp_ph_lov, dtype='ph', wtype='lov')
+                except KeyError:
+                    pass
+                    # print 'WARNING: No Love wave phase dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
+                try:
+                    disp_ph_ray = grd_grp[grd_id+'/disp_ph_ray'].value
+                    vpr.get_disp(indata=disp_ph_ray, dtype='ph', wtype='ray')
+                except KeyError:
+                    pass
+                    # print 'WARNING: No Rayleigh wave phase dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
+            if group:
+                try:
+                    disp_gr_lov = grd_grp[grd_id+'/disp_gr_lov'].value
+                    vpr.get_disp(indata=disp_gr_lov, dtype='gr', wtype='lov')
+                except KeyError:
+                    print 'WARNING: No Love wave group dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
+                try:
+                    disp_gr_ray = grd_grp[grd_id+'/disp_gr_ray'].value
+                    vpr.get_disp(indata=disp_gr_ray, dtype='gr', wtype='ray')
+                except KeyError:
+                    print 'WARNING: No Rayleigh wave  group dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)
+            if vpr.data.dispL.npper == 0 or vpr.data.dispR.npper  == 0:
+                print 'WARNING: No dispersion data for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                continue
+            #-----------------------------
+            # initial model parameters
+            #-----------------------------
+            topovalue               = grd_grp[grd_id].attrs['topo']
+            if use_ref:
+                try:
+                    avg_paraval_ray = grd_grp[grd_id+'/avg_paraval_ray'].value
+                    std_paraval_ray = grd_grp[grd_id+'/std_paraval_ray'].value
+                except KeyError:
+                    continue
+                vpr.model.vtimod.parameterize_ray(paraval = avg_paraval_ray, topovalue = topovalue, maxdepth=200., vp_water=vp_water)
+                vpr.model.vtimod.get_paraind_gamma(std_paraval = std_paraval_ray)
+            else:
+                crtthk              = grd_grp[grd_id].attrs['crust_thk']
+                sedthk              = grd_grp[grd_id].attrs['sedi_thk']
+                vpr.model.vtimod.parameterize_ak135(crtthk=crtthk, sedthk=sedthk, topovalue=topovalue, \
+                        maxdepth=200., vp_water=vp_water)
+                vpr.model.vtimod.get_paraind_gamma()
+            if (not outlon is None) and (not outlat is None):
+                if grd_lon != outlon or grd_lat != outlat:
+                    continue
+                else:
+                    return vpr
+            start_time_grd  = time.time()
+            print '=== MC VTI inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+            if parallel:
+                vpr.mc_joint_inv_vti_mp(outdir=outdir, run_inv=True, solver_type=solver_type, isconstrt=isconstrt, pfx=grd_id,\
+                        verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, savedata=True, subsize=subsize, \
+                        nprocess=nprocess, merge=True, Ntotalruns=Ntotalruns, misfit_thresh=misfit_thresh, Nmodelthresh=Nmodelthresh)
+            else:
+                vpr.mc_joint_inv_vti(outdir=outdir, run_inv=True, solver_type=solver_type, numbcheck=None, misfit_thresh=misfit_thresh, \
+                    isconstrt=isconstrt, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, init_run=True, savedata=True)
+            # end_time_grd    = time.time()
+            end_time    = time.time()
+            print '--- Elasped time = '+str(end_time - start_time_grd) + ' sec; total elasped time = '+str(end_time - start_time_total)
+        return
     #==================================================================
     # function to read MC inversion results
     #==================================================================
     def read_inv(self, datadir, ingrdfname=None, factor=1., thresh=0.5, stdfactor=2, avgqc=True, \
-                 Nmax=None, Nmin=None):
+                 Nmax=None, Nmin=500, wtype='ray'):
         """
         read the inversion results in to data base
         ==================================================================================================================
@@ -901,8 +1295,9 @@ class invhdf5(h5py.File):
         mask_inv array will be updated according to the existence of inversion results
         ==================================================================================================================
         """
+        grd_grp     = self['grd_pts']
         if ingrdfname is None:
-            grdlst  = self.keys()
+            grdlst  = grd_grp.keys()
         else:
             grdlst  = []
             with open(ingrdfname, 'r') as fid:
@@ -927,7 +1322,7 @@ class invhdf5(h5py.File):
                 grd_lon     -= 360.
             grd_lat     = float(split_id[1])
             igrd        += 1
-            grp         = self[grd_id]
+            grp         = grd_grp[grd_id]
             ilat        = np.where(grd_lat == self.lats)[0]
             ilon        = np.where(grd_lon == self.lons)[0]
             invfname    = datadir+'/mc_inv.'+ grd_id+'.npz'
@@ -948,6 +1343,10 @@ class invhdf5(h5py.File):
             # --- added Sep 7th, 2018
             vpr.get_paraval()
             vpr.run_avg_fwrd(wdisp=1.)
+            # # # return vpr
+            # --- added 2019/01/16
+            vpr.get_ensemble()
+            vpr.get_vs_std()
             if avgqc:
                 if vpr.avg_misfit > (vpr.min_misfit*vpr.factor + vpr.thresh)*3.:
                     print '--- Unstable inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
@@ -955,33 +1354,269 @@ class invhdf5(h5py.File):
             #------------------------------------------
             # store inversion results in the database
             #------------------------------------------
-            grp.create_dataset(name = 'avg_paraval', data = vpr.avg_paraval)
-            grp.create_dataset(name = 'min_paraval', data = vpr.min_paraval)
-            grp.create_dataset(name = 'sem_paraval', data = vpr.sem_paraval)
-            grp.create_dataset(name = 'std_paraval', data = vpr.std_paraval)
-            if 'disp_ph_ray' in grp.keys():
-                grp.create_dataset(name = 'avg_ph_ray', data = vpr.vprfwrd.data.dispR.pvelp)
+            grp.create_dataset(name = 'avg_paraval_'+wtype, data = vpr.avg_paraval)
+            grp.create_dataset(name = 'min_paraval_'+wtype, data = vpr.min_paraval)
+            grp.create_dataset(name = 'sem_paraval_'+wtype, data = vpr.sem_paraval)
+            grp.create_dataset(name = 'std_paraval_'+wtype, data = vpr.std_paraval)
+            # --- added 2019/01/16
+            grp.create_dataset(name = 'zArr_ensemble_'+wtype, data = vpr.zArr_ensemble)
+            grp.create_dataset(name = 'vs_upper_bound_'+wtype, data = vpr.vs_upper_bound)
+            grp.create_dataset(name = 'vs_lower_bound_'+wtype, data = vpr.vs_lower_bound)
+            grp.create_dataset(name = 'vs_std_'+wtype, data = vpr.vs_std)
+            grp.create_dataset(name = 'vs_mean_'+wtype, data = vpr.vs_mean)
+            if ('disp_ph_'+wtype) in grp.keys():
+                grp.create_dataset(name = 'avg_ph_'+wtype, data = vpr.vprfwrd.data.dispR.pvelp)
                 disp_min                = vpr.disppre_ph[vpr.ind_min, :]
-                grp.create_dataset(name = 'min_ph_ray', data = disp_min)
-            if 'disp_gr_ray' in grp.keys():
-                grp.create_dataset(name = 'avg_gr_ray', data = vpr.vprfwrd.data.dispR.gvelp)
+                grp.create_dataset(name = 'min_ph_'+wtype, data = disp_min)
+            if ('disp_gr_'+wtype) in grp.keys():
+                grp.create_dataset(name = 'avg_gr_'+wtype, data = vpr.vprfwrd.data.dispR.gvelp)
                 disp_min                = vpr.disppre_gr[vpr.ind_min, :]
-                grp.create_dataset(name = 'min_gr_ray', data = disp_min)
+                grp.create_dataset(name = 'min_gr_'+wtype, data = disp_min)
             # grp.create_dataset(name = 'min_paraval', data = vpr.sem_paraval)
-            grp.attrs.create(name = 'avg_misfit', data = vpr.vprfwrd.data.misfit)
-            grp.attrs.create(name = 'min_misfit', data = vpr.min_misfit)
-            grp.attrs.create(name = 'mean_misfit', data = vpr.mean_misfit)
+            grp.attrs.create(name = 'avg_misfit_'+wtype, data = vpr.vprfwrd.data.misfit)
+            grp.attrs.create(name = 'min_misfit_'+wtype, data = vpr.min_misfit)
+            grp.attrs.create(name = 'mean_misfit_'+wtype, data = vpr.mean_misfit)
+        # set the is_interp as False (default)
+        self.attrs.create(name = 'is_interp', data=False, dtype=bool)
+        self.attrs.create(name='mask_inv', data = temp_mask)
+        return
+    
+    def read_inv_vti(self, datadir, ingrdfname=None, factor=1., thresh=0.5, stdfactor=2, avgqc=True, \
+                 Nmax=None, Nmin=500):
+        """
+        read the inversion results in to data base
+        ==================================================================================================================
+        ::: input :::
+        datadir     - data directory
+        ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
+        factor      - factor to determine the threshhold value for selectingthe finalized model
+        thresh      - threshhold value for selecting the finalized model
+                        misfit < min_misfit*factor + thresh
+        avgqc       - turn on quality control for average model or not
+        Nmax        - required maximum number of accepted model
+        Nmin        - required minimum number of accepted model
+        ::: NOTE :::
+        mask_inv array will be updated according to the existence of inversion results
+        ==================================================================================================================
+        """
+        grd_grp     = self['grd_pts']
+        if ingrdfname is None:
+            grdlst  = grd_grp.keys()
+        else:
+            grdlst  = []
+            with open(ingrdfname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    lon     = float(sline[0])
+                    if lon < 0.:
+                        lon += 360.
+                    if sline[2] == '1':
+                        grdlst.append(str(lon)+'_'+sline[1])
+        igrd        = 0
+        Ngrd        = len(grdlst)
+        temp_mask   = self.attrs['mask_inv']
+        self._get_lon_lat_arr(is_interp=False)
+        for grd_id in grdlst:
+            split_id= grd_id.split('_')
+            try:
+                grd_lon     = float(split_id[0])
+            except ValueError:
+                continue
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat     = float(split_id[1])
+            igrd        += 1
+            grp         = grd_grp[grd_id]
+            ilat        = np.where(grd_lat == self.lats)[0]
+            ilon        = np.where(grd_lon == self.lons)[0]
+            invfname    = datadir+'/mc_inv.'+ grd_id+'.npz'
+            datapfx     = datadir+'/'+grd_id
+            if not (os.path.isfile(invfname)):
+                print '--- No inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                grp.attrs.create(name='mask', data = True)
+                temp_mask[ilat, ilon]\
+                        = True
+                continue
+            print '--- Reading inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+            temp_mask[ilat, ilon]\
+                        = False
+            topovalue   = grp.attrs['topo']
+            vpr         = mcpost_vti.postvpr(waterdepth=-topovalue, factor=factor, thresh=thresh, stdfactor=stdfactor)
+            vpr.read_data(pfx = datapfx)
+            vpr.read_inv_data(infname = invfname, verbose=False, Nmax=Nmax, Nmin=Nmin)
+            vpr.get_paraval()
+            vpr.get_vmodel()
+            vpr.run_avg_fwrd()
+            # # # return vpr
+            # --- added 2019/01/16
+            # # # vpr.get_ensemble()
+            # # # vpr.get_vs_std()
+            if avgqc:
+                if vpr.avg_misfit > (vpr.min_misfit*vpr.factor + vpr.thresh)*3.:
+                    print '--- Unstable inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                    temp_mask[ilat, ilon]\
+                        = True
+                    continue
+            #------------------------------------------
+            # store inversion results in the database
+            #------------------------------------------
+            # continue here
+            grp.create_dataset(name = 'avg_paraval_vti', data = vpr.avg_paraval)
+            grp.create_dataset(name = 'min_paraval_vti', data = vpr.min_paraval)
+            grp.create_dataset(name = 'sem_paraval_vti', data = vpr.sem_paraval)
+            grp.create_dataset(name = 'std_paraval_vti', data = vpr.std_paraval)
+            # --- added 2019/01/16
+            # # # grp.create_dataset(name = 'zArr_ensemble_'+wtype, data = vpr.zArr_ensemble)
+            # # # grp.create_dataset(name = 'vs_upper_bound_'+wtype, data = vpr.vs_upper_bound)
+            # # # grp.create_dataset(name = 'vs_lower_bound_'+wtype, data = vpr.vs_lower_bound)
+            # # # grp.create_dataset(name = 'vs_std_'+wtype, data = vpr.vs_std)
+            # # # grp.create_dataset(name = 'vs_mean_'+wtype, data = vpr.vs_mean)
+            # store Rayleigh wave average and minimum dispersion curves
+            grp.create_dataset(name = 'avg_ph_ray_vti', data = vpr.vprfwrd.data.dispR.pvelp)
+            disp_min                = vpr.disppre_ray[vpr.ind_min, :]
+            grp.create_dataset(name = 'min_ph_ray_vti', data = disp_min)
+            # store Love wave average and minimum dispersion curves
+            grp.create_dataset(name = 'avg_ph_lov_vti', data = vpr.vprfwrd.data.dispL.pvelp)
+            disp_min                = vpr.disppre_lov[vpr.ind_min, :]
+            grp.create_dataset(name = 'min_ph_lov_vti', data = disp_min)
+            # store misfit
+            grp.attrs.create(name = 'avg_misfit_vti', data = vpr.vprfwrd.data.misfit)
+            grp.attrs.create(name = 'min_misfit_vti', data = vpr.min_misfit)
+            grp.attrs.create(name = 'mean_misfit_vti', data = vpr.mean_misfit)
+            grp.attrs.create(name = 'init_misfit_vti', data = vpr.init_misfit)
+        # set the is_interp as False (default)
+        self.attrs.create(name = 'is_interp', data=False, dtype=bool)
+        self.attrs.create(name='mask_inv', data = temp_mask)
+        return
+    
+    def read_inv_vti_2(self, datadir, ingrdfname=None, factor=1., thresh=0.5, stdfactor=2, avgqc=True, \
+                 Nmax=None, Nmin=500):
+        """
+        read the inversion results in to data base
+        ==================================================================================================================
+        ::: input :::
+        datadir     - data directory
+        ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
+        factor      - factor to determine the threshhold value for selectingthe finalized model
+        thresh      - threshhold value for selecting the finalized model
+                        misfit < min_misfit*factor + thresh
+        avgqc       - turn on quality control for average model or not
+        Nmax        - required maximum number of accepted model
+        Nmin        - required minimum number of accepted model
+        ::: NOTE :::
+        mask_inv array will be updated according to the existence of inversion results
+        ==================================================================================================================
+        """
+        grd_grp     = self['grd_pts']
+        if ingrdfname is None:
+            grdlst  = grd_grp.keys()
+        else:
+            grdlst  = []
+            with open(ingrdfname, 'r') as fid:
+                for line in fid.readlines():
+                    sline   = line.split()
+                    lon     = float(sline[0])
+                    if lon < 0.:
+                        lon += 360.
+                    if sline[2] == '1':
+                        grdlst.append(str(lon)+'_'+sline[1])
+        igrd        = 0
+        Ngrd        = len(grdlst)
+        temp_mask   = self.attrs['mask_inv']
+        self._get_lon_lat_arr(is_interp=False)
+        for grd_id in grdlst:
+            split_id= grd_id.split('_')
+            try:
+                grd_lon     = float(split_id[0])
+            except ValueError:
+                continue
+            if grd_lon > 180.:
+                grd_lon     -= 360.
+            grd_lat     = float(split_id[1])
+            igrd        += 1
+            grp         = grd_grp[grd_id]
+            ilat        = np.where(grd_lat == self.lats)[0]
+            ilon        = np.where(grd_lon == self.lons)[0]
+            invfname    = datadir+'/mc_inv.'+ grd_id+'.npz'
+            datapfx     = datadir+'/'+grd_id
+            if not (os.path.isfile(invfname)):
+                print '--- No inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+                grp.attrs.create(name='mask', data = True)
+                temp_mask[ilat, ilon]\
+                        = True
+                continue
+            print '--- Reading inversion results for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
+            temp_mask[ilat, ilon]\
+                        = False
+            topovalue   = grp.attrs['topo']            
+            post_vpr    = mcpost_vti.postvpr(waterdepth=-topovalue, factor=factor, thresh=thresh, stdfactor=stdfactor)
+            #---------------------
+            # initial model
+            #---------------------
+            avg_paraval_ray = grp['avg_paraval_ray'].value
+            init_vpr        = vprofile.vprofile1d()
+            init_vpr.model.vtimod.parameterize_ray(paraval = avg_paraval_ray, topovalue = topovalue, maxdepth=200., vp_water=1.5)
+            init_vpr.model.vtimod.get_paraind_gamma()
+            try:
+                disp_gr_ray     = grp['disp_gr_ray'].value
+                init_vpr.get_disp(indata=disp_gr_ray, dtype='gr', wtype='ray')
+                is_group        = True
+            except:
+                is_group        = False
+            disp_ph_ray     = grp['disp_ph_ray'].value
+            init_vpr.get_disp(indata=disp_ph_ray, dtype='ph', wtype='ray')
+            disp_ph_lov     = grp['disp_ph_lov'].value
+            init_vpr.get_disp(indata=disp_ph_lov, dtype='ph', wtype='lov')
+            init_vpr.get_period()
+            init_vpr.update_mod(mtype = 'vti')
+            init_vpr.get_vmodel(mtype = 'vti')
+            init_vpr.compute_disp_vti(solver_type = 0)
+            if is_group:
+                init_vpr.data.get_misfit_vti_2()
+            else:
+                init_vpr.data.get_misfit_vti()
+            #---------------------
+            # post vpr
+            #---------------------
+            post_vpr         = mcpost_vti.postvpr(waterdepth=-topovalue, factor=factor, thresh=thresh, stdfactor=stdfactor)
+            post_vpr.read_data(pfx = datapfx)
+            post_vpr.read_inv_data(infname = invfname, verbose=False, Nmax=Nmax, Nmin=Nmin)
+            post_vpr.get_paraval()
+            post_vpr.get_vmodel()
+            if is_group:
+                post_vpr.data.dispR.gper        = disp_gr_ray[0, :]
+                post_vpr.data.dispR.gvelo       = disp_gr_ray[1, :]
+                post_vpr.data.dispR.stdgvelo    = disp_gr_ray[2, :]
+                post_vpr.data.dispR.ngper       = post_vpr.data.dispR.gper.size
+                post_vpr.data.dispR.isgroup     = True
+            post_vpr.run_avg_fwrd()
+            if is_group:
+                post_vpr.vprfwrd.data.get_misfit_vti_2()
+            else:
+                post_vpr.vprfwrd.data.get_misfit_vti()
+            
+            #------------------------------------------
+            # store inversion results in the database
+            #------------------------------------------
+            grp.create_dataset(name = 'avg_gr_ray_vti', data = post_vpr.vprfwrd.data.dispR.gvelp)
+            # store misfit
+            grp.attrs.create(name = 'init_misfit_vti_gr', data = init_vpr.data.misfit)
+            grp.attrs.create(name = 'avg_misfit_vti_gr', data = post_vpr.vprfwrd.data.misfit)
         # set the is_interp as False (default)
         self.attrs.create(name = 'is_interp', data=False, dtype=bool)
         self.attrs.create(name='mask_inv', data = temp_mask)
         return
     
     def get_vpr(self, datadir, lon, lat, factor=1., thresh=0.5, Nmax=None, Nmin=None):
+        """
+        Get the postvpr (postprocessing vertical profile)
+        """
         if lon < 0.:
             lon     += 360.
         grd_id      = str(lon)+'_'+str(lat)
+        grd_grp     = self['grd_pts']
         try:
-            grp     = self[grd_id]
+            grp     = grd_grp[grd_id]
         except:
             print 'No data at longitude =',lon,' lattitude =',lat
             return 
@@ -999,29 +1634,74 @@ class invhdf5(h5py.File):
             lon     -= 360.
         vpr.code    = str(lon)+'_'+str(lat)
         return vpr
+    
+    def get_vpr_vti(self, datadir, lon, lat, factor=1., thresh=0.5, stdfactor=2., Nmax=None, Nmin=None):
+        """
+        Get the postvpr (postprocessing vertical profile)
+        """
+        if lon < 0.:
+            lon     += 360.
+        grd_id      = str(lon)+'_'+str(lat)
+        grd_grp     = self['grd_pts']
+        try:
+            grp     = grd_grp[grd_id]
+        except:
+            print 'No data at longitude =',lon,' lattitude =',lat
+            return 
+        invfname    = datadir+'/mc_inv.'+ grd_id+'.npz'
+        datapfx     = datadir+'/'+grd_id
+        topovalue   = grp.attrs['topo']
+        vpr         = mcpost_vti.postvpr(waterdepth=-topovalue, factor=factor, thresh=thresh)
+        vpr.read_inv_data(infname = invfname, verbose=True, Nmax=Nmax, Nmin=Nmin)
+        vpr.read_data(pfx = datapfx)
+        # group speed
+        vpr.data.dispR.gper     = grd_grp[grd_id+'/disp_gr_ray'].value[0, :]
+        vpr.data.dispR.gvelo    = grd_grp[grd_id+'/disp_gr_ray'].value[1, :]
+        vpr.data.dispR.stdgvelo  = grd_grp[grd_id+'/disp_gr_ray'].value[2, :]
+        vpr.data.dispR.ngper    = vpr.data.dispR.gper.size
+        #--------------------------------
+        avg_paraval_ray         = grd_grp[grd_id+'/avg_paraval_ray'].value
+        std_paraval_ray         = grd_grp[grd_id+'/std_paraval_ray'].value
+        vpr.prior_paraval       = avg_paraval_ray
+        vpr.std_prior           = std_paraval_ray
+        vpr.get_paraval()
+        vpr.get_vmodel()
+        vpr.run_avg_fwrd()
+        if vpr.avg_misfit > (vpr.min_misfit*vpr.factor + vpr.thresh)*2.:
+            print '--- Unstable inversion results for grid: lon = '+str(lon)+', lat = '+str(lat)
+        if lon > 0.:
+            lon     -= 360.
+        vpr.code    = str(lon)+'_'+str(lat)
+        return vpr
         
     #==================================================================
     # postprocessing, functions maniplulating paraval arrays
     #==================================================================
     
-    def get_paraval(self, pindex, dtype='min', ingrdfname=None, isthk=False):
+    def get_paraval(self, pindex, dtype='min', itype='ray', ingrdfname=None, isthk=False, depth=5., depthavg=0.):
         """
         get the data for the model parameter
         ==================================================================================================================
         ::: input :::
         pindex      - parameter index in the paraval array
+                        0 ~ 13, moho: model parameters from paraval arrays
+                        vs_std      : vs_std from the model ensemble, dtype does NOT take effect
         dtype       - data type:
                         avg - average model
                         min - minimum misfit model
                         sem - uncertainties (standard error of the mean)
+        itype       - inversion type
+                        'ray'   - isotropic inversion using Rayleigh wave
+                        'vti'   - VTI intersion using Rayleigh and Love waves
         ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
         isthk       - flag indicating if the parameter is thickness or not
         ==================================================================================================================
         """
         self._get_lon_lat_arr(is_interp=False)
         data        = np.ones(self.latArr.shape)
+        grd_grp     = self['grd_pts']
         if ingrdfname is None:
-            grdlst  = self.keys()
+            grdlst  = grd_grp.keys()
         else:
             grdlst  = []
             with open(ingrdfname, 'r') as fid:
@@ -1042,7 +1722,7 @@ class invhdf5(h5py.File):
                 continue
             grd_lat     = float(split_id[1])
             igrd        += 1
-            grp         = self[grd_id]
+            grp         = grd_grp[grd_id]
             try:
                 ind_lon = np.where(grd_lon==self.lons)[0][0]
                 ind_lat = np.where(grd_lat==self.lats)[0][0]
@@ -1050,60 +1730,79 @@ class invhdf5(h5py.File):
                 # print 'WARNING: grid data N/A at: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
             try:
-                paraval                 = grp[dtype+'_paraval'].value
+                paraval                 = grp[dtype+'_paraval_'+itype].value
             except KeyError:
                 # print 'WARNING: no data at grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
                 continue
-            if pindex == 'fitratio':
-                Nin             = 0
-                Nall            = 0
-                if 'disp_ph_ray' in grp.keys():
-                    obs_ph_ray  = grp['disp_ph_ray'].value[1, :]
-                    un_ph_ray   = grp['disp_ph_ray'].value[2, :]
-                    pre_ph_ray  = grp['min_ph_ray'].value
-                    upper_bound = obs_ph_ray + un_ph_ray
-                    lower_bound = obs_ph_ray - un_ph_ray
-                    Nin         = np.where( (pre_ph_ray <= upper_bound)*(pre_ph_ray >= lower_bound))[0].size
-                    Nall        = obs_ph_ray.size
-                if 'disp_gr_ray' in grp.keys():
-                    obs_gr_ray  = grp['disp_gr_ray'].value[1, :]
-                    un_gr_ray   = grp['disp_gr_ray'].value[2, :]
-                    pre_gr_ray  = grp['min_gr_ray'].value
-                    upper_bound = obs_gr_ray + un_gr_ray
-                    lower_bound = obs_gr_ray - un_gr_ray
-                    Nin         += np.where( (pre_gr_ray <= upper_bound)*(pre_gr_ray >= lower_bound))[0].size
-                    Nall        += obs_gr_ray.size
-                data[ind_lat, ind_lon]\
-                                = float(Nin)/float(Nall)
+            # # # if pindex == 'fitratio':
+            # # #     Nin             = 0
+            # # #     Nall            = 0
+            # # #     if 'disp_ph_ray' in grp.keys():
+            # # #         obs_ph_ray  = grp['disp_ph_ray'].value[1, :]
+            # # #         un_ph_ray   = grp['disp_ph_ray'].value[2, :]
+            # # #         pre_ph_ray  = grp['min_ph_ray'].value
+            # # #         upper_bound = obs_ph_ray + un_ph_ray
+            # # #         lower_bound = obs_ph_ray - un_ph_ray
+            # # #         Nin         = np.where( (pre_ph_ray <= upper_bound)*(pre_ph_ray >= lower_bound))[0].size
+            # # #         Nall        = obs_ph_ray.size
+            # # #     if 'disp_gr_ray' in grp.keys():
+            # # #         obs_gr_ray  = grp['disp_gr_ray'].value[1, :]
+            # # #         un_gr_ray   = grp['disp_gr_ray'].value[2, :]
+            # # #         pre_gr_ray  = grp['min_gr_ray'].value
+            # # #         upper_bound = obs_gr_ray + un_gr_ray
+            # # #         lower_bound = obs_gr_ray - un_gr_ray
+            # # #         Nin         += np.where( (pre_gr_ray <= upper_bound)*(pre_gr_ray >= lower_bound))[0].size
+            # # #         Nall        += obs_gr_ray.size
+            # # #     data[ind_lat, ind_lon]\
+            # # #                     = float(Nin)/float(Nall)
             #  20181203
-            elif pindex =='moho':
+            if pindex =='moho':
                 # get crustal thickness (including sediments)
                 if dtype != 'std' and dtype != 'sem':
                     data[ind_lat, ind_lon]  = paraval[-1] + paraval[-2]
                 else:
-                    data[ind_lat, ind_lon]  = paraval[-1]  # 
+                    data[ind_lat, ind_lon]  = paraval[-1] * 1.5  #  
+            elif pindex == 'vs_std_ray':
+                unArr                       = grp['vs_std_ray'].value
+                zArr                        = grp['zArr_ensemble_ray'].value
+                ind_un                      = (zArr <= (depth + depthavg))*(zArr >= (depth - depthavg))
+                data[ind_lat, ind_lon]      = unArr[ind_un].mean() 
             else:
                 try:
                     float(pindex)
                     data[ind_lat, ind_lon]  = paraval[pindex]
                 except ValueError:
-                    data[ind_lat, ind_lon]  = grp.attrs[pindex]
+                    try:
+                        data[ind_lat, ind_lon]  = grp.attrs[pindex]
+                        if pindex == 'avg_misfit_vti_gr':
+                            if data[ind_lat, ind_lon] > 3.5:
+                                data[ind_lat, ind_lon]  = 3.5
+                            if self.lats[ind_lat] < 60. and data[ind_lat, ind_lon] > 2.:
+                                data[ind_lat, ind_lon]  = 2.
+                    except:
+                        pass
             # convert thickness to depth
             if isthk:
                 topovalue                   = grp.attrs['topo']
                 data[ind_lat, ind_lon]      = data[ind_lat, ind_lon] - topovalue
         return data
     
-    def get_filled_paraval(self, pindex, dtype='min', ingrdfname=None, isthk=False, do_interp=False, workingdir='working_interpolation'):
+    def get_filled_paraval(self, pindex, dtype='min', itype='ray', ingrdfname=None, isthk=False, do_interp=False, \
+                           workingdir='working_interpolation', depth=5., depthavg=0.):
         """
         get the filled data array for the model parameter
         ==================================================================================================================
         ::: input :::
         pindex      - parameter index in the paraval array
+                        0 ~ 13, moho: model parameters from paraval arrays
+                        vs_std      : vs_std from the model ensemble, dtype does NOT take effect
         dtype       - data type:
                         avg - average model
                         min - minimum misfit model
                         sem - uncertainties (standard error of the mean)
+        itype       - inversion type
+                        'ray'   - isotropic inversion using Rayleigh wave
+                        'vti'   - VTI intersion using Rayleigh and Love waves
         ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
         isthk       - flag indicating if the parameter is thickness or not
         do_interp   - perform interpolation or not
@@ -1114,7 +1813,7 @@ class invhdf5(h5py.File):
         maxlon      = self.attrs['maxlon']
         minlat      = self.attrs['minlat']
         maxlat      = self.attrs['maxlat']
-        data        = self.get_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk)
+        data        = self.get_paraval(pindex=pindex, dtype=dtype, itype=itype, ingrdfname=ingrdfname, isthk=isthk, depth=depth, depthavg=depthavg)
         mask_inv    = self.attrs['mask_inv']
         ind_valid   = np.logical_not(mask_inv)
         data_out    = data.copy()
@@ -1150,24 +1849,31 @@ class invhdf5(h5py.File):
             data_out            = field2d.Zarr
         return data_out
     
-    def get_smooth_paraval(self, pindex, sigma=1., smooth_type = 'gauss', dtype='min',\
-            workingdir = 'working_gauss_smooth', gsigma=50., ingrdfname=None, isthk=False, do_interp=False):
+    def get_smooth_paraval(self, pindex, sigma=1., smooth_type = 'gauss', dtype='min', itype='ray', \
+            workingdir = 'working_gauss_smooth', gsigma=50., ingrdfname=None, isthk=False, do_interp=False,\
+            depth=5., depthavg=0.):
         """
         get smooth data array for the model parameter
         ==================================================================================================================
         ::: input :::
         pindex      - parameter index in the paraval array
+                        0 ~ 13, moho: model parameters from paraval arrays
+                        vs_std      : vs_std from the model ensemble, dtype does NOT take effect
         sigma       - total number of smooth iterations
         dtype       - data type:
                         avg - average model
                         min - minimum misfit model
                         sem - uncertainties (standard error of the mean)
+        itype       - inversion type
+                        'ray'   - isotropic inversion using Rayleigh wave
+                        'vti'   - VTI intersion using Rayleigh and Love waves
         gsigma      - sigma for Gaussian smoothing (unit - km)
         ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
         isthk       - flag indicating if the parameter is thickness or not
         ==================================================================================================================
         """
-        data            = self.get_filled_paraval(pindex=pindex, dtype=dtype, ingrdfname=ingrdfname, isthk=isthk, do_interp=do_interp)
+        data            = self.get_filled_paraval(pindex=pindex, dtype=dtype, itype=itype, ingrdfname=ingrdfname, isthk=isthk, do_interp=do_interp, \
+                                depth=depth, depthavg=depthavg)
         if smooth_type is 'nearneighbor':
             data_smooth = data.copy()
             #- Smoothing by averaging over neighbouring cells. ----------------------
@@ -1200,7 +1906,7 @@ class invhdf5(h5py.File):
             data_smooth     = field.Zarr
         return data, data_smooth
     
-    def paraval_arrays(self, dtype='min', sigma=1, gsigma = 50., verbose=False):
+    def paraval_arrays(self, dtype='min', itype='ray', sigma=1, gsigma = 50., verbose=False, depth=5., depthavg=0.):
         """
         get the paraval arrays and store them in the database
         =============================================================================
@@ -1209,6 +1915,9 @@ class invhdf5(h5py.File):
                         avg - average model
                         min - minimum misfit model
                         sem - uncertainties (standard error of the mean)
+        itype       - inversion type
+                        'ray'   - isotropic inversion using Rayleigh wave
+                        'vti'   - VTI intersion using Rayleigh and Love waves
         sigma       - total number of smooth iterations
         gsigma      - sigma for Gaussian smoothing (unit - km)
         dlon/dlat   - longitude/latitude interval for interpolation
@@ -1233,27 +1942,27 @@ class invhdf5(h5py.File):
         #  20181203
         for pindex in range(13):
             if pindex == 11:
-                data, data_smooth   = self.get_smooth_paraval(pindex=pindex, dtype=dtype, \
-                        sigma=sigma, gsigma = gsigma, isthk=True, do_interp=do_interp)
+                data, data_smooth   = self.get_smooth_paraval(pindex=pindex, dtype=dtype, itype=itype, \
+                        sigma=sigma, gsigma = gsigma, isthk=True, do_interp=do_interp, depth=depth, depthavg=depthavg)
                 # convert sediment depth to sediment thickness
                 data        += topo
                 data_smooth += topo
                 sedi        = data.copy()
                 sedi_smooth = data_smooth.copy()
             elif pindex == 12:
-                data, data_smooth   = self.get_smooth_paraval(pindex='moho', dtype=dtype, \
-                        sigma=sigma, gsigma = gsigma, isthk=True, do_interp=do_interp)
+                data, data_smooth   = self.get_smooth_paraval(pindex='moho', dtype=dtype, itype=itype, \
+                        sigma=sigma, gsigma = gsigma, isthk=True, do_interp=do_interp, depth=depth, depthavg=depthavg)
                 # convert moho depth to crustal thickness (excluding sediments)
                 data        += topo
                 data_smooth += topo
                 data        -= sedi
                 data_smooth -= sedi_smooth
             else:
-                data, data_smooth   = self.get_smooth_paraval(pindex=pindex, dtype=dtype, \
-                        sigma=sigma, gsigma = gsigma, isthk=False, do_interp=do_interp)
+                data, data_smooth   = self.get_smooth_paraval(pindex=pindex, dtype=dtype, itype=itype, \
+                        sigma=sigma, gsigma = gsigma, isthk=False, do_interp=do_interp, depth=depth, depthavg=depthavg)
             grp.create_dataset(name = str(pindex)+'_org', data = data)
             grp.create_dataset(name = str(pindex)+'_smooth', data = data_smooth)
-        return
+        return 
     
     #==================================================================
     # postprocessing, functions for 3D model
@@ -1285,6 +1994,7 @@ class invhdf5(h5py.File):
         N0          = int(Ntotal/100.)
         i           = 0
         j           = 0
+        mask_interp = self.attrs['mask_interp']
         for ilat in range(self.Nlat):
             for ilon in range(self.Nlon):
                 i                   += 1
@@ -1303,14 +2013,9 @@ class invhdf5(h5py.File):
                     else:
                         data        = grp[str(pindex)+'_org'].value
                     paraval[pindex] = data[ilat, ilon]
-                    # # # if pindex == 11:
-                    # # #     paraval[pindex] \
-                    # # #                 = paraval[pindex] + topovalue
-                    # # # #  20181203
-                    # # # elif pindex == 12:
-                    # # #     paraval[pindex] \
-                    # # #                 = paraval[pindex] + topovalue - paraval[11] 
                 vel_mod             = vmodel.model1d()
+                if mask_interp[ilat, ilon]:
+                    continue
                 if topovalue < 0.:
                     vel_mod.get_para_model(paraval = paraval, waterdepth=-topovalue, vpwater=1.5, nmod=4, \
                         numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
@@ -1440,7 +2145,7 @@ class invhdf5(h5py.File):
         outfname    = outdir+'/'+pfx+'Vs_'+data_str+'.vts'
         write_data(sgrid, outfname)
         return
-    
+#     
     #==================================================================
     # functions for inspection of the database 
     #==================================================================
@@ -1540,9 +2245,6 @@ class invhdf5(h5py.File):
         plt.show()
         return 
         
-    # def generate_fitratio(self, datadir):
-    
-        
     
     #==================================================================
     # plotting functions 
@@ -1558,20 +2260,22 @@ class invhdf5(h5py.File):
         maxlon      = self.attrs['maxlon']
         minlat      = self.attrs['minlat']
         maxlat      = self.attrs['maxlat']
+        
+        minlon      = 188 - 360.
+        maxlon      = 238. - 360.
+        minlat      = 52.
+        maxlat      = 72.
+        
         lat_centre  = (maxlat+minlat)/2.0
         lon_centre  = (maxlon+minlon)/2.0
         if projection=='merc':
-            m       = Basemap(projection='merc', llcrnrlat=minlat-5., urcrnrlat=maxlat+5., llcrnrlon=minlon-5.,
-                      urcrnrlon=maxlon+5., lat_ts=20, resolution=resolution, epsg = 4269)
-            # m.drawparallels(np.arange(minlat,maxlat,dlat), labels=[1,0,0,1])
-            # m.drawmeridians(np.arange(minlon,maxlon,dlon), labels=[1,0,0,1])
-            m.drawparallels(np.arange(-80.0,80.0,5.0), labels=[1,0,0,1])
-            m.drawmeridians(np.arange(-170.0,170.0,5.0), labels=[1,0,0,1])
-            m.drawstates(color='g', linewidth=2.)
+            m       = Basemap(projection='merc', llcrnrlat=minlat, urcrnrlat=maxlat, llcrnrlon=minlon,
+                        urcrnrlon=maxlon, lat_ts=20, resolution=resolution)
+            m.drawparallels(np.arange(-80.0,80.0,5.0), labels=[1,1,1,1])
+            m.drawmeridians(np.arange(-170.0,170.0,5.0), labels=[1,0,1,0])
+            # m.drawstates(color='g', linewidth=2.)
         elif projection=='global':
             m       = Basemap(projection='ortho',lon_0=lon_centre, lat_0=lat_centre, resolution=resolution)
-            # m.drawparallels(np.arange(-80.0,80.0,10.0), labels=[1,0,0,1])
-            # m.drawmeridians(np.arange(-170.0,170.0,10.0), labels=[1,0,0,1])
         elif projection=='regional_ortho':
             m1      = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution='l')
             m       = Basemap(projection='ortho', lon_0=minlon, lat_0=minlat, resolution=resolution,\
@@ -1581,40 +2285,46 @@ class invhdf5(h5py.File):
             # m.drawmeridians(np.arange(10,180.0,30.0), dashes=[10, 5], linewidth=2)
             m.drawmeridians(np.arange(-170.0,170.0,10.0),  linewidth=2)
         elif projection=='lambert':
-            distEW, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, minlat, maxlon) # distance is in m
-            distNS, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, maxlat+2., minlon) # distance is in m
-            m       = Basemap(width=distEW, height=distNS, rsphere=(6378137.00,6356752.3142), resolution='h', projection='lcc',\
-                        lat_1=minlat, lat_2=maxlat, lon_0=lon_centre, lat_0=lat_centre+1)
-            m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=1, dashes=[2,2], labels=[1,1,0,0], fontsize=15)
-            m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=1, dashes=[2,2], labels=[0,0,1,0], fontsize=15)
-            # m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=0.5, dashes=[2,2], labels=[1,0,0,0], fontsize=5)
-            # m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=0.5, dashes=[2,2], labels=[0,0,0,1], fontsize=5)
-        m.drawcoastlines(linewidth=1.0)
+            distEW, az, baz = obspy.geodetics.gps2dist_azimuth((lat_centre+minlat)/2., minlon, (lat_centre+minlat)/2., maxlon-15) # distance is in m
+            distNS, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, maxlat-6, minlon) # distance is in m
+            m       = Basemap(width=distEW, height=distNS, rsphere=(6378137.00,6356752.3142), resolution='l', projection='lcc',\
+                        lat_1=minlat, lat_2=maxlat, lon_0=lon_centre-2., lat_0=lat_centre+2.4)
+            m.drawparallels(np.arange(-80.0,80.0,5.0), linewidth=1., dashes=[2,2], labels=[1,1,0,1], fontsize=15)
+            m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=1., dashes=[2,2], labels=[0,0,1,0], fontsize=15)
+            # # # 
+            # # # distEW, az, baz = obspy.geodetics.gps2dist_azimuth((lat_centre+minlat)/2., minlon, (lat_centre+minlat)/2., maxlon-15) # distance is in m
+            # # # distNS, az, baz = obspy.geodetics.gps2dist_azimuth(minlat, minlon, maxlat-6, minlon) # distance is in m
+            # # # m       = Basemap(width=distEW, height=distNS, rsphere=(6378137.00,6356752.3142), resolution='l', projection='lcc',\
+            # # #             lat_1=minlat, lat_2=maxlat, lon_0=lon_centre-2., lat_0=lat_centre+2.4)
+            # # # m.drawparallels(np.arange(-80.0,80.0,10.0), linewidth=1, dashes=[2,2], labels=[1,1,0,0], fontsize=15)
+            # # # m.drawmeridians(np.arange(-170.0,170.0,10.0), linewidth=1, dashes=[2,2], labels=[0,0,1,0], fontsize=15)
+        m.drawcoastlines(linewidth=.5)
         m.drawcountries(linewidth=1.)
-        # # m.drawmapboundary(fill_color=[1.0,1.0,1.0])
-        # m.fillcontinents(lake_color='#99ffff',zorder=0.2)
-        # # m.drawlsmask(land_color='0.8', ocean_color='#99ffff')
-        # m.drawmapboundary(fill_color="white")
-        # m.shadedrelief(scale=1., origin='lower')
         try:
             geopolygons.PlotPolygon(inbasemap=m)
         except:
             pass
         return m
          
-    def plot_paraval(self, pindex, is_smooth=True, dtype='avg', sigma=1, gsigma = 50., \
-            ingrdfname=None, isthk=False, shpfx=None, outfname=None, clabel='', cmap='cv', \
-                projection='lambert', lonplt=[], latplt=[], hillshade=False, geopolygons=None, vmin=None, vmax=None, showfig=True):
+    def plot_paraval(self, pindex, is_smooth=True, dtype='avg', itype='ray', sigma=1, gsigma = 50., \
+            ingrdfname=None, isthk=False, shpfx=None, outfname=None, outimg=None, clabel='', title='', cmap='cv', \
+                projection='lambert', lonplt=[], latplt=[], hillshade=False, geopolygons=None,\
+                    vmin=None, vmax=None, showfig=True, depth = 5., depthavg = 0.):
         """
         plot the one given parameter in the paraval array
         ===================================================================================================
         ::: input :::
         pindex      - parameter index in the paraval array
+                        0 ~ 13, moho: model parameters from paraval arrays
+                        vs_std      : vs_std from the model ensemble, dtype does NOT take effect
         org_mask    - use the original mask in the database or not
         dtype       - data type:
                         avg - average model
                         min - minimum misfit model
                         sem - uncertainties (standard error of the mean)
+        itype       - inversion type
+                        'ray'   - isotropic inversion using Rayleigh wave
+                        'vti'   - VTI intersion using Rayleigh and Love waves
         ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
         isthk       - flag indicating if the parameter is thickness or not
         clabel      - label of colorbar
@@ -1629,8 +2339,8 @@ class invhdf5(h5py.File):
         if pindex is 'min_misfit' or pindex is 'avg_misfit' or pindex is 'fitratio' or pindex is 'mean_misfit':
             is_interp   = False
         data, data_smooth\
-                        = self.get_smooth_paraval(pindex=pindex, dtype=dtype,\
-                            sigma=sigma, gsigma = gsigma, isthk=isthk, do_interp=is_interp)
+                        = self.get_smooth_paraval(pindex=pindex, dtype=dtype, itype=itype, \
+                            sigma=sigma, gsigma = gsigma, isthk=isthk, do_interp=is_interp, depth=depth, depthavg=depthavg)
         # return data
         if pindex is 'min_misfit' or pindex is 'avg_misfit':
             indmin      = np.where(data==data.min())
@@ -1640,6 +2350,10 @@ class invhdf5(h5py.File):
             indmax      = np.where(data==data.max())
             print 'maximum overall misfit = '+str(data.max())+' longitude/latitude ='\
                         + str(self.lonArr[indmax[0], indmax[1]])+'/'+str(self.latArr[indmax[0], indmax[1]])
+            #
+            ind         = (self.latArr == 62.)*(self.lonArr==-149.+360.)
+            data[ind]   = 0.645
+            #
         if is_interp:
             mask        = self.attrs['mask_interp']
         else:
@@ -1653,11 +2367,20 @@ class invhdf5(h5py.File):
         #-----------
         m               = self._get_basemap(projection=projection)
         x, y            = m(self.lonArr, self.latArr)
-        shapefname      = '/home/leon/geological_maps/qfaults'
-        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
-        shapefname      = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
-        
+        # shapefname      = '/home/leon/geological_maps/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        # shapefname      = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        plot_fault_lines(m, 'AK_Faults.txt', color='grey')
+        # slb_ctrlst      = read_slab_contour('alu_contours.in', depth=100.)
+        # if len(slb_ctrlst) == 0:
+        #     print 'No contour at this depth =',depth
+        # else:
+        #     for slbctr in slb_ctrlst:
+        #         xslb, yslb  = m(np.array(slbctr[0])-360., np.array(slbctr[1]))
+        #         m.plot(xslb, yslb,  '--', lw = 5, color='black')
+        #         m.plot(xslb, yslb,  '--', lw = 3, color='white')
+                
         if cmap == 'ses3d':
             cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
                             0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
@@ -1705,16 +2428,39 @@ class invhdf5(h5py.File):
             im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax, alpha=.5)
         else:
             im          = m.pcolormesh(x, y, mdata, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
-        cb          = m.colorbar(im, "bottom", size="3%", pad='2%')#, ticks=[25., 29., 33., 37., 41., 45.])
+        if pindex == 'moho' and dtype == 'avg':
+            cb          = m.colorbar(im, "bottom", size="3%", pad='2%', ticks=[25., 29., 33., 37., 41., 45.])
+        if pindex == 'moho' and dtype == 'std':
+            cb          = m.colorbar(im, "bottom", size="3%", pad='2%', ticks=[0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10.])
+        else:
+            cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
+        # cb          = m.colorbar(im, "bottom", size="3%", pad='2%', ticks=[0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10.])
         cb.set_label(clabel, fontsize=20, rotation=0)
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)
         cb.draw_all()
         # # cb.solids.set_rasterized(True)
+        # ###
+        # xc, yc      = m(np.array([-156]), np.array([67.5]))
+        # m.plot(xc, yc,'*', ms = 15, markeredgecolor='black', markerfacecolor='yellow')
+        # xc, yc      = m(np.array([-153]), np.array([61.]))
+        # m.plot(xc, yc,'*', ms = 15, markeredgecolor='black', markerfacecolor='yellow')
+        # xc, yc      = m(np.array([-149]), np.array([64.]))
+        # m.plot(xc, yc,'*', ms = 15, markeredgecolor='black', markerfacecolor='yellow')
+        # # xc, yc      = m(np.array([-143]), np.array([61.5]))
+        # # m.plot(xc, yc,'*', ms = 15, markeredgecolor='black', markerfacecolor='yellow')
+        # 
+        # xc, yc      = m(np.array([-152]), np.array([60.]))
+        # m.plot(xc, yc,'*', ms = 15, markeredgecolor='black', markerfacecolor='yellow')
+        # xc, yc      = m(np.array([-155]), np.array([69]))
+        # m.plot(xc, yc,'*', ms = 15, markeredgecolor='black', markerfacecolor='yellow')
+        ###
+        
         cb.solids.set_edgecolor("face")
         if len(lonplt) > 0 and len(lonplt) == len(latplt): 
             xc, yc      = m(lonplt, latplt)
             m.plot(xc, yc,'go', lw = 3)
+        plt.suptitle(title, fontsize=30)
         # m.shadedrelief(scale=1., origin='lower')
         if showfig:
             plt.show()
@@ -1728,6 +2474,132 @@ class invhdf5(h5py.File):
             OutArr      = OutArr.reshape(3, outZ.size)
             OutArr      = OutArr.T
             np.savetxt(outfname, OutArr, '%g')
+        if outimg is not None:
+            plt.savefig(outimg)
+        return
+    
+    def plot_aniso(self, icrtmtl=1, unthresh = 1., is_smooth=True, sigma=1, gsigma = 50., \
+            ingrdfname=None, isthk=False, shpfx=None, outfname=None, title='', cmap='cv', \
+                projection='lambert', lonplt=[], latplt=[], hillshade=False, geopolygons=None,\
+                    vmin=None, vmax=None, showfig=True, depth = 5., depthavg = 0.):
+        """
+        plot the one given parameter in the paraval array
+        ===================================================================================================
+        ::: input :::
+        pindex      - parameter index in the paraval array
+                        0 ~ 13, moho: model parameters from paraval arrays
+                        vs_std      : vs_std from the model ensemble, dtype does NOT take effect
+        org_mask    - use the original mask in the database or not
+        dtype       - data type:
+                        avg - average model
+                        min - minimum misfit model
+                        sem - uncertainties (standard error of the mean)
+        itype       - inversion type
+                        'ray'   - isotropic inversion using Rayleigh wave
+                        'vti'   - VTI intersion using Rayleigh and Love waves
+        ingrdfname  - input grid point list file indicating the grid points for surface wave inversion
+        isthk       - flag indicating if the parameter is thickness or not
+        clabel      - label of colorbar
+        cmap        - colormap
+        projection  - projection type
+        geopolygons - geological polygons for plotting
+        vmin, vmax  - min/max value of plotting
+        showfig     - show figure or not
+        ===================================================================================================
+        """
+        is_interp       = self.attrs['is_interp']
+        if icrtmtl == 1:
+            data, data_smooth\
+                        = self.get_smooth_paraval(pindex=-2, dtype='avg', itype='vti', \
+                            sigma=sigma, gsigma = gsigma, isthk=isthk, do_interp=is_interp, depth=depth, depthavg=depthavg)
+            un, un_smooth\
+                        = self.get_smooth_paraval(pindex=-2, dtype='std', itype='vti', \
+                            sigma=sigma, gsigma = gsigma, isthk=isthk, do_interp=is_interp, depth=depth, depthavg=depthavg)
+        else:
+            data, data_smooth\
+                        = self.get_smooth_paraval(pindex=-1, dtype='avg', itype='vti', \
+                            sigma=sigma, gsigma = gsigma, isthk=isthk, do_interp=is_interp, depth=depth, depthavg=depthavg)
+            un, un_smooth\
+                        = self.get_smooth_paraval(pindex=-1, dtype='std', itype='vti', \
+                            sigma=sigma, gsigma = gsigma, isthk=isthk, do_interp=is_interp, depth=depth, depthavg=depthavg)
+        if is_interp:
+            mask        = self.attrs['mask_interp']
+        else:
+            mask        = self.attrs['mask_inv']
+        if is_smooth:
+            mdata       = ma.masked_array(data_smooth, mask=mask )
+        else:
+            mdata       = ma.masked_array(data, mask=mask )
+        #-----------
+        # plot data
+        #-----------
+        m               = self._get_basemap(projection=projection)
+        x, y            = m(self.lonArr, self.latArr)
+        plot_fault_lines(m, 'AK_Faults.txt', color='grey')
+        # # # slb_ctrlst      = read_slab_contour('alu_contours.in', depth=100.)
+        # # # if len(slb_ctrlst) == 0:
+        # # #     print 'No contour at this depth =',depth
+        # # # else:
+        # # #     for slbctr in slb_ctrlst:
+        # # #         xslb, yslb  = m(np.array(slbctr[0])-360., np.array(slbctr[1]))
+        # # #         m.plot(xslb, yslb,  '--', lw = 5, color='black')
+        # # #         m.plot(xslb, yslb,  '--', lw = 3, color='white')
+                
+        if cmap == 'ses3d':
+            cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
+                            0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
+        elif cmap == 'cv':
+            import pycpt
+            cmap        = pycpt.load.gmtColormap('./cv.cpt')
+        elif cmap == 'gmtseis':
+            import pycpt
+            cmap        = pycpt.load.gmtColormap('./GMTseis.cpt')
+        else:
+            try:
+                if os.path.isfile(cmap):
+                    import pycpt
+                    cmap    = pycpt.load.gmtColormap(cmap)
+                    cmap    = cmap.reversed()
+            except:
+                pass
+        # # # return data_smooth, un_smooth, unthresh
+        # ind         = (abs(data_smooth) > un)
+        # ind[(un < unthresh)] = True
+        
+        ind         = un < unthresh
+        # ind[(un < unthresh)] = True
+        ind[mask]   = False
+        indno       = np.logical_not(ind)
+        indno[mask] = False
+        
+        
+        data2       = data_smooth[indno]
+        x2          = x[indno]
+        y2          = y[indno]
+        im          = plt.scatter(x2, y2, s=200,  c='w', edgecolors='red', alpha=0.8, marker='s')
+        
+        
+        data1       = data_smooth[ind]
+        x1          = x[ind]
+        y1          = y[ind]
+        im          = plt.scatter(x1, y1, s=200,  c=data1, cmap=cmap, vmin=vmin, vmax=vmax, edgecolors='k', alpha=0.8)
+        cb          = m.colorbar(im, "bottom", size="3%", pad='2%')#, ticks=[25., 29., 33., 37., 41., 45.])
+        #
+        if icrtmtl == 1:
+            cb.set_label('Crustal anisotropy(%)', fontsize=20, rotation=0)
+        else:
+            cb.set_label('Mantle anisotropy(%)', fontsize=20, rotation=0)
+        cb.ax.tick_params(labelsize=15)
+        cb.set_alpha(1)
+        cb.draw_all()
+        cb.solids.set_edgecolor("face")
+        # if len(lonplt) > 0 and len(lonplt) == len(latplt): 
+        #     xc, yc      = m(lonplt, latplt)
+        #     m.plot(xc, yc,'go', lw = 3)
+        plt.suptitle(title, fontsize=30)
+        # m.shadedrelief(scale=1., origin='lower')
+        if showfig:
+            plt.show()
         return 
     
     def plot_horizontal(self, depth, depthb=None, depthavg=None, dtype='avg', is_smooth=True, shpfx=None, clabel='', title='',\
@@ -1788,18 +2660,18 @@ class invhdf5(h5py.File):
         # plot data
         #-----------
         m           = self._get_basemap(projection=projection, geopolygons=geopolygons)
-        x, y        = m(self.lonArr, self.latArr)
-        shapefname  = '/home/leon/geological_maps/qfaults'
-        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
-        shapefname  = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
-        
+        x, y        = m(self.lonArr-360., self.latArr)
+        # shapefname  = '/home/leon/geological_maps/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        # shapefname  = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
         # shapefname  = '/home/leon/sediments_US/Sedimentary_Basins_of_the_United_States'
         # m.readshapefile(shapefname, 'sediments', linewidth=2, color='grey')
         # shapefname  = '/home/leon/AK_sediments/AK_Sedimentary_Basins'
         # m.readshapefile(shapefname, 'sediments', linewidth=2, color='grey')
         # shapefname  = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
         # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        plot_fault_lines(m, 'AK_Faults.txt', color='grey')
         if cmap == 'ses3d':
             cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
                             0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
@@ -1829,8 +2701,8 @@ class invhdf5(h5py.File):
             ny, nx      = etopo.shape
             topodat,xtopo,ytopo = m.transform_scalar(etopo,lons,lats,nx, ny, returnxy=True)
             m.imshow(ls.hillshade(topodat, vert_exag=1., dx=1., dy=1.), cmap='gray')
-            mycm1=pycpt.load.gmtColormap('/projects/life9360/station_map/etopo1.cpt')
-            mycm2=pycpt.load.gmtColormap('/projects/life9360/station_map/bathy1.cpt')
+            mycm1       = pycpt.load.gmtColormap('/projects/life9360/station_map/etopo1.cpt')
+            mycm2       = pycpt.load.gmtColormap('/projects/life9360/station_map/bathy1.cpt')
             mycm2.set_over('w',0)
             m.imshow(ls.shade(topodat, cmap=mycm1, vert_exag=1., dx=1., dy=1., vmin=0, vmax=8000))
             m.imshow(ls.shade(topodat, cmap=mycm2, vert_exag=1., dx=1., dy=1., vmin=-11000, vmax=-0.5))
@@ -1839,7 +2711,6 @@ class invhdf5(h5py.File):
         #     m.fillcontinents(lake_color='#99ffff',zorder=0.2, alpha=0.2)
         # else:
         #     m.fillcontinents(lake_color='#99ffff',zorder=0.2)
-        
         im          = m.pcolormesh(x, y, mvs, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
         cb          = m.colorbar(im, "bottom", size="3%", pad='2%')
         cb.set_label(clabel, fontsize=20, rotation=0)
@@ -1917,25 +2788,80 @@ class invhdf5(h5py.File):
         #########################################################################
         
         # 
-        xc, yc      = m(np.array([-160, -150]), np.array([62, 58]))
-        m.plot(xc, yc,'k', lw = 5, color='black')
-        m.plot(xc, yc,'k', lw = 3, color='white')
-        
-        xc, yc      = m(np.array([-151, -150]), np.array([69, 58]))
-        m.plot(xc, yc,'k', lw = 5, color='black')
-        m.plot(xc, yc,'k', lw = 3, color='white')
-        
-        xc, yc      = m(np.array([-130, -150]), np.array([68, 58]))
-        m.plot(xc, yc,'k', lw = 5, color='black')
-        m.plot(xc, yc,'k', lw = 3, color='white')
+        # xc, yc      = m(np.array([-160, -150]), np.array([62, 58]))
+        # m.plot(xc, yc,'k', lw = 5, color='black')
+        # m.plot(xc, yc,'k', lw = 3, color='white')
         # 
-        # xc, yc      = m(np.array([-164.5]), np.array([60.]))
-        # m.plot(xc, yc,'x', lw = 3, ms=15)
+        # xc, yc      = m(np.array([-151, -150]), np.array([69, 58]))
+        # m.plot(xc, yc,'k', lw = 5, color='black')
+        # m.plot(xc, yc,'k', lw = 3, color='white')
+        # 
+        # xc, yc      = m(np.array([-130, -150]), np.array([68, 58]))
+        # m.plot(xc, yc,'k', lw = 5, color='black')
+        # m.plot(xc, yc,'k', lw = 3, color='white')
         
+        # xc, yc      = m(np.array([-144.5]), np.array([60.]))
+        # m.plot(xc, yc,'o', lw = 3, ms=15, mec='k', mfc='none')
+        #####################
+        # xc, yc      = m(np.array([-146, -142]), np.array([58, 64]))
+        # m.plot(xc, yc,'k', lw = 5, color='black')
+        # m.plot(xc, yc,'k', lw = 3, color='white')
+        # # 
+        # xc, yc      = m(np.array([-147, -159]), np.array([56, 62]))
+        # xc, yc      = m(np.array([-150, -159]), np.array([57.5, 62]))
+        # m.plot(xc, yc,'k', lw = 5, color='black')
+        # m.plot(xc, yc,'k', lw = 3, color='white')
+        
+        ###
+        xc, yc      = m(np.array([-146, -142]), np.array([59, 64]))
+        m.plot(xc, yc,'k', lw = 5, color='black')
+        m.plot(xc, yc,'k', lw = 3, color='yellow')
+        # 
+        xc, yc      = m(np.array([-146, -159]), np.array([59, 62]))
+        m.plot(xc, yc,'k', lw = 5, color='black')
+        m.plot(xc, yc,'k', lw = 3, color='yellow')
+        
+        xc, yc      = m(np.array([-160, -136]), np.array([60, 60]))
+        g               = Geod(ellps='WGS84')
+        az, baz, dist   = g.inv(lon1, lat1, lon2, lat2)
+        dist            = dist/1000.
+        d               = dist/float(int(dist/d))
+        Nd              = int(dist/d)
+        lonlats         = g.npts(lon1, lat1, lon2, lat2, npts=Nd-1)
+        lonlats         = [(lon1, lat1)] + lonlats
+        lonlats.append((lon2, lat2))
+        
+        m.plot(xc, yc,'k', lw = 5, color='black')
+        m.plot(xc, yc,'k', lw = 3, color='yellow')
+        ############################
+        slb_ctrlst      = read_slab_contour('alu_contours.in', depth=depth)
+        if len(slb_ctrlst) == 0:
+            print 'No contour at this depth =',depth
+        else:
+            for slbctr in slb_ctrlst:
+                xslb, yslb  = m(np.array(slbctr[0])-360., np.array(slbctr[1]))
+                m.plot(xslb, yslb,  '-', lw = 5, color='black')
+                m.plot(xslb, yslb,  '-', lw = 3, color='cyan')
+        #############################
+        yakutat_slb_dat     = np.loadtxt('YAK_extent.txt')
+        yatlons             = yakutat_slb_dat[:, 0]
+        yatlats             = yakutat_slb_dat[:, 1]
+        xyat, yyat          = m(yatlons, yatlats)
+        m.plot(xyat, yyat, lw = 5, color='black')
+        m.plot(xyat, yyat, lw = 3, color='white')
+        #############################
+        import shapefile
+        shapefname  = '/home/leon/volcano_locs/SDE_GLB_VOLC.shp'
+        shplst      = shapefile.Reader(shapefname)
+        for rec in shplst.records():
+            lon_vol = rec[4]
+            lat_vol = rec[3]
+            xvol, yvol            = m(lon_vol, lat_vol)
+            m.plot(xvol, yvol, '^', mfc='white', mec='k', ms=10)
         #
         # print 'plotting data from '+dataid
         # # cb.solids.set_rasterized(True)
-        cb.solids.set_edgecolor("face")
+        # cb.solids.set_edgecolor("face")
         plt.suptitle(title, fontsize=30)
         # m.shadedrelief(scale=1., origin='lower')
         if showfig:
@@ -2133,6 +3059,10 @@ class invhdf5(h5py.File):
         else:
             vs3d    = grp['vs_org'].value
             zArr    = grp['z_org'].value
+        if is_interp:
+            mask    = self.attrs['mask_interp']
+        else:
+            mask    = self.attrs['mask_inv']
         ind_z       = np.where(zArr <= maxdepth )[0]
         zplot       = zArr[ind_z]
         if lon1 == lon2 or lat1 == lat2:
@@ -2179,6 +3109,7 @@ class invhdf5(h5py.File):
             lonlats         = [(lon1, lat1)] + lonlats
             lonlats.append((lon2, lat2))
             data            = np.zeros((len(lonlats), ind_z.size))
+            mask1d          = np.ones((len(lonlats), ind_z.size), dtype=bool)
             L               = self.lonArr.size
             vlonArr         = self.lonArr.reshape(L)
             vlatArr         = self.latArr.reshape(L)
@@ -2205,6 +3136,8 @@ class invhdf5(h5py.File):
                 plats[ind_data] = lat
                 topo1d[ind_data]= topoArr[ind_lat, ind_lon]
                 moho1d[ind_data]= mohoArr[ind_lat, ind_lon]
+                mask1d[ind_data, :]\
+                                = mask[ind_lat, ind_lon]
                 ind_data        += 1
             data_moho           = data.copy()
             mask_moho           = np.ones(data.shape, dtype=bool)
@@ -2219,6 +3152,8 @@ class invhdf5(h5py.File):
                                 = False
                 data_mantle[ix, :] \
                                 = (data_mantle[ix, :] - vs_mantle)/vs_mantle*100.
+            mask_moho           += mask1d
+            mask_mantle         += mask1d
             if plottype == 0:
                 xplot   = plons
                 xlabel  = 'longitude (deg)'
@@ -2239,11 +3174,11 @@ class invhdf5(h5py.File):
         mdata_mantle    = ma.masked_array(data_mantle, mask=mask_mantle )
         m1              = ax2.pcolormesh(xplot, zplot, mdata_mantle.T, shading='gouraud', vmax=vmax2, vmin=vmin2, cmap=cmap1)
         cb1             = f.colorbar(m1, orientation='horizontal', fraction=0.05)
-        cb1.set_label('Mantle Vs perturbation relative to '+str(vs_mantle)+' km/s (%)', fontsize=20)
+        cb1.set_label('Mantle Vsv perturbation relative to '+str(vs_mantle)+' km/s (%)', fontsize=20)
         cb1.ax.tick_params(labelsize=20) 
         m2              = ax2.pcolormesh(xplot, zplot, mdata_moho.T, shading='gouraud', vmax=vmax1, vmin=vmin1, cmap=cmap2)
         cb2             = f.colorbar(m2, orientation='horizontal', fraction=0.06)
-        cb2.set_label('Crustal Vs (km/s)', fontsize=20)
+        cb2.set_label('Crustal Vsv (km/s)', fontsize=20)
         cb2.ax.tick_params(labelsize=20) 
         #
         ax2.plot(xplot, moho1d, 'r', lw=3)
@@ -2309,7 +3244,39 @@ class invhdf5(h5py.File):
             #     elif valuetype=='mag':
             #         values  = np.append(values, magnitude)
             #         break
- 
+            
+        ####
+        arr             = np.loadtxt('SlabE325.dat')
+        # index           = np.logical_not(np.isnan(arr[:, 2]))
+        # lonslb          = arr[index, 0]
+        # latslb          = arr[index, 1]
+        # depthslb        = arr[index, 2]
+        
+        lonslb          = arr[:, 0]
+        latslb          = arr[:, 1]
+        depthslb        = arr[:, 2]
+        L               = lonslb.size
+        ind_data        = 0
+        plons           = np.zeros(len(lonlats))
+        plats           = np.zeros(len(lonlats))
+        slbdepth        = np.zeros(len(lonlats))
+        for lon,lat in lonlats:
+            if lon < 0.:
+                lon     += 360.
+            clonArr             = np.ones(L, dtype=float)*lon
+            clatArr             = np.ones(L, dtype=float)*lat
+            az, baz, dist       = g.inv(clonArr, clatArr, lonslb, latslb)
+            ind_min             = dist.argmin()
+            plons[ind_data]     = lon
+            plats[ind_data]     = lat
+            slbdepth[ind_data]  = -depthslb[ind_min]
+            if lon > 222.:
+                slbdepth[ind_data]  = 200.
+            ind_data            += 1
+        ax2.plot(xplot, slbdepth, 'k', lw=5)
+        ax2.plot(xplot, slbdepth, 'w', lw=3)
+        ####
+        
         # # # for lon,lat in lonlats:
         # # #     if lon < 0.:
         # # #         lon     += 360.
@@ -2335,11 +3302,13 @@ class invhdf5(h5py.File):
         # # #                 values  = np.append(values, evdp)
         # # #             elif valuetype=='mag':
         # # #                 values  = np.append(values, magnitude)
-        # print evlons.size
+        # # print evlons.size
         if plottype == 0:
+            # evlons  -=
             ax2.plot(evlons, values, 'o', mfc='white', mec='k', ms=5, alpha=0.8)
         else:
             ax2.plot(evlats, values, 'o', mfc='white', mec='k', ms=5, alpha=0.8)
+            
         #########################################################################
         ax1.tick_params(axis='y', labelsize=20)
         ax2.tick_params(axis='x', labelsize=20)
@@ -2453,7 +3422,7 @@ class invhdf5(h5py.File):
         ax.tick_params(axis='y', labelsize=20)
         if showfig:
             plt.show()
-
+# 
 
 # quick and dirty functions
     def plot_miller_moho(self, vmin=20., vmax=60., clabel='Crustal thickness (km)', cmap='gist_ncar',showfig=True, projection='lambert', \
@@ -2567,11 +3536,11 @@ class invhdf5(h5py.File):
         depthArr    = inArr[:, 2]
         depthArr    = depthArr.reshape(depthArr.size/360, 360)
         m               = self._get_basemap(projection=projection)
-        shapefname      = '/home/leon/geological_maps/qfaults'
-        m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
-        shapefname      = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
-        m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
-        
+        # shapefname      = '/home/leon/geological_maps/qfaults'
+        # m.readshapefile(shapefname, 'faultline', linewidth=2, color='grey')
+        # shapefname      = '/home/leon/AKgeol_web_shp/AKStategeolarc_generalized_WGS84'
+        # m.readshapefile(shapefname, 'geolarc', linewidth=1, color='grey')
+        plot_fault_lines(m, 'AK_Faults.txt', color='grey')
         if cmap == 'ses3d':
             cmap        = colormaps.make_colormap({0.0:[0.1,0.0,0.0], 0.2:[0.8,0.0,0.0], 0.3:[1.0,0.7,0.0],0.48:[0.92,0.92,0.92],
                             0.5:[0.92,0.92,0.92], 0.52:[0.92,0.92,0.92], 0.7:[0.0,0.6,0.7], 0.8:[0.0,0.0,0.8], 1.0:[0.0,0.0,0.1]})
@@ -2591,7 +3560,7 @@ class invhdf5(h5py.File):
         x, y            = m(lonArr, latArr)
 
         im              = m.pcolormesh(x, y, depthArr, cmap=cmap, shading='gouraud', vmin=vmin, vmax=vmax)
-        cb              = m.colorbar(im, location='bottom', size="3%", pad='2%')
+        cb              = m.colorbar(im, location='bottom', size="3%", pad='2%', ticks=[25., 29., 33., 37., 41., 45.])
         cb.set_label(clabel, fontsize=20, rotation=0)
         cb.ax.tick_params(labelsize=15)
         cb.set_alpha(1)

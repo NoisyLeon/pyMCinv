@@ -297,6 +297,44 @@ class disp(object):
             raise ValueError('Unexpected dtype: '+dtype)
         return True
     
+    def readdisptxt_predict(self, infname, dtype='ph'):
+        """
+        Read input txt file of dispersion curve, include predicted curve
+        ==========================================================================
+        ::: input :::
+        infname     - input file name
+        dtype       - data type (phase/group)
+        ::: output :::
+        dispersion curve is stored
+        ==========================================================================
+        """
+        dtype                   = dtype.lower()
+        if dtype == 'ph' or dtype == 'phase':
+            if self.isphase:
+                print 'phase velocity data is already stored!'
+                return False
+            inArr 	            = np.loadtxt(infname, dtype=np.float64)
+            self.pper           = inArr[:,0]
+            self.pvelp          = inArr[:,1]
+            self.pvelo          = inArr[:,2]
+            self.npper          = self.pper.size
+            self.stdpvelo       = inArr[:,3]
+            self.isphase        = True
+        elif dtype == 'gr' or dtype == 'group':
+            if self.isgroup:
+                print 'group velocity data is already stored!'
+                return False
+            inArr 	            = np.loadtxt(infname, dtype=np.float64)
+            self.gper           = inArr[:,0]
+            self.gvelp          = inArr[:,1]
+            self.gvelo          = inArr[:,2]
+            self.ngper          = self.gper.size
+            self.stdgvelo       = inArr[:,3]
+            self.isgroup        = True
+        else:
+            raise ValueError('Unexpected dtype: '+dtype)
+        return True
+    
     def get_disp(self, indata, dtype='ph'):
         """
         get dispersion curve data from a input numpy array
@@ -598,7 +636,7 @@ class disp(object):
             self.gmisfit= misfit
             self.gL     = L
         if (not self.isphase) and (not self.isgroup):
-            printf('No dispersion data stored!')
+            print('No dispersion data stored!')
             self.misfit = 0.
             self.L      = 1.
             return False
@@ -650,7 +688,39 @@ class disp(object):
         # # misfit for both
         # temp            = temp1 + temp2
         # self.exp_misfit = np.sqrt(temp/(self.npper+self.ngper))
-        return 
+        return
+    
+    def check_pdisp(self, dtype='ph', Tthresh = 50., mono_tol  = 0.001, dv_tol=0.2):
+        """ check the predicted phase velocity
+        """
+        if dtype == 'ph':
+            pvel    = self.pvelp
+            periods = self.pper
+        elif dtype == 'gr':
+            pvel    = self.gvelp
+            periods = self.gper
+        else:
+            raise ValueError('Unexpected input dtype = '+dtype)
+        # monotonical increase check
+        ind         = periods > Tthresh
+        if (periods[ind]).size >= 2:
+            temp_pers   = periods[ind]
+            temp_vel    = pvel[ind]
+            vel_left    = temp_vel[:-1]
+            vel_right   = temp_vel[1:]
+            if np.any( (vel_left - vel_right) >= mono_tol ):
+                return False
+        # check the discontinuity in dispersion curves
+        vel_left        = pvel[:-1]
+        vel_right       = pvel[1:]
+        if np.any( abs(vel_left - vel_right) >= dv_tol ):
+            return False
+        return True
+    
+    def check_large_perturb(self, thresh=10.):
+        """check the differences between reference dispersion curve and predicted dispersion curve
+        """
+        return (abs(self.pvelref - self.pvelp)/self.pvelref).max()*100. > thresh
         
 class data1d(object):
     """
@@ -698,31 +768,33 @@ class data1d(object):
         self.misfit = wdisp*self.dispR.misfit + (1.-wdisp)*self.rfr.misfit
         self.L      = ((self.dispR.L)**wdisp)*((self.rfr.L)**(1.-wdisp))
         return
-# #    
-# #    def get_misfit_tti(self):
-# #        """
-# #        compute misfit for inversion of tilted TI models, only applies to phase velocity dispersion
-# #        """
-# #        self.dispR.get_misfit_tti()
-# #        self.dispL.get_pmisfit()
-# #        self.misfit = sqrt((self.dispR.pS + self.dispL.pS)/(3.*self.dispR.npper + self.dispL.npper) )
-# #        tS          = 0.5*(self.dispR.pS + self.dispL.pS)
-# #        if tS > 50.:
-# #            tS      = sqrt(tS*50.)
-# #        if tS > 50.:
-# #            tS      = sqrt(tS*50.)
-# #        if tS > 50.:
-# #            tS      = sqrt(tS*50.)
-# #        # if tS > 50.:
-# #        #     tS      = sqrt(tS*50.)
-# #        self.L      = exp(-0.5 * tS)
-# #        return
-# #
-# #    def printtest(self):
-# #        i=np.int32(3)
-# #        print 'accept a model', (i, self.L)
-# #    
-# #    def get_res_tti(self):
-# #        r1, r2, r3  = self.dispR.get_res_tti()
-# #        r4          = self.dispL.get_res_pvel()
-#         return r1, r2, r3, r4
+   
+    def get_misfit_vti(self):
+       """
+       compute misfit for inversion of Vertical TI models, only applies to phase velocity dispersion
+       """
+       self.dispR.get_misfit()
+       self.dispL.get_misfit()
+       self.misfit = np.sqrt((self.dispR.pS + self.dispL.pS)/(self.dispR.npper + self.dispL.npper) )
+       tS          = (self.dispR.pS + self.dispL.pS)
+       if tS > 50.:
+           tS      = np.sqrt(tS*50.)
+       if tS > 50.:
+           tS      = np.sqrt(tS*50.)
+       self.L      = np.exp(-0.5 * tS)
+       return
+    
+    def get_misfit_vti_2(self):
+       """
+       compute misfit for inversion of Vertical TI models, only applies to phase velocity dispersion
+       """
+       self.dispR.get_misfit()
+       self.dispL.get_misfit()
+       self.misfit = np.sqrt((self.dispR.pS + self.dispR.gS + self.dispL.pS)/(self.dispR.npper +self.dispR.ngper + self.dispL.npper) )
+       tS          = (self.dispR.pS + self.dispR.gS + self.dispL.pS)
+       if tS > 50.:
+           tS      = np.sqrt(tS*50.)
+       if tS > 50.:
+           tS      = np.sqrt(tS*50.)
+       self.L      = np.exp(-0.5 * tS)
+       return

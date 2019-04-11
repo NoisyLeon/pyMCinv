@@ -11,9 +11,9 @@ Module for inversion of 1d models
 
 import numpy as np
 import os
-import vmodel, modparam, data
+import vmodel, modparam, data, eigenkernel
 import copy
-import fast_surf, theo
+import fast_surf, theo, tdisp96, tregn96, tlegn96
 import multiprocessing
 from functools import partial
 import time
@@ -33,6 +33,11 @@ class vprofile1d(object):
     def __init__(self):
         self.model      = vmodel.model1d()
         self.data       = data.data1d()
+        self.eigkR      = eigenkernel.eigkernel()
+        self.eigkL      = eigenkernel.eigkernel()
+        self.ref_hArr   = None
+        self.disprefR   = False
+        self.disprefL   = False
         self.fs         = 40.
         self.slowness   = 0.06
         self.gausswidth = 2.5
@@ -182,12 +187,14 @@ class vprofile1d(object):
         get parameter index indicating model parameters for perturbation
         =====================================================================
         ::: input :::
-        mtype       - model type (isotropic or tti)
+        mtype       - model type (isotropic or Love)
         =====================================================================
         """
         mtype   = mtype.lower()
         if mtype=='iso' or mtype == 'isotropic':
             self.model.isomod.get_paraind()
+        elif mtype == 'vti':
+            self.model.vti.get_paraind_gamma()
 #        elif mtype=='tti':
 #            self.model.ttimod.get_paraind()
         else:
@@ -204,12 +211,11 @@ class vprofile1d(object):
         """
         if mtype == 'iso' or mtype == 'isotropic':
             self.model.isomod.update()
-#        elif mtype=='tti':
-#            self.model.ttimod.update()
+        elif mtype=='vti':
+            self.model.vtimod.update()
         else:
             raise ValueError('Unexpected wave type: '+ mtype)
         return 
-   
     
     def get_vmodel(self, mtype='iso'):
         """
@@ -221,39 +227,40 @@ class vprofile1d(object):
         """
         if mtype == 'iso' or mtype == 'isotropic':
             self.model.get_iso_vmodel()
-#        elif mtype=='tti':
-#            self.qsArr, self.qpArr  = self.model.get_tti_vmodel() # get the model arrays and initialize elastic tensor
-#            self.model.rot_dip_strike() 
-#            self.model.decompose()
+        elif mtype=='vti':
+            self.model.get_vti_vmodel()
         else:
             raise ValueError('Unexpected wave type: '+ mtype)
         return 
     
-    #----------------------------------------------------
+    #==========================================
     # forward modelling for surface waves
-    #----------------------------------------------------
+    #==========================================
     
     def get_period(self):
         """
         get period array for forward modelling
         """
         if self.data.dispR.npper>0:
-            self.TRpiso     = self.data.dispR.pper.copy()
+            self.TRp        = self.data.dispR.pper.copy()
         if self.data.dispR.ngper>0:
-            self.TRgiso     = self.data.dispR.gper.copy()
+            self.TRg        = self.data.dispR.gper.copy()
         # added 11/05/2018
         if self.data.dispR.npper>0 and self.data.dispR.ngper>0:
-            if not np.allclose(self.TRpiso[:self.data.dispR.ngper], self.TRgiso):
+            if not np.allclose(self.TRp[:self.data.dispR.ngper], self.TRg):
                 raise ValueError('incompatible phase/group periods!')
         if self.data.dispL.npper>0:
-            self.TLpiso     = self.data.dispL.pper.copy()
+            self.TLp        = self.data.dispL.pper.copy()
         if self.data.dispL.ngper>0:
-            self.TLgiso     = self.data.dispL.gper.copy()
+            self.TLg        = self.data.dispL.gper.copy()
         # added 11/05/2018
         if self.data.dispL.npper>0 and self.data.dispL.ngper>0:
-            if not np.allclose(self.TLpiso[:self.data.dispL.ngper], self.TLgiso):
+            if not np.allclose(self.TLp[:self.data.dispL.ngper], self.TLg):
                 raise ValueError('incompatible phase/group periods!')
         return
+    #-------------------------------------
+    # forward solver for isotropic model
+    #-------------------------------------
 
     def compute_fsurf(self, wtype='ray'):
         """
@@ -268,9 +275,9 @@ class vprofile1d(object):
             raise ValueError('No layerized model stored!')
         if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
             ilvry                   = 2
-            nper                    = self.TRpiso.size
+            nper                    = self.TRp.size
             per                     = np.zeros(200, dtype=np.float64)
-            per[:nper]              = self.TRpiso[:]
+            per[:nper]              = self.TRp[:]
             qsinv                   = 1./self.model.qs
             (ur0,ul0,cr0,cl0)       = fast_surf.fast_surf(self.model.nlay, ilvry, \
                                         self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
@@ -283,20 +290,359 @@ class vprofile1d(object):
             if np.any(index_nan) and self.data.dispR.ngper > 0:
                 self.data.dispR.gvelp[index_nan]\
                                     = self.data.dispR.gvelo[index_nan]
-        elif wtype=='l' or wtype == 'love':
+        elif wtype=='l' or wtype == 'love' or wtype=='lov':
             ilvry                   = 1
-            nper                    = self.TLpiso.size
+            nper                    = self.TLp.size
             per                     = np.zeros(200, dtype=np.float64)
-            per[:nper]              = self.TLpiso[:]
+            per[:nper]              = self.TLp[:]
+            qsinv                   = 1./self.model.qs
             (ur0,ul0,cr0,cl0)       = fast_surf.fast_surf(self.model.nlay, ilvry, \
-                                        self.model.vpv, self.model.vsv, self.model.rho, self.model.h, qsinv, per, nper)
+                                        self.model.vph, self.model.vsh, self.model.rho, self.model.h, qsinv, per, nper)
             self.data.dispL.pvelp   = cl0[:nper]
-            self.data.dispL.gvelp   = ul0[:nper]
+            self.data.dispL.gvelp   = ul0[:self.data.dispL.ngper]
         return
-
-    #----------------------------------------------------
+    #-------------------------------------
+    # forward solver for VTI model
+    #-------------------------------------
+    def compute_reference_vti(self, wtype='ray', verbose=0, nmodes=1, cmin=-1., cmax=-1., egn96=True, checkdisp=True, tol=10.):
+        """
+        compute (reference) surface wave dispersion of Vertical TI model using tcps
+        ====================================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        nmodes      - number of modes
+        cmin, cmax  - minimum/maximum value for phase velocity root searching
+        egn96       - computing eigenfunctions/kernels or not
+        checkdisp   - check the reasonability of dispersion curves with fast_surf
+        tol         - tolerence of maximum differences between tcps and fast_surf
+        ====================================================================================
+        """
+        wtype           = wtype.lower()
+        self.ref_hArr   = self.model.h.copy()
+        if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+            nfval       = self.TRp.size
+            freq        = 1./ self.TRp
+            nl_in       = self.model.h.size
+            ilvry       = 2
+            iflsph_in   = 1 # 1 - spherical Earth, 0 - flat Earth
+            # initialize eigenkernel for Rayleigh wave
+            self.eigkR.init_arr(nfreq=nfval, nlay=nl_in, ilvry=ilvry)
+            # solve for phase velocity
+            c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
+                    np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
+                    self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho,
+                    nl_in, iflsph_in, 0., nmodes,  1., 1.)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store reference model and ET model
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.eigkR.get_ref_model(A = self.model.A, C = self.model.C, F = self.model.F,\
+                                    L = self.model.L, N = self.model.N, rho = self.model.rho)
+            self.eigkR.get_ref_model_vel(ah = self.model.vph, av = self.model.vpv, bh = self.model.vsh,\
+                                    bv = self.model.vsv, n = self.model.eta, r = self.model.rho)
+            self.eigkR.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                                Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+            self.eigkR.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                    bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store the reference dispersion curve
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.data.dispR.pvelref   = np.float32(c_out[:nfval])
+            self.data.dispR.pvelp     = np.float32(c_out[:nfval])
+            #- compute eigenfunction/kernels
+            if egn96:
+                hs_in       = 0.
+                hr_in       = 0.
+                ohr_in      = 0.
+                ohs_in      = 0.
+                refdep_in   = 0.
+                dogam       = True # turn on attenuation
+                k           = 2.*np.pi/c_out[:nfval]/self.TRp
+                k2d         = np.tile(k, (nl_in, 1))
+                k2d         = k2d.T
+                omega       = 2.*np.pi/self.TRp
+                omega2d     = np.tile(omega, (nl_in, 1))
+                omega2d     = omega2d.T
+                # use spherical transformed model parameters
+                # d_in        = d_out
+                # TA_in       = TA_out
+                # TC_in       = TC_out
+                # TF_in       = TF_out
+                # TL_in       = TL_out
+                # TN_in       = TN_out
+                # TRho_in     = TRho_out
+                # original model paramters should be used
+                d_in        = self.model.h
+                TA_in       = self.model.A
+                TC_in       = self.model.C
+                TF_in       = self.model.F
+                TL_in       = self.model.L
+                TN_in       = self.model.N
+                TRho_in     = self.model.rho
+                
+                qai_in      = self.model.qp
+                qbi_in      = self.model.qs
+                etapi_in    = np.zeros(nl_in)
+                etasi_in    = np.zeros(nl_in)
+                frefpi_in   = np.ones(nl_in)
+                frefsi_in   = np.ones(nl_in)
+                # solve for group velocity, kernels and eigenfunctions
+                u_out, ur, tur, uz, tuz, dcdh, dcdav, dcdah, dcdbv, dcdbh, dcdn, dcdr = tregn96.tregn96(hs_in, hr_in, ohr_in, ohs_in,\
+                    refdep_in, dogam, nl_in, iflsph_in, d_in, TA_in, TC_in, TF_in, TL_in, TN_in, TRho_in, \
+                    qai_in, qbi_in, etapi_in, etasi_in, frefpi_in, frefsi_in, self.TRp.size, self.TRp, c_out[:nfval])
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # store output
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                self.data.dispR.gvelp   = np.float32(u_out)[:self.data.dispR.ngper]
+                # eigenfunctions
+                self.eigkR.get_eigen_psv(uz = uz[:nfval,:nl_in], tuz = tuz[:nfval,:nl_in],\
+                                         ur = ur[:nfval,:nl_in], tur = tur[:nfval,:nl_in])
+                # sensitivity kernels for velocity parameters and density
+                # dcdah, dcdav, dcdbh, dcdbv, dcdn, dcdr
+                self.eigkR.get_vkernel_psv(dcdah = dcdah[:nfval,:nl_in], dcdav = dcdav[:nfval,:nl_in], dcdbh = dcdbh[:nfval,:nl_in],\
+                        dcdbv = dcdbv[:nfval,:nl_in], dcdn = dcdn[:nfval,:nl_in], dcdr = dcdr[:nfval,:nl_in])
+                # Love parameters and density in the shape of nfval, nl_in
+                self.eigkR.compute_love_kernels()
+                self.disprefR   = True
+        elif wtype=='l' or wtype == 'love' or wtype == 'lov':
+            nfval       = self.TLp.size
+            freq        = 1./self.TLp
+            nl_in       = self.model.h.size
+            ilvry       = 1
+            self.eigkL.init_arr(nfreq=nfval, nlay=nl_in, ilvry=ilvry)
+            #- root-finding algorithm using tdisp96, compute phase velocities 
+            iflsph_in   = 1 # 1 - spherical Earth, 0 - flat Earth
+            # solve for phase velocity
+            c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
+                np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
+                self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho, nl_in,\
+                iflsph_in, 0., nmodes,  1., 1.)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store reference model and ET model
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.eigkL.get_ref_model(A = self.model.A, C = self.model.C, F = self.model.F,\
+                                    L = self.model.L, N = self.model.N, rho = self.model.rho)
+            self.eigkL.get_ref_model_vel(ah = self.model.vph, av = self.model.vpv, bh = self.model.vsh,\
+                                    bv = self.model.vsv, n = self.model.eta, r = self.model.rho)
+            self.eigkL.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                                Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+            self.eigkL.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                    bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store the reference dispersion curve
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.data.dispL.pvelref = np.float32(c_out[:nfval])
+            self.data.dispL.pvelp   = np.float32(c_out[:nfval])
+            if egn96:
+                hs_in       = 0.
+                hr_in       = 0.
+                ohr_in      = 0.
+                ohs_in      = 0.
+                refdep_in   = 0.
+                dogam       = True # turn on attenuation
+                nl_in       = self.model.h.size
+                k           = 2.*np.pi/c_out[:nfval]/self.TLp
+                k2d         = np.tile(k, (nl_in, 1))
+                k2d         = k2d.T
+                omega       = 2.*np.pi/self.TLp
+                omega2d     = np.tile(omega, (nl_in, 1))
+                omega2d     = omega2d.T
+                # use spherical transformed model parameters
+                # d_in        = d_out
+                # TA_in       = TA_out
+                # TC_in       = TC_out
+                # TF_in       = TF_out
+                # TL_in       = TL_out
+                # TN_in       = TN_out
+                # TRho_in     = TRho_out
+                # original model paramters should be used
+                d_in        = self.model.h
+                TA_in       = self.model.A
+                TC_in       = self.model.C
+                TF_in       = self.model.F
+                TL_in       = self.model.L
+                TN_in       = self.model.N
+                TRho_in     = self.model.rho
+                
+                qai_in      = self.model.qp
+                qbi_in      = self.model.qs
+                etapi_in    = np.zeros(nl_in)
+                etasi_in    = np.zeros(nl_in)
+                frefpi_in   = np.ones(nl_in)
+                frefsi_in   = np.ones(nl_in)
+                # solve for group velocity, kernels and eigenfunctions
+                u_out, ut, tut, dcdh, dcdav, dcdah, dcdbv, dcdbh, dcdn, dcdr = tlegn96.tlegn96(hs_in, hr_in, ohr_in, ohs_in,\
+                    refdep_in, dogam, nl_in, iflsph_in, d_in, TA_in, TC_in, TF_in, TL_in, TN_in, TRho_in, \
+                    qai_in,qbi_in,etapi_in,etasi_in, frefpi_in, frefsi_in, self.TLp.size, self.TLp, c_out[:nfval])
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # store output
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                self.data.dispL.gvelp       = np.float32(u_out)[:self.data.dispL.ngper]
+                # eigenfunctions
+                self.eigkL.get_eigen_sh(ut = ut[:nfval,:nl_in], tut = tut[:nfval,:nl_in] )
+                # sensitivity kernels for velocity parameters and density
+                self.eigkL.get_vkernel_sh(dcdbh = dcdbh[:nfval,:nl_in], dcdbv = dcdbv[:nfval,:nl_in], dcdr = dcdr[:nfval,:nl_in])
+                # Love parameters and density in the shape of nfval, nl_in
+                self.eigkL.compute_love_kernels()
+                self.disprefL   = True
+        #----------------------------------------
+        # check the consistency with fast_surf
+        #----------------------------------------
+        if checkdisp:
+            hArr        = d_out
+            vsv         = np.sqrt(TL_out/TRho_out)
+            vpv         = np.sqrt(TC_out/TRho_out)
+            vsh         = np.sqrt(TN_out/TRho_out)
+            vph         = np.sqrt(TA_out/TRho_out)
+            rho         = TRho_out
+            qsinv       = 1./self.model.qs
+            if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+                ilvry               = 2
+                nper                = self.TRp.size
+                per                 = np.zeros(200, dtype=np.float32)
+                per[:nper]          = self.TRp[:]
+                (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(vsv.size, ilvry, \
+                                        vpv, vsv, rho, hArr, qsinv, per, nper)
+                pvelp               = cr0[:nper]
+                gvelp               = ur0[:nper]
+                if (abs(pvelp - self.data.dispR.pvelref)/pvelp*100.).max() > tol:
+                    # print('WARNING: reference dispersion curves may be erroneous!')
+                    return False
+            elif wtype=='l' or wtype == 'love' or wtype=='lov':
+                ilvry               = 1
+                nper                = self.TLp.size
+                per                 = np.zeros(200, dtype=np.float32)
+                per[:nper]          = self.TLp[:]
+                (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(vsh.size, ilvry, \
+                                       vph, vsh, rho, hArr, qsinv, per, nper)
+                pvelp               = cl0[:nper]
+                gvelp               = ul0[:nper]
+                if (abs(pvelp - self.data.dispL.pvelref)/pvelp*100.).max() > tol:
+                    # print('WARNING: reference dispersion curves may be erroneous!')
+                    return False
+        return True
+    
+    def perturb_from_kernel_vti(self, wtype='ray', ivellove=1):
+        """
+        compute perturbation in dispersion from reference model using sensitivity kernels
+        ====================================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        ivellove    - use velocity kernels or Love parameter kernels
+                        1   - velocity kernels
+                        2   - Love kernels
+        ====================================================================================
+        """
+        wtype   = wtype.lower()
+        nl_in       = self.model.h.size
+        if nl_in == 0:
+            raise ValueError('No layer arrays stored!')
+        if not np.allclose(self.ref_hArr, self.model.h):
+            raise ValueError('layer array changed!')
+        # Rayleigh wave
+        if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+            if not self.disprefR:
+                raise ValueError('referennce dispersion and kernels for Rayleigh wave not computed!')
+            self.eigkR.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                    bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+            self.eigkR.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                                    Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+            if ivellove == 1:
+                dpvel                   = self.eigkR.eti_perturb_vel()
+            else:         
+                dpvel                   = self.eigkR.eti_perturb()
+            self.data.dispR.pvelp       = self.data.dispR.pvelref + dpvel
+        # Love wave
+        elif wtype=='lov' or wtype=='love' or wtype=='l':
+            if not self.disprefL:
+                raise ValueError('referennce dispersion and kernels for Love wave not computed!')
+            self.eigkL.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                    bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+            self.eigkL.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                                    Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+            if ivellove == 1:
+                dpvel                   = self.eigkL.eti_perturb_vel()
+            else:
+                dpvel                   = self.eigkL.eti_perturb()
+            self.data.dispL.pvelp       = self.data.dispL.pvelref + dpvel
+        else:
+            raise ValueError('Unexpected wave type: '+mtype)
+        return
+    
+    def compute_disp_vti(self, wtype='both', solver_type=0, \
+            verbose=0, nmodes=1, crmin=-1., crmax=-1., clmin=-1., clmax=-1., egn96=True, checkdisp=True, tol=10.):
+        """
+        compute surface wave dispersion of Vertical TI model 
+        ====================================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        solver_type - type of forward solver
+                        0       - fast_surf
+                        1       - direct computation of tcps
+                        others  - use kernels from tcps
+        nmodes      - number of modes
+        crmin, crmax- minimum/maximum value for Rayleigh wave phase velocity root searching
+        clmin, clmax- minimum/maximum value for Love wave phase velocity root searching
+        egn96       - computing eigenfunctions/kernels or not
+        checkdisp   - check the reasonability of dispersion curves with fast_surf
+        tol         - tolerence of maximum differences between tcps and fast_surf
+        ====================================================================================
+        """
+        wtype   = wtype.lower()
+        if solver_type == 0:
+            if wtype == 'both':
+                self.compute_fsurf(wtype = 'ray')
+                self.compute_fsurf(wtype = 'lov')
+            else:
+                self.compute_fsurf(wtype = wtype)
+            return True
+        elif solver_type == 1:
+            if crmin <= 0. or crmax <= 0.:
+                temp_vpr        = copy.deepcopy(self)
+                temp_vpr.compute_fsurf(wtype = 'ray')
+                crmin           = temp_vpr.data.dispR.pvelp.min() - 0.1
+                crmax           = temp_vpr.data.dispR.pvelp.max() + 0.1
+            if clmin <= 0. or clmax <= 0.:
+                temp_vpr        = copy.deepcopy(self)
+                temp_vpr.compute_fsurf(wtype = 'lov')
+                clmin           = temp_vpr.data.dispL.pvelp.min() - 0.1
+                clmax           = temp_vpr.data.dispL.pvelp.max() + 0.1
+            if wtype == 'both':
+                # Rayleigh wave
+                valid_ray       = self.compute_reference_vti(wtype='ray', verbose=verbose, nmodes=nmodes,\
+                                        cmin=crmin, cmax=crmax, egn96=egn96, checkdisp=checkdisp, tol=tol)
+                if not valid_ray:
+                    valid_ray   = self.data.dispR.check_pdisp(dtype='ph', Tthresh = 50., mono_tol  = 0.001, dv_tol=0.2)
+                # Love wave
+                valid_lov       = self.compute_reference_vti(wtype='lov', verbose=verbose, nmodes=nmodes,\
+                                        cmin=clmin, cmax=clmax, egn96=egn96, checkdisp=checkdisp, tol=tol)
+                if not valid_lov:
+                    valid_lov   = self.data.dispR.check_pdisp(dtype='ph', Tthresh = 50., mono_tol  = 0.001, dv_tol=0.2)
+                return bool(valid_ray*valid_lov)
+            else:
+                if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+                    valid       = self.compute_reference_vti(wtype=wtype, verbose=verbose, nmodes=nmodes,\
+                                        cmin=crmin, cmax=crmax, egn96=egn96, checkdisp=checkdisp, tol=tol)
+                else:
+                    valid       = self.compute_reference_vti(wtype=wtype, verbose=verbose, nmodes=nmodes,\
+                                        cmin=clmin, cmax=clmax, egn96=egn96, checkdisp=checkdisp, tol=tol)
+                if not valid:
+                    if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+                        valid   = self.data.dispR.check_pdisp(dtype='ph', Tthresh = 50., mono_tol  = 0.001, dv_tol=0.2)
+                    else:
+                        valid   = self.data.dispL.check_pdisp(dtype='ph', Tthresh = 50., mono_tol  = 0.001, dv_tol=0.2)
+                return valid
+        else:
+            if wtype == 'both':   
+                if not (self.disprefL and self.disprefR):
+                    raise ValueError('reference dispersion curves and initialzed!')
+                self.perturb_from_kernel_vti(wtype='ray')
+                self.perturb_from_kernel_vti(wtype='lov')
+            else:
+                self.perturb_from_kernel_vti(wtype=wtype)
+            return True
+    #==========================================
     # forward modelling for receiver function
-    #----------------------------------------------------
+    #==========================================
     
     def compute_rftheo(self, slowness = 0.06, din=None, npts=None):
         """
@@ -344,10 +690,10 @@ class vprofile1d(object):
         self.data.rfr.rfp   = rx[:self.data.rfr.npts]
         self.data.rfr.tp    = np.arange(self.data.rfr.npts, dtype=np.float64)*1./self.fs
         return
-    #-------------------------------------------------
+    #==========================================
     # computing misfit
-    #-------------------------------------------------
-    def get_misfit(self, wdisp=1., rffactor=40.):
+    #==========================================
+    def get_misfit(self, mtype='iso', wdisp=1., rffactor=40.):
         """
         compute data misfit
         =====================================================================
@@ -356,12 +702,15 @@ class vprofile1d(object):
         rffactor    - downweighting factor for receiver function
         =====================================================================
         """
-        self.data.get_misfit(wdisp, rffactor)
+        if mtype == 'iso' or mtype == 'isotropic':
+            self.data.get_misfit(wdisp, rffactor)
+        elif mtype == 'vti':
+            self.data.get_misfit_vti()
         return
     
-    #-------------------------------------------------
-    # functions for inversions
-    #-------------------------------------------------
+    #==========================================
+    # functions for isotropic inversions
+    #==========================================
     
     def mc_joint_inv_iso(self, outdir='./workingdir', dispdtype='ph', wdisp=0.2, rffactor=40., numbcheck=None, misfit_thresh=1., \
                    isconstrt=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, init_run=True, savedata=True):
@@ -414,7 +763,7 @@ class vprofile1d(object):
             outmod      = outdir+'/'+pfx+'.mod'
             self.model.write_model(outfname=outmod, isotropic=True)
             # write initial predicted data
-            if wdisp > 0.:
+            if wdisp > 0. and wdisp <= 1.:
                 if dispdtype != 'both':
                     outdisp = outdir+'/'+pfx+'.'+dispdtype+'.disp'
                     self.data.dispR.writedisptxt(outfname=outdisp, dtype=dispdtype)
@@ -423,7 +772,7 @@ class vprofile1d(object):
                     self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
                     outdisp = outdir+'/'+pfx+'.gr.disp'
                     self.data.dispR.writedisptxt(outfname=outdisp, dtype='gr')
-            if wdisp < 1.:
+            if wdisp < 1. and wdisp >= 0.:
                 outrf       = outdir+'/'+pfx+'.rf'
                 self.data.rfr.writerftxt(outfname=outrf)
             # convert initial model to para
@@ -461,9 +810,9 @@ class vprofile1d(object):
             self.model.isomod   = newmod
             self.get_vmodel(mtype = 'iso')
             # forward computation
-            if wdisp > 0.:
+            if wdisp > 0. and wdisp <= 1.:
                 self.compute_fsurf()
-            if wdisp < 1.:
+            if wdisp < 1. and wdisp >= 0.:
                 self.compute_rftheo()
             self.get_misfit(wdisp=wdisp, rffactor=rffactor)
             if verbose:
@@ -545,10 +894,12 @@ class vprofile1d(object):
                 oldmisfit           = self.data.misfit
                 if verbose:
                     print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
-            #-------------------------------
+            #==================================================
             # inversion part
-            #-------------------------------
-            # sample the posterior distribution 
+            #==================================================
+            #----------------------------------
+            # sample the posterior distribution
+            #----------------------------------
             if (wdisp >= 0. and wdisp <=1.):
                 newmod      = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(1)
@@ -652,6 +1003,9 @@ class vprofile1d(object):
                 oldmisfit   = newmisfit
                 iacc        += 1
                 continue
+            #----------------------------------
+            # sample the prior distribution
+            #----------------------------------
             else:
                 newmod      = copy.deepcopy(self.model.isomod)
                 newmod.para.new_paraval(1)
@@ -660,8 +1014,8 @@ class vprofile1d(object):
                 if isconstrt:
                     # satisfying the constraint (3), (4) and (5) in Shen et al., 2012 
                     # loop to find the "good" model, added on May 3rd, 2018
-                    m0  = 0
-                    m1  = 1
+                    m0      = 0
+                    m1      = 1
                     # satisfying the constraint (7) in Shen et al., 2012
                     if wdisp >= 1.:
                         g0  = 2
@@ -695,7 +1049,7 @@ class vprofile1d(object):
                 outmodarr[inew-1, newmod.para.npara+5]      = self.data.rfr.misfit
                 outmodarr[inew-1, newmod.para.npara+6]      = self.data.dispR.L
                 outmodarr[inew-1, newmod.para.npara+7]      = self.data.dispR.misfit
-                outmodarr[inew-1, newmod.para.npara+8]      = time.time()-start
+                outmodarr[inew-1, newmod.para.npara+8]      = time.time() - start
                 continue
         #-----------------------------------
         # write results to binary npz files
@@ -906,14 +1260,434 @@ class vprofile1d(object):
             etime   = time.time()
             print 'Elapsed time: '+str(etime-stime)+' secs'
         return
+    
+    #==========================================
+    # functions for VTI inversions
+    #==========================================
+    def mc_joint_inv_vti(self, outdir='./workingdir', run_inv=True, solver_type=1, numbcheck=None, misfit_thresh=1., \
+                isconstrt=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, init_run=True, savedata=True):
+        """
+        Bayesian Monte Carlo joint inversion of receiver function and surface wave data for an isotropic model
+        =================================================================================================================
+        ::: input :::
+        outdir          - output directory
+        run_inv         - run the inversion or not
+        solver_type     - type of solver
+                            0   - fast_surf
+                            1   - tcps
+        numbcheck       - number of runs that a checking of misfit value should be performed
+        misfit_thresh   - threshold misfit value for checking
+        isconstrt       - require model constraints or not
+        pfx             - prefix for output, typically station id
+        step4uwalk      - step interval for uniform random walk in the parameter space
+        numbrun         - total number of runs
+        init_run        - run and output prediction for inital model or not
+                        IMPORTANT NOTE: if False, no uniform random walk will perform !
+        savedata        - save data to npz binary file or not
+        ---
+        version history:
+                    - Added the functionality of stop running if a targe misfit value is not acheived after numbcheck runs
+                        Sep 27th, 2018
+        =================================================================================================================
+        """
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        if numbcheck is None:
+            numbcheck   = int(np.ceil(step4uwalk/2.*0.8))
+        #-------------------------------
+        # initializations
+        #-------------------------------
+        self.get_period()
+        self.update_mod(mtype = 'vti')
+        self.get_vmodel(mtype = 'vti')
+        # output arrays
+        npara           = self.model.vtimod.para.npara
+        outmodarr       = np.zeros((numbrun, npara+9)) # original
+        outdisparr_ray  = np.zeros((numbrun, self.data.dispR.npper))
+        outdisparr_lov  = np.zeros((numbrun, self.data.dispL.npper))
+        # initial run
+        if init_run:
+            self.compute_disp_vti(wtype='both', solver_type = 0)
+            self.get_misfit(mtype='vti')
+            # write initial model
+            outmod      = outdir+'/'+pfx+'.mod'
+            self.model.write_model(outfname=outmod, isotropic=False)
+            # write initial predicted data
+            outdisp = outdir+'/'+pfx+'.ph.ray.disp'
+            self.data.dispR.writedisptxt(outfname=outdisp, dtype='ph')
+            outdisp = outdir+'/'+pfx+'.ph.lov.disp'
+            self.data.dispL.writedisptxt(outfname=outdisp, dtype='ph')
+            if solver_type != 0:
+                while not self.compute_disp_vti(wtype='both', solver_type = 1):
+                    # # # print 'computing reference'
+                    self.model.vtimod.new_paraval(ptype = 0)
+                    self.get_vmodel(mtype = 'vti')
+                self.get_misfit(mtype='vti')
+            # convert initial model to para
+            self.model.vtimod.mod2para()
+        else:
+            self.model.vtimod.mod2para()
+            self.model.vtimod.new_paraval(ptype = 0)
+            self.get_vmodel(mtype = 'vti')
+            # forward computation
+            if solver_type == 0:
+                self.compute_disp_vti(wtype='both', solver_type = 0)
+            else:
+                while not self.compute_disp_vti(wtype='both', solver_type = 1):
+                    # # # print 'computing reference'
+                    self.model.vtimod.new_paraval(ptype = 0)
+                    self.get_vmodel(mtype = 'vti')
+            self.get_misfit(mtype='vti')
+            if verbose:
+                print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
+            self.model.vtimod.mod2para()
+        # likelihood/misfit
+        oldL        = self.data.L
+        oldmisfit   = self.data.misfit
+        run         = True      # the key that controls the sampling
+        inew        = 0         # count step (or new paras)
+        iacc        = 0         # count acceptance model
+        start       = time.time()
+        misfitchecked \
+                    = False
+        while ( run ):
+            inew    += 1
+            if ( inew > numbrun ):
+                break
+            #-----------------------------------------
+            # checking misfit after numbcheck runs
+            # added Sep 27th, 2018
+            #-----------------------------------------
+            if run_inv:
+                if np.fmod(inew, step4uwalk) > numbcheck and not misfitchecked:
+                    ind0            = int(np.ceil(inew/step4uwalk)*step4uwalk)
+                    ind1            = inew-1
+                    temp_min_misfit = outmodarr[ind0:ind1, npara+3].min()
+                    if temp_min_misfit == 0.:
+                        raise ValueError('Error!')
+                    if temp_min_misfit > misfit_thresh:
+                        inew        = int(np.ceil(inew/step4uwalk)*step4uwalk) + step4uwalk
+                        if inew > numbrun:
+                            break
+                    misfitchecked   = True
+            if (np.fmod(inew, 500) == 0) and verbose:
+                print pfx, 'step =',inew, 'elasped time =', time.time()-start,' sec'
+            #------------------------------------------------------------------------------------------
+            # every step4uwalk step, perform a random walk with uniform random value in the paramerter space
+            #------------------------------------------------------------------------------------------
+            if ( np.fmod(inew, step4uwalk+1) == step4uwalk and init_run ):
+                self.model.vtimod.mod2para()
+                self.model.vtimod.new_paraval(ptype = 0)
+                self.get_vmodel(mtype = 'vti')
+                # forward computation
+                if solver_type == 0:
+                    self.compute_disp_vti(wtype='both', solver_type = 0)
+                else:
+                    while not self.compute_disp_vti(wtype='both', solver_type = 1):
+                        self.model.vtimod.new_paraval(ptype = 0)
+                        self.get_vmodel(mtype = 'vti')
+                self.get_misfit(mtype='vti')
+                oldL                = self.data.L
+                oldmisfit           = self.data.misfit
+                if verbose:
+                    print pfx+', uniform random walk: likelihood =', self.data.L, 'misfit =',self.data.misfit
+            #==================================================
+            # inversion part
+            #==================================================
+            #----------------------------------
+            # sample the posterior distribution
+            #----------------------------------
+            if run_inv:
+                self.model.vtimod.mod2para()
+                oldmod      = copy.deepcopy(self.model.vtimod)
+                if not self.model.vtimod.new_paraval(ptype = 1):
+                    print 'No good model found!'
+                    continue
+                self.get_vmodel(mtype = 'vti')
+                #--------------------------------
+                # forward computation
+                #--------------------------------
+                is_large_perturb    = False
+                if solver_type == 0:
+                    self.compute_disp_vti(wtype='both', solver_type = 0)
+                else:
+                    # compute dispersion curves based on sensitivity kernels
+                    self.compute_disp_vti(wtype='both', solver_type = 2)
+                    is_large_perturb= (self.data.dispR.check_large_perturb() or self.data.dispL.check_large_perturb())
+                self.get_misfit(mtype='vti')
+                newL                = self.data.L
+                newmisfit           = self.data.misfit
+                # reject model if NaN misfit 
+                if np.isnan(newmisfit):
+                    print 'WARNING: '+pfx+', NaN misfit!'
+                    outmodarr[inew-1, 0]                = -1 # index for acceptance
+                    outmodarr[inew-1, 1]                = iacc
+                    outmodarr[inew-1, 2:(npara+2)]      = self.model.vtimod.para.paraval[:]
+                    outmodarr[inew-1, npara+2]          = 0.
+                    outmodarr[inew-1, npara+3]          = 9999.
+                    outmodarr[inew-1, npara+4]          = self.data.dispR.L
+                    outmodarr[inew-1, npara+5]          = self.data.dispR.misfit
+                    outmodarr[inew-1, npara+6]          = self.data.dispL.L
+                    outmodarr[inew-1, npara+7]          = self.data.dispL.misfit
+                    outmodarr[inew-1, npara+8]          = time.time()-start
+                    self.model.vtimod                   = oldmod
+                    continue
+                if newL < oldL:
+                    prob    = (oldL-newL)/oldL
+                    rnumb   = random.random()
+                    # reject the model
+                    if rnumb < prob:
+                        outmodarr[inew-1, 0]            = -1 # index for acceptance
+                        outmodarr[inew-1, 1]            = iacc
+                        outmodarr[inew-1, 2:(npara+2)]  = self.model.vtimod.para.paraval[:]
+                        outmodarr[inew-1, npara+2]      = newL
+                        outmodarr[inew-1, npara+3]      = newmisfit
+                        outmodarr[inew-1, npara+4]      = self.data.dispR.L
+                        outmodarr[inew-1, npara+5]      = self.data.dispR.misfit
+                        outmodarr[inew-1, npara+6]      = self.data.dispL.L
+                        outmodarr[inew-1, npara+7]      = self.data.dispL.misfit
+                        outmodarr[inew-1, npara+8]      = time.time()-start
+                        self.model.vtimod               = oldmod
+                        continue
+                # update the kernels for the new reference model
+                if is_large_perturb and solver_type == 1:
+                    # # # print 'Update reference!'
+                    oldvpr                              = copy.deepcopy(self)
+                    if not self.compute_disp_vti(wtype='both', solver_type = 1):
+                        self                            = oldvpr # reverse to be original vpr with old kernels
+                        outmodarr[inew-1, 0]            = -1 # index for acceptance
+                        outmodarr[inew-1, 1]            = iacc
+                        outmodarr[inew-1, 2:(npara+2)]  = self.model.vtimod.para.paraval[:]
+                        outmodarr[inew-1, npara+2]      = newL
+                        outmodarr[inew-1, npara+3]      = newmisfit
+                        outmodarr[inew-1, npara+4]      = self.data.dispR.L
+                        outmodarr[inew-1, npara+5]      = self.data.dispR.misfit
+                        outmodarr[inew-1, npara+6]      = self.data.dispL.L
+                        outmodarr[inew-1, npara+7]      = self.data.dispL.misfit
+                        outmodarr[inew-1, npara+8]      = time.time()-start
+                        self.model.vtimod               = oldmod
+                        continue
+                    self.get_misfit(mtype='vti')
+                    newL                                = self.data.L
+                    newmisfit                           = self.data.misfit
+                # accept the new model
+                outmodarr[inew-1, 0]                    = 1 # index for acceptance
+                outmodarr[inew-1, 1]                    = iacc
+                outmodarr[inew-1, 2:(npara+2)]          = self.model.vtimod.para.paraval[:]
+                outmodarr[inew-1, npara+2]              = newL
+                outmodarr[inew-1, npara+3]              = newmisfit
+                outmodarr[inew-1, npara+4]              = self.data.dispR.L
+                outmodarr[inew-1, npara+5]              = self.data.dispR.misfit
+                outmodarr[inew-1, npara+6]              = self.data.dispL.L
+                outmodarr[inew-1, npara+7]              = self.data.dispL.misfit
+                outmodarr[inew-1, npara+8]              = time.time()-start
+                # predicted dispersion data
+                outdisparr_ray[inew-1, :]               = self.data.dispR.pvelp[:]
+                outdisparr_lov[inew-1, :]               = self.data.dispL.pvelp[:]
+                # assign likelihood/misfit
+                oldL        = newL
+                oldmisfit   = newmisfit
+                iacc        += 1
+                # # # print inew, oldmisfit
+                continue
+            #----------------------------------
+            # sample the prior distribution
+            #----------------------------------
+            else:
+                self.model.vtimod.new_paraval(ptype = 0, isconstrt=isconstrt)
+                # accept the new model
+                outmodarr[inew-1, 0]                    = 1 # index for acceptance
+                outmodarr[inew-1, 1]                    = iacc
+                outmodarr[inew-1, 2:(npara+2)]          = self.model.vtimod.para.paraval[:]
+                outmodarr[inew-1, npara+2]              = 1.
+                outmodarr[inew-1, npara+3]              = 0
+                outmodarr[inew-1, npara+4]              = self.data.dispR.L
+                outmodarr[inew-1, npara+5]              = self.data.dispR.misfit
+                outmodarr[inew-1, npara+6]              = self.data.dispL.L
+                outmodarr[inew-1, npara+7]              = self.data.dispL.misfit
+                outmodarr[inew-1, npara+8]              = time.time() - start
+                continue
+        #-----------------------------------
+        # write results to binary npz files
+        #-----------------------------------
+        outfname    = outdir+'/mc_inv.'+pfx+'.npz'
+        np.savez_compressed(outfname, outmodarr, outdisparr_ray, outdisparr_lov)
+        if savedata:
+            outdatafname\
+                    = outdir+'/mc_data.'+pfx+'.npz'
+            np.savez_compressed(outdatafname, self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.dispL.pper, self.data.dispL.pvelo, self.data.dispL.stdpvelo)
+        del outmodarr
+        del outdisparr_ray
+        del outdisparr_lov
+        return
+    
+    def mc_joint_inv_vti_mp(self, outdir='./workingdir', run_inv=True, solver_type=1, isconstrt=True, pfx='MC',\
+                verbose=False, step4uwalk=1500, numbrun=15000, savedata=True, subsize=1000,
+                nprocess=None, merge=True, Ntotalruns=2, misfit_thresh=2.0, Nmodelthresh=200):
+        """
+        Parallelized version of mc_joint_inv_iso
+        ==================================================================================================================
+        ::: input :::
+        outdir          - output directory
+        run_inv         - run the inversion or not
+        solver_type     - type of solver
+                            0   - fast_surf
+                            1   - tcps
+        isconstrt       - require monotonical increase in the crust or not
+        pfx             - prefix for output, typically station id
+        step4uwalk      - step interval for uniform random walk in the parameter space
+        numbrun         - total number of runs
+        savedata        - save data to npz binary file or not
+        subsize         - size of subsets, used if the number of elements in the parallel list is too large to avoid deadlock
+        nprocess        - number of process
+        merge           - merge data into one single npz file or not
+        Ntotalruns      - number of times of total runs, the code would run at most numbrun*Ntotalruns iterations
+        misfit_thresh   - threshold misfit value to determine "good" models
+        Nmodelthresh    - required number of "good" models
+        ---
+        version history:
+                    - Added the functionality of adding addtional runs if not enough good models found, Sep 27th, 2018
+        ==================================================================================================================
+        """
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+        #-------------------------
+        # prepare data
+        #-------------------------
+        vpr_lst = []
+        Nvpr    = int(numbrun/step4uwalk)
+        npara   = self.model.vtimod.para.npara
+        if Nvpr*step4uwalk != numbrun:
+            print 'WARNING: number of runs changes: '+str(numbrun)+' --> '+str(Nvpr*step4uwalk)
+            numbrun     = Nvpr*step4uwalk
+        for i in range(Nvpr):
+            temp_vpr            = copy.deepcopy(self)
+            temp_vpr.process_id = i
+            vpr_lst.append(temp_vpr)
+        #----------------------------------------
+        # Joint inversion with multiprocessing
+        #----------------------------------------
+        if verbose:
+            print 'Start MC inversion: '+pfx+' '+time.ctime()
+            stime       = time.time()
+        run             = True
+        i_totalrun      = 0
+        imodels         = 0
+        need_to_merge   = False
+        while (run):
+            i_totalrun              += 1
+            if Nvpr > subsize:
+                Nsub                = int(len(vpr_lst)/subsize)
+                for isub in xrange(Nsub):
+                    print 'Subset:', isub,'in',Nsub,'sets'
+                    cvpr_lst        = vpr_lst[isub*subsize:(isub+1)*subsize]
+                    MCINV           = partial(mc4mp_vti, outdir=outdir, run_inv=run_inv, solver_type=solver_type,
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                    pool            = multiprocessing.Pool(processes=nprocess)
+                    pool.map(MCINV, cvpr_lst) #make our results with a map call
+                    pool.close() #we are not adding any more processes
+                    pool.join() #tell it to wait until all threads are done before going on
+                cvpr_lst            = vpr_lst[(isub+1)*subsize:]
+                MCINV               = partial(mc4mp_vti, outdir=outdir, run_inv=run_inv, solver_type=solver_type,
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                pool                = multiprocessing.Pool(processes=nprocess)
+                pool.map(MCINV, cvpr_lst) #make our results with a map call
+                pool.close() #we are not adding any more processes
+                pool.join() #tell it to wait until all threads are done before going on
+            else:
+                MCINV               = partial(mc4mp_vti, outdir=outdir, run_inv=run_inv, solver_type=solver_type,
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                pool                = multiprocessing.Pool(processes=nprocess)
+                pool.map(MCINV, vpr_lst) #make our results with a map call
+                pool.close() #we are not adding any more processes
+                pool.join() #tell it to wait until all threads are done before going on
+            #----------------------------------------
+            # Merge inversion results for each process
+            #----------------------------------------
+            if merge:
+                outmodarr           = np.array([])
+                outdisparr_ray      = np.array([])
+                outdisparr_lov      = np.array([])
+                for i in range(Nvpr):
+                    invfname        = outdir+'/mc_inv.'+pfx+'_'+str(i)+'.npz'
+                    inarr           = np.load(invfname)
+                    outmodarr       = np.append(outmodarr, inarr['arr_0'])
+                    outdisparr_ray  = np.append(outdisparr_ray, inarr['arr_1'])
+                    outdisparr_lov  = np.append(outdisparr_lov, inarr['arr_2'])
+                    os.remove(invfname)
+                outmodarr           = outmodarr.reshape(numbrun, outmodarr.size/numbrun)
+                outdisparr_ray      = outdisparr_ray.reshape(numbrun, outdisparr_ray.size/numbrun)
+                outdisparr_lov      = outdisparr_lov.reshape(numbrun, outdisparr_lov.size/numbrun)
+                # added Sep 27th, 2018
+                ind_valid           = outmodarr[:, 0] == 1.
+                imodels             += np.where(outmodarr[ind_valid, npara+3] <= misfit_thresh )[0].size
+                if imodels >= Nmodelthresh and i_totalrun == 1:
+                    outinvfname     = outdir+'/mc_inv.'+pfx+'.npz'
+                    np.savez_compressed(outinvfname, outmodarr, outdisparr_ray, outdisparr_lov)
+                else:
+                    outinvfname     = outdir+'/mc_inv.merged.'+str(i_totalrun)+'.'+pfx+'.npz'
+                    np.savez_compressed(outinvfname, outmodarr, outdisparr_ray, outdisparr_lov)
+                    need_to_merge   = True
+                # stop the loop if enough good models are found OR, number of total-runs is equal to the given threhold number
+                print '== Number of good models = '+str(imodels)+', number of total runs = '+str(i_totalrun)
+                if imodels >= Nmodelthresh or i_totalrun >= Ntotalruns:
+                    break
+        #--------------------------------------------------------
+        # Merge inversion results for each additional total runs
+        #--------------------------------------------------------
+        if need_to_merge:
+            outmodarr           = np.array([])
+            outdisparr_ray      = np.array([])
+            outdisparr_lov      = np.array([])
+            for i in range(i_totalrun):
+                invfname        = outdir+'/mc_inv.merged.'+str(i+1)+'.'+pfx+'.npz'
+                inarr           = np.load(invfname)
+                outmodarr       = np.append(outmodarr, inarr['arr_0'])
+                outdisparr_ray  = np.append(outdisparr_ray, inarr['arr_1'])
+                outdisparr_lov  = np.append(outdisparr_lov, inarr['arr_2'])
+                os.remove(invfname)
+            Nfinal_total_runs   = i_totalrun*numbrun
+            outmodarr           = outmodarr.reshape(Nfinal_total_runs, outmodarr.size/Nfinal_total_runs)
+            outdisparr_ray      = outdisparr_ray.reshape(Nfinal_total_runs, outdisparr_ray.size/Nfinal_total_runs)
+            outdisparr_lov      = outdisparr_lov.reshape(Nfinal_total_runs, outdisparr_lov.size/Nfinal_total_runs)
+            outinvfname         = outdir+'/mc_inv.'+pfx+'.npz'
+            np.savez_compressed(outinvfname, outmodarr, outdisparr_ray, outdisparr_lov)
+        if imodels < Nmodelthresh:
+            print 'WARNING: Not enough good models, '+str(imodels)
+        #----------------------------------------
+        # save data
+        #----------------------------------------
+        if savedata:
+            outdatafname\
+                    = outdir+'/mc_data.'+pfx+'.npz'
+            np.savez_compressed(outdatafname, self.data.dispR.pper, self.data.dispR.pvelo, self.data.dispR.stdpvelo,\
+                        self.data.dispL.pper, self.data.dispL.pvelo, self.data.dispL.stdpvelo)
+        if verbose:
+            print 'End MC inversion: '+pfx+' '+time.ctime()
+            etime   = time.time()
+            print 'Elapsed time: '+str(etime-stime)+' secs'
+        return
+    
         
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, isconstrt, pfx, verbose, numbrun, misfit_thresh):
     # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
-    if invpr.process_id == 0:
+    if invpr.process_id == 0 or wdisp < 0.:
         invpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor, misfit_thresh=misfit_thresh, \
                        isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
     else:
         invpr.mc_joint_inv_iso(outdir=outdir, dispdtype=dispdtype, wdisp=wdisp, rffactor=rffactor, misfit_thresh=misfit_thresh, \
                        isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
-    return 
+    return
+
+def mc4mp_vti(invpr, outdir, run_inv, solver_type, isconstrt, pfx, verbose, numbrun, misfit_thresh):
+    # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
+    pfx     = pfx +'_'+str(invpr.process_id)
+    if invpr.process_id == 0:
+        invpr.mc_joint_inv_vti(outdir=outdir, run_inv=run_inv, misfit_thresh=misfit_thresh, \
+            isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
+    else:
+        invpr.mc_joint_inv_vti(outdir=outdir, run_inv=run_inv, misfit_thresh=misfit_thresh, \
+            isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
+    return
