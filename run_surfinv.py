@@ -5,9 +5,9 @@ import copy
 
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_final.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_ready4post.h5')
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190322_osci.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190322_osci.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190404_no_osci.h5')
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190320_no_ocsi.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190320_no_ocsi.h5')
 
 
 #-------------------------
@@ -62,6 +62,9 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # depth = 100.
 # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
 #              geopolygons=None, vmin=4.2, vmax=4.6, showfig=True)
+# 
+# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+#              geopolygons=None, vmin=4.05, vmax=4.65, showfig=True)
 # # # # 
 # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
 #              geopolygons=None, vmin=None, vmax=None, showfig=True)
@@ -90,15 +93,19 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 #                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
 ## Jademec
-# dset.plot_vertical_rel(plottype=1, lon1=-146+360, lon2=-142+360, lat1=58, lat2=64, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-# 
-# 
-# dset.plot_vertical_rel(plottype=1, lon1=-147+360, lon2=-159+360, lat1=56, lat2=62, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
+# 
+# 
+# # # dset.plot_vertical_rel_2(plottype=1, lon1=-157.5+360, lon2=-146+360, lat1=62, lat2=59, maxdepth=120.,\
+# # #                        dtype='avg', is_smooth=True, incat = None, vmin2=4.2, vmax2=4.5, vs_mantle=4.35)
+# 
+# dset.plot_vertical_rel(plottype=1, lon1=-150+360, lon2=-150.+360, lat1=58, lat2=70, maxdepth=120.,\
+#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
 # dset.plot_vertical_rel(plottype=1, lon1=-146+360, lon2=-159+360, lat1=59, lat2=62, maxdepth=120.,\
+#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
+
+# dset.plot_vertical_rel(plottype=1, lon2=-146+360, lon1=-159+360, lat2=59, lat1=62, maxdepth=120.,\
 #                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
 # dset.plot_vertical_rel(plottype=1, lon1=-145+360, lon2=-142+360, lat1=59, lat2=64, maxdepth=120.,\
@@ -107,8 +114,8 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
 #                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
-dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
-              dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
+# dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
+#               dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
 
 # vpr = dset.generate_disp_vs_figs(datadir ='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both',\
@@ -137,9 +144,11 @@ dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=6
 # cmap = ListedColormap(colA)
 # cmap = surfdbase.discrete_cmap(10, 'RdYlBu')
 # cmap = surfdbase.discrete_cmap(10, 'hot_r')
-# # # dset.plot_paraval(pindex='avg_misfit', is_smooth=False, cmap=cmap, vmin=0.0, vmax=2.0, outfname='avg_misfit.txt', clabel='Misfit')
+# # # # dset.plot_paraval(pindex='avg_misfit', is_smooth=False, cmap=cmap, vmin=0.0, vmax=2.0, outfname='avg_misfit.txt', clabel='Misfit')
 # dset.plot_paraval(pindex='moho', isthk=False, is_smooth=True, cmap=cmap, vmin=25., vmax=45.0, clabel='Crustal thickness (km)')
 # dset.plot_paraval(pindex='moho', isthk=True, dtype='std', is_smooth=True, cmap=cmap, vmin=0., vmax=10.0, clabel='Uncertainties of Crustal Thickness (km)')
 # # # dset.plot_paraval(pindex='vs_std', is_smooth=False, depth=10., depthavg = 0.)
 # # 
 # dset.plot_crust1( infname='crsthk.xyz', vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)
+# dset.plot_miller_moho_finer(vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)
+# dset.convert_to_vts(outdir='outvts', depthavg=-1.)

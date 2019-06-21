@@ -2,12 +2,12 @@
 import surfdbase
 import copy
 
-
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190327_no_ocsi_crust_15_mantle_0_vti.h5')
+# 
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190327_no_ocsi_crust_15_mantle_0_vti_gr.h5')
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190327_no_ocsi_crust_15_mantle_10_vti_gr.h5')
-
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190327_no_ocsi_crust_0_mantle_10_vti_gr.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190327_no_ocsi_crust_15_mantle_10_vti_gr.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190501_no_osci_vti_sed_25_crt_10_mantle_10_col.h5')
+# 
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190327_no_ocsi_crust_0_mantle_10_vti_gr.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190401_no_ocsi_crust_0_mantle_0_vti.h5')
 #-------------------------
 # before inversion
@@ -15,6 +15,7 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # dset.read_hybridtomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_Love_20190318.h5',\
 #                            runid=0, semfactor=2., Tmin=8., Tmax=50., wtype='lov')
 
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190501_no_osci_vti_sed_25_crt_0_mantle_10_col.h5')
 
 # -------------------------
 # inversion
@@ -22,14 +23,14 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # 
 # dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190401_150000_crust_0_mantle_0_vti',
 #                 numbrun=150000, nprocess=20, verbose=False, group=False, Ntotalruns=1)
-# dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190401_150000_crust_0_mantle_0_vti',
-#                 numbrun=150000, nprocess=20, verbose=False, group=False, Ntotalruns=1)
+dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_sed_25_crust_10_mantle_10_vti_col',
+                numbrun=150000, nprocess=20, verbose=False, group=False, Ntotalruns=1)
 
 #-------------------------
 # read inversion results
 #-------------------------
-# dset.read_inv_vti(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_15_mantle_0_vti', avgqc=False)
-# dset.read_inv_vti_2(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_0_mantle_10_vti', avgqc=False)
+# dset.read_inv_vti(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_sed_25_crust_0_mantle_10_vti_col', avgqc=False)
+# dset.read_inv_vti_2(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_sed_25_crust_0_mantle_10_vti_col', avgqc=False)
 # # # 
 # 
 # #-------------------------
@@ -37,7 +38,7 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # #-------------------------
 
 # dset.get_hybrid_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_Love_20190318.h5', runid=0)
-
+# dset.get_basin_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_20190318_gr.h5')
 # cmap = surfdbase.discrete_cmap(5, 'hot_r')
 
 

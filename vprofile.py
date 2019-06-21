@@ -18,6 +18,7 @@ import multiprocessing
 from functools import partial
 import time
 import random
+from uncertainties import unumpy
 
 class vprofile1d(object):
     """
@@ -98,6 +99,24 @@ class vprofile1d(object):
             if self.data.dispL.npper>0:
                 self.data.dispL.pvelp = np.zeros(self.data.dispL.npper, dtype=np.float64)
                 self.data.dispL.gvelp = np.zeros(self.data.dispL.npper, dtype=np.float64)
+        else:
+            raise ValueError('Unexpected wave type: '+wtype)
+        return
+    
+    def get_azi_disp(self, indata, wtype='ray'):
+        """
+        read dispersion curve data from a txt file
+        ===========================================================
+        ::: input :::
+        indata      - input array (7, N)
+        wtype       - wave type (Rayleigh or Love)
+        ===========================================================
+        """
+        wtype   = wtype.lower()
+        if wtype=='ray' or wtype=='rayleigh' or wtype=='r':
+            self.data.dispR.get_azi_disp(indata=indata)
+        elif wtype=='lov' or wtype=='love' or wtype=='l':
+            self.data.dispL.get_azi_disp(indata=indata)
         else:
             raise ValueError('Unexpected wave type: '+wtype)
         return
@@ -301,6 +320,9 @@ class vprofile1d(object):
             self.data.dispL.pvelp   = cl0[:nper]
             self.data.dispL.gvelp   = ul0[:self.data.dispL.ngper]
         return
+    
+    
+    
     #-------------------------------------
     # forward solver for VTI model
     #-------------------------------------
@@ -331,7 +353,12 @@ class vprofile1d(object):
             c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
                     np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
                     self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho,
-                    nl_in, iflsph_in, 0., nmodes,  1., 1.)
+                    nl_in, iflsph_in, 0., nmodes,  1., 1.)  ### used for VTI inversion 
+            # # # c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
+            # # #         np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
+            # # #         self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho,
+            # # #         nl_in, iflsph_in, 0., nmodes,  .5, .5) # used for HTI inversion
+            
             #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             # store reference model and ET model
             #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -596,12 +623,12 @@ class vprofile1d(object):
                 self.compute_fsurf(wtype = wtype)
             return True
         elif solver_type == 1:
-            if crmin <= 0. or crmax <= 0.:
+            if (crmin <= 0. or crmax <= 0.)and wtype != 'lov':
                 temp_vpr        = copy.deepcopy(self)
                 temp_vpr.compute_fsurf(wtype = 'ray')
                 crmin           = temp_vpr.data.dispR.pvelp.min() - 0.1
                 crmax           = temp_vpr.data.dispR.pvelp.max() + 0.1
-            if clmin <= 0. or clmax <= 0.:
+            if (clmin <= 0. or clmax <= 0.) and wtype != 'ray':
                 temp_vpr        = copy.deepcopy(self)
                 temp_vpr.compute_fsurf(wtype = 'lov')
                 clmin           = temp_vpr.data.dispL.pvelp.min() - 0.1
@@ -640,6 +667,43 @@ class vprofile1d(object):
             else:
                 self.perturb_from_kernel_vti(wtype=wtype)
             return True
+    
+    #-------------------------------------
+    # solver for HTI model
+    #-------------------------------------
+    def get_reference_hti(self, pvelref, dcdA, dcdC, dcdF, dcdL):
+        """
+        get (reference) surface wave dispersion of Horizontal TI model 
+        ====================================================================================
+        ::: input :::
+
+        ====================================================================================
+        """
+        self.ref_hArr   = self.model.h.copy()
+        nfval           = self.TRp.size
+        freq            = 1./ self.TRp
+        nl_in           = self.model.h.size
+        ilvry           = 2
+        iflsph_in       = 1 # 1 - spherical Earth, 0 - flat Earth
+        # initialize eigenkernel for Rayleigh wave
+        self.eigkR.init_arr(nfreq=nfval, nlay=nl_in, ilvry=ilvry)
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # store reference model and ET model
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        self.eigkR.get_ref_model(A = self.model.A, C = self.model.C, F = self.model.F,\
+                                L = self.model.L, N = self.model.N, rho = self.model.rho)
+        self.eigkR.get_ref_model_vel(ah = self.model.vph, av = self.model.vpv, bh = self.model.vsh,\
+                                bv = self.model.vsv, n = self.model.eta, r = self.model.rho)
+        self.eigkR.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                            Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+        self.eigkR.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+        self.data.dispR.pvelref = pvelref
+        self.eigkR.dcdA[:, :]   = dcdA
+        self.eigkR.dcdC[:, :]   = dcdC
+        self.eigkR.dcdF[:, :]   = dcdF
+        self.eigkR.dcdL[:, :]   = dcdL
+        return True
     #==========================================
     # forward modelling for receiver function
     #==========================================
@@ -1307,7 +1371,8 @@ class vprofile1d(object):
         outdisparr_lov  = np.zeros((numbrun, self.data.dispL.npper))
         # initial run
         if init_run:
-            self.compute_disp_vti(wtype='both', solver_type = 0)
+            self.model.vtimod.mod2para()
+            self.compute_disp_vti(wtype='both', solver_type = 1)
             self.get_misfit(mtype='vti')
             # write initial model
             outmod      = outdir+'/'+pfx+'.mod'
@@ -1324,7 +1389,7 @@ class vprofile1d(object):
                     self.get_vmodel(mtype = 'vti')
                 self.get_misfit(mtype='vti')
             # convert initial model to para
-            self.model.vtimod.mod2para()
+            
         else:
             self.model.vtimod.mod2para()
             self.model.vtimod.new_paraval(ptype = 0)
@@ -1669,7 +1734,89 @@ class vprofile1d(object):
             print 'Elapsed time: '+str(etime-stime)+' secs'
         return
     
-        
+    #==========================================
+    # functions for HTI inversions
+    #==========================================
+    def linear_inv_vti(self, isBcs=True, useref=False, depth_mid_crust=15.):
+        # construct data array
+        dc      = np.zeros(self.data.dispR.npper, dtype=np.float64)
+        ds      = np.zeros(self.data.dispR.npper, dtype=np.float64)
+        if useref:
+            try:
+                A2      = self.data.dispR.amp/100.*self.data.dispR.pvelref
+                unA2    = self.data.dispR.unamp/100.*self.data.dispR.pvelref
+                vel_iso = self.data.dispR.pvelref
+            except:
+                raise ValueError('No refernce dispersion curve stored!')
+        else:
+            A2      = self.data.dispR.amp/100.*self.data.dispR.pvelo
+            unA2    = self.data.dispR.unamp/100.*self.data.dispR.pvelo
+            vel_iso = self.data.dispR.pvelo
+        dc[:]       = A2*np.cos(2. * (self.data.dispR.psi2/180.*np.pi) )
+        ds[:]       = A2*np.sin(2. * (self.data.dispR.psi2/180.*np.pi) )
+        #--------------------------
+        # data covariance matrix
+        #--------------------------
+        A2_with_un  = unumpy.uarray(A2, unA2)
+        psi2_with_un= unumpy.uarray(self.data.dispR.psi2, self.data.dispR.unpsi2)
+        # dc
+        Cdc         = np.zeros((self.data.dispR.npper, self.data.dispR.npper), dtype=np.float64)
+        undc        = unumpy.std_devs( A2_with_un * unumpy.cos(2. * (psi2_with_un/180.*np.pi)) )
+        np.fill_diagonal(Cdc, undc**2)
+        # ds
+        Cds         = np.zeros((self.data.dispR.npper, self.data.dispR.npper), dtype=np.float64)
+        unds        = unumpy.std_devs( A2_with_un * unumpy.sin(2. * (psi2_with_un/180.*np.pi)) )
+        np.fill_diagonal(Cds, unds**2)
+        #--------------------------
+        # forward operator matrix
+        #--------------------------
+        nmod        = 3
+        self.model.htimod.init_arr(nmod)
+        self.model.htimod.set_two_layer_crust(depth_mid_crust=depth_mid_crust)
+        self.model.get_hti_layer_ind()
+        G           = np.zeros((self.data.dispR.npper, nmod), dtype=np.float64)
+        for i in range(nmod):
+            ind0    = self.model.htimod.layer_ind[i, 0]
+            ind1    = self.model.htimod.layer_ind[i, 1]
+            dcdX    = self.eigkR.dcdL[:, ind0:ind1]
+            if isBcs:
+                dcdX+= self.eigkR.dcdA[:, ind0:ind1] * self.eigkR.Aeti[ind0:ind1]/self.eigkR.Leti[ind0:ind1]
+            dcdX    *= self.eigkR.Leti[ind0:ind1]
+            G[:, i] = dcdX.sum(axis=1)
+        #--------------------------
+        # solve the inverse problem
+        #--------------------------
+        # cosine terms
+        Ginv1                       = np.linalg.inv( np.dot( np.dot(G.T, np.linalg.inv(Cdc)), G) )
+        Ginv2                       = np.dot( np.dot(G.T, np.linalg.inv(Cdc)), dc)
+        modelC                      = np.dot(Ginv1, Ginv2)
+        Cmc                         = Ginv1 # model covariance matrix
+        pcovc                       = np.sqrt(np.absolute(Cmc))
+        self.model.htimod.Gc[:]     = modelC[:]
+        self.model.htimod.unGc[:]   = pcovc.diagonal()
+        # sine terms
+        Ginv1                       = np.linalg.inv( np.dot( np.dot(G.T, np.linalg.inv(Cds)), G) )
+        Ginv2                       = np.dot( np.dot(G.T, np.linalg.inv(Cds)), ds)
+        modelS                      = np.dot(Ginv1, Ginv2)
+        Cms                         = Ginv1 # model covariance matrix
+        pcovs                       = np.sqrt(np.absolute(Cms))
+        self.model.htimod.Gs[:]     = modelS[:]
+        self.model.htimod.unGs[:]   = pcovs.diagonal()
+        self.model.htimod.GcGs_to_azi()
+        #--------------------------
+        # predictions
+        #--------------------------
+        pre_dc                  = np.dot(G, self.model.htimod.Gc)
+        pre_ds                  = np.dot(G, self.model.htimod.Gs)
+        pre_amp                 = np.sqrt(pre_dc**2 + pre_ds**2)
+        pre_amp                 = pre_amp/vel_iso*100.
+        self.data.dispR.pamp    = pre_amp
+        pre_psi                 = np.arctan2(pre_ds, pre_dc)/2./np.pi*180.
+        pre_psi[pre_psi<0.]     += 180.
+        self.data.dispR.ppsi2   = pre_psi
+        self.data.get_misfit_hti()
+        return
+    
 def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, isconstrt, pfx, verbose, numbrun, misfit_thresh):
     # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)

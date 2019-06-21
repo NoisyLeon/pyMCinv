@@ -44,6 +44,7 @@ class model1d(object):
         self.tilt   = False
         self.isomod = modparam.isomod()
         self.vtimod = modparam.vtimod()
+        self.htimod = modparam.htimod()
         self.nlay   = 0
         self.ngrid  = 0
         return
@@ -413,10 +414,15 @@ class model1d(object):
         self.vtimod.mtype           = mtype[:]
         self.vtimod.vpvs            = vpvs[:]
         if use_gamma:
+            # if paraval.size == 
             self.vtimod.get_paraind_gamma()
         else:
             self.vtimod.get_paraind()
-        self.vtimod.para.paraval[:] = paraval[:]
+        try:
+            self.vtimod.para.paraval[:] = paraval[:]
+        except:
+            self.vtimod.para.paraval[:13] = paraval[:13]
+            self.vtimod.para.paraval[14:] = paraval[13:]
         if self.vtimod.mtype[0] == 5:
             if waterdepth <= 0.:
                 raise ValueError('Water depth for water layer should be non-zero!')
@@ -456,4 +462,46 @@ class model1d(object):
         zArr        = self.zArr[indgrid_out]
         VsvArr      = self.VsvArr[indgrid_out]
         return zArr, VsvArr
+    
+    def get_hti_depth(self):
+        for i in range(self.htimod.nmod+1):
+            if self.htimod.depth[i] == -1.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.depth[i]    = self.vtimod.thickness[0] + self.vtimod.thickness[1]
+                else:
+                    self.htimod.depth[i]    = self.vtimod.thickness[0]
+            if self.htimod.depth[i] == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.depth[i]    = self.vtimod.thickness[0] + self.vtimod.thickness[1] + self.vtimod.thickness[2]
+                else:
+                    self.htimod.depth[i]    = self.vtimod.thickness[0] + self.vtimod.thickness[1]
+            if self.htimod.depth[i] == -3.:
+                self.htimod.depth[i]        = self.vtimod.thickness.sum()
+    
+    def get_hti_layer_ind(self):
+        temp_z  = self.h.cumsum()
+        for i in range(self.htimod.nmod):
+            z0  = self.htimod.depth[i]
+            z1  = self.htimod.depth[i+1]
+            if z0 == -1.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:2].sum()
+                else:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[0]
+            elif z0 == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:3].sum()
+                else:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:2].sum()
+            else:
+                self.htimod.layer_ind[i, 0]     = np.where(temp_z <= z0)[0][-1] + 1
+            if z1 == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 1] = self.vtimod.nlay[:3].sum()
+                else:
+                    self.htimod.layer_ind[i, 1] = self.vtimod.nlay[:2].sum()
+            elif z1 == -3.:
+                self.htimod.layer_ind[i, 1]     = self.vtimod.nlay.sum()
+            else:
+                self.htimod.layer_ind[i, 1]     = np.where(temp_z <= z1)[0][-1] + 1
         

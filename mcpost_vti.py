@@ -20,7 +20,7 @@ import os
 def to_percent(y, position):
     # Ignore the passed in position. This has the effect of scaling the default
     # tick locations.
-    s = str(100. * y)
+    s = '%.0f' %(100. * y)
     # The percent symbol needs escaping in latex
     if matplotlib.rcParams['text.usetex'] is True:
         return s + r'$\%$'
@@ -345,47 +345,7 @@ class postvpr(object):
         self.prior_vpr  = vpr
         return
     
-        # def get_ensemble(self, maxdepth=200., dz=0.1):
-    #     """
-    #     get the ensemble vs array (num_accepted_models, num_grid_depth)
-    #     """
-    #     Nz          = int(maxdepth/dz) + 1
-    #     zArr        = np.arange(Nz)*dz
-    #     vs_ensemble = np.zeros([self.ind_thresh.size, Nz])
-    #     i           = 0
-    #     for index in self.ind_thresh:
-    #         paraval = self.invdata[index, 2:(self.npara+2)]
-    #         vel_mod = vmodel.model1d()
-    #         if self.waterdepth > 0.:
-    #             vel_mod.get_para_model(paraval = paraval, waterdepth=self.waterdepth, vpwater=self.vpwater, nmod=4, \
-    #                 numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=maxdepth)
-    #         else:
-    #             vel_mod.get_para_model(paraval = paraval)
-    #         # topography is not considerred yet!!!
-    #         zArr_in, VsvArr_in  = vel_mod.get_grid_mod()
-    #         # # # if topovalue > 0.:
-    #         # # #     zArr_in         = zArr_in - topovalue
-    #         # # interpolation
-    #         vs_interp           = np.interp(zArr, xp = zArr_in, fp = VsvArr_in)
-    #         vs_ensemble[i, :]   = vs_interp[:]
-    #         i                   += 1
-    #     self.vs_ensemble        = vs_ensemble
-    #     self.zArr_ensemble      = zArr
-    #     return
     
-    # def get_vs_std(self):
-    #     """
-    #     get the std, upper and lower bounds of the vs
-    #     """
-    #     self.vs_upper_bound     = self.vs_ensemble.max(axis=0)
-    #     self.vs_lower_bound     = self.vs_ensemble.min(axis=0)
-    #     self.vs_std             = self.vs_ensemble.std(axis=0)
-    #     self.vs_mean            = self.vs_ensemble.mean(axis=0)
-    #     zArr, VsvArr            = self.avg_model.get_grid_mod()
-    #     self.vs_avg             = np.interp(self.zArr_ensemble, xp = zArr, fp = VsvArr)
-    #     self.vs_1sig_upper      = self.vs_mean + self.vs_std
-    #     self.vs_1sig_lower      = self.vs_mean - self.vs_std
-    #     return
     #------------------------
     # functions for plotting
     #------------------------
@@ -517,25 +477,36 @@ class postvpr(object):
         plt.figure(figsize=[18, 9.6])
         ax  = plt.subplot()
         ###
+        if assemdisp:
+            for i in self.ind_thresh:
+                if wtype == 'ray':
+                    disp_temp   = self.disppre_ray[i, :]
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                elif wtype == 'lov':
+                    disp_temp   = self.disppre_lov[i, :]
+                    plt.plot(self.data.dispL.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                else:
+                    disp_temp   = self.disppre_ray[i, :]
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                    disp_temp   = self.disppre_lov[i, :]
+                    plt.plot(self.data.dispL.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
         pvelo   = self.data.dispR.pvelo
         pvelp   = self.vprfwrd.data.dispR.pvelp
         un      = self.data.dispR.stdpvelo
-        while np.any((pvelo - pvelp)>un):
-            pvelo[(pvelo - pvelp)>un] -= 0.002
-        while np.any((pvelo - pvelp)<-un):
-            pvelo[(pvelo - pvelp)<-un] += 0.002
+        # # # while np.any((pvelo - pvelp)>un):
+        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
+        # # # while np.any((pvelo - pvelp)<-un):
+        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
         plt.errorbar(self.data.dispR.pper, pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=2, ms=5,label='observed ray')
         ###
         pvelo   = self.data.dispL.pvelo
         pvelp   = self.vprfwrd.data.dispL.pvelp
         un      = self.data.dispL.stdpvelo
-        while np.any((pvelo - pvelp)>un):
-            pvelo[(pvelo - pvelp)>un] -= 0.002
-        while np.any((pvelo - pvelp)<-un):
-            pvelo[(pvelo - pvelp)<-un] += 0.002
+        # # # while np.any((pvelo - pvelp)>un):
+        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
+        # # # while np.any((pvelo - pvelp)<-un):
+        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
         plt.errorbar(self.data.dispL.pper, pvelo, yerr=self.data.dispL.stdpvelo, fmt='o', color='k', lw=2, ms=5,label='observed lov')
-            # pvelo[0]    -= 0.18
-            # pvelo[10]   -= 0.05
         try:
             gvelo   = self.data.dispR.gvelo
             gvelp   = self.vprfwrd.data.dispR.gvelp
@@ -557,16 +528,81 @@ class postvpr(object):
         except:
             pass
 
-        plt.plot(self.data.dispL.pper, self.data.dispL.pvelp, 'k--', lw=2, ms=10, label='init model')
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
-        plt.xlabel('Period (sec)', fontsize=30)
+        # plt.plot(self.data.dispL.pper, self.data.dispL.pvelp, 'k--', lw=5, ms=10, label='init model')
+        ax.tick_params(axis='x', labelsize=50)
+        ax.tick_params(axis='y', labelsize=50)
+        plt.xlabel('Period (sec)', fontsize=80)
         label_type  = {'ray': 'Rayleigh', 'lov': 'Love'}
         if wtype == 'ray' or wtype == 'lov':
             plt.ylabel(label_type[disptype]+' phase velocity (km/s)', fontsize=30)
         else:
-            plt.ylabel('Velocity (km/s)', fontsize=30)
+            plt.ylabel('Velocity (km/s)', fontsize=80)
         plt.title(title+' '+self.code, fontsize=15)
+        # plt.legend(loc=0, fontsize=20)
+        if savefig:
+            if fname is None:
+                plt.savefig('disp.jpg')
+            else:
+                plt.savefig(fname)
+        if showfig:
+            plt.show()
+        return
+    
+    def plot_disp_cgg(self, title='Dispersion curves', initdisp=True, obsdisp=True, mindisp=True, avgdisp=True, assemdisp=False,\
+                  wtype='both', alpha=0.05, showfig=True, savefig=False, fname=None):
+        """
+        plot phase/group dispersion curves
+        =================================================================================================
+        ::: input :::
+        title       - title for the figure
+        obsdisp     - plot observed disersion curve or not
+        mindisp     - plot minimum misfit dispersion curve or not
+        avgdisp     - plot the dispersion curve corresponding to the average of accepted models or not 
+        assemdisp   - plot the dispersion curves corresponding to the assemble of accepted models or not 
+        =================================================================================================
+        """
+        plt.figure(figsize=[18, 9.6])
+        ax  = plt.subplot()
+        ###
+        if assemdisp:
+            for i in self.ind_thresh:
+                if wtype == 'ray':
+                    disp_temp   = self.disppre_ray[i, :]
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                elif wtype == 'lov':
+                    disp_temp   = self.disppre_lov[i, :]
+                    plt.plot(self.data.dispL.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                else:
+                    disp_temp   = self.disppre_ray[i, :]
+                    plt.plot(self.data.dispR.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+                    disp_temp   = self.disppre_lov[i, :]
+                    plt.plot(self.data.dispL.pper, disp_temp, '-',color='grey',  alpha=alpha, lw=1)
+        pvelo   = self.data.dispR.pvelo
+        pvelp   = self.vprfwrd.data.dispR.pvelp
+        un      = self.data.dispR.stdpvelo
+        plt.errorbar(self.data.dispR.pper, pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=2, ms=5,label='observed ray')
+        ###
+        pvelo   = self.data.dispL.pvelo
+        pvelp   = self.vprfwrd.data.dispL.pvelp
+        un      = self.data.dispL.stdpvelo
+        plt.errorbar(self.data.dispL.pper, pvelo, yerr=self.data.dispL.stdpvelo, fmt='o', color='r', lw=2, ms=5,label='observed lov')
+ 
+        # 
+        # disp_min    = self.disppre_ray[self.ind_min, :]
+        # plt.plot(self.data.dispR.pper, self.vprfwrd.data.dispR.pvelp, 'b-', lw=2, ms=8, label='min model ray')
+        # disp_min    = self.disppre_lov[self.ind_min, :]
+        # plt.plot(self.data.dispL.pper, self.vprfwrd.data.dispL.pvelp, 'r-', lw=2, ms=8, label='min model lov')
+
+        # plt.plot(self.data.dispL.pper, self.data.dispL.pvelp, 'k--', lw=5, ms=10, label='init model')
+        ax.tick_params(axis='x', labelsize=40)
+        ax.tick_params(axis='y', labelsize=40)
+        plt.xlabel('Period (sec)', fontsize=80)
+        label_type  = {'ray': 'Rayleigh', 'lov': 'Love'}
+        if wtype == 'ray' or wtype == 'lov':
+            plt.ylabel(label_type[disptype]+' phase velocity (km/s)', fontsize=30)
+        else:
+            plt.ylabel('Velocity (km/s)', fontsize=80)
+        # plt.title(title+' '+self.code, fontsize=15)
         # plt.legend(loc=0, fontsize=20)
         if savefig:
             if fname is None:
@@ -592,115 +628,63 @@ class postvpr(object):
         """
         plt.figure(figsize=[18, 9.6])
         ax  = plt.subplot()
-        disp_minR    = self.vprfwrd.data.dispR.pvelp
-        disp_minL    = self.vprfwrd.data.dispL.pvelp
+        # disp_minR    = self.vprfwrd.data.dispR.pvelp
+        # disp_minL    = self.vprfwrd.data.dispL.pvelp
+        disp_minR    = self.disppre_ray[self.ind_min, :]
+        disp_minL    = self.disppre_lov[self.ind_min, :]
         ind     = self.data.dispR.pper<=self.data.dispL.pper.max()
         
         ##
         pvelo   = self.data.dispR.pvelo
         pvelp   = self.vprfwrd.data.dispR.pvelp
         un      = self.data.dispR.stdpvelo
-        while np.any((pvelo - pvelp)>un):
-            pvelo[(pvelo - pvelp)>un] -= 0.002
-        while np.any((pvelo - pvelp)<-un):
-            pvelo[(pvelo - pvelp)<-un] += 0.002
+        # # # while np.any((pvelo - pvelp)>un):
+        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
+        # # # while np.any((pvelo - pvelp)<-un):
+        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
         pveloR  = pvelo
         ##
         pvelo   = self.data.dispL.pvelo
         pvelp   = self.vprfwrd.data.dispL.pvelp
         un      = self.data.dispL.stdpvelo
-        while np.any((pvelo - pvelp)>un):
-            pvelo[(pvelo - pvelp)>un] -= 0.002
-        while np.any((pvelo - pvelp)<-un):
-            pvelo[(pvelo - pvelp)<-un] += 0.002
+        # # # while np.any((pvelo - pvelp)>un):
+        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
+        # # # while np.any((pvelo - pvelp)<-un):
+        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
         pveloL  = pvelo
         
         pvelo   = pveloL - pveloR[ind]
 
         stdpvelo= np.sqrt((self.data.dispR.stdpvelo[ind])**2 + self.data.dispL.stdpvelo**2)
+        # stdpvelo= (self.data.dispR.stdpvelo[ind]) + self.data.dispL.stdpvelo
         pvelp   = disp_minL - disp_minR[ind]
         
         un      = stdpvelo
-        while np.any((pvelo - pvelp)>un):
-            pvelo[(pvelo - pvelp)>un] -= 0.001
-        while np.any((pvelo - pvelp)<-un):
-            pvelo[(pvelo - pvelp)<-un] += 0.001
+        # # # while np.any((pvelo - pvelp)>un):
+        # # #     pvelo[(pvelo - pvelp)>un] -= 0.001
+        # # # while np.any((pvelo - pvelp)<-un):
+        # # #     pvelo[(pvelo - pvelp)<-un] += 0.001
         
         plt.errorbar(self.data.dispL.pper, pvelo*1000., yerr=stdpvelo*1000., fmt='o', color='k', lw=2, ms=10, label='observed')
         plt.plot(self.data.dispL.pper, pvelp*1000., 'k-', lw=3, ms=10, label='predicted')
         
-        # 
-        # if obsdisp:
-        #     if wtype == 'ray':
-        #         plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=1, label='observed')
-        #     elif wtype == 'lov':
-        #         plt.errorbar(self.data.dispL.pper, self.data.dispL.pvelo, yerr=self.data.dispL.stdpvelo, fmt='o', color='b', lw=1, label='observed')
-        #     else:
-        #         plt.errorbar(self.data.dispR.pper, self.data.dispR.pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=1, label='observed ray')
-        #         plt.errorbar(self.data.dispL.pper, self.data.dispL.pvelo, yerr=self.data.dispL.stdpvelo, fmt='o', color='k', lw=1, label='observed lov')
-        #     try:
-        #         plt.errorbar(self.data.dispR.gper, self.data.dispR.gvelo, yerr=self.data.dispR.stdgvelo, fmt='o', color='g', lw=1, label='observed ray U')
-        #     except:
-        #         pass    
-        #     
-        # if mindisp:
-        #     if wtype == 'ray':
-        #         disp_min    = self.disppre_ray[self.ind_min, :]
-        #         plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=1, ms=10, label='min model')
-        #     elif wtype == 'lov':
-        #         disp_min    = self.disppre_lov[self.ind_min, :]
-        #         plt.plot(self.data.dispL.pper, disp_min, 'yo-', lw=1, ms=10, label='min model')
-        #     else:
-        #         disp_min    = self.disppre_ray[self.ind_min, :]
-        #         plt.plot(self.data.dispR.pper, disp_min, 'yo-', lw=1, ms=10, label='min model ray')
-        #         disp_min    = self.disppre_lov[self.ind_min, :]
-        #         plt.plot(self.data.dispL.pper, disp_min, 'mo-', lw=1, ms=10, label='min model lov')
-        # if avgdisp:
-        #     self.run_avg_fwrd()
-        #     if wtype == 'ray':
-        #         disp_avg    = self.vprfwrd.data.dispR.pvelp
-        #         plt.plot(self.data.dispR.pper, disp_avg, 'r-', lw=1, ms=10, label='avg model')
-        #     elif wtype == 'lov':
-        #         disp_avg    = self.vprfwrd.data.dispL.pvelp
-        #         plt.plot(self.data.dispL.pper, disp_avg, 'r-', lw=1, ms=10, label='avg model')
-        #     else:
-        #         disp_avg    = self.vprfwrd.data.dispR.pvelp
-        #         plt.plot(self.data.dispR.pper, disp_avg, 'r-', lw=3, ms=10, label='avg model ray')
-        #         disp_avg    = self.vprfwrd.data.dispL.pvelp
-        #         plt.plot(self.data.dispL.pper, disp_avg, 'g-', lw=3, ms=10, label='avg model lov')
-        #     try:
-        #         plt.plot(self.data.dispR.gper, self.vprfwrd.data.dispR.gvelp, 'k-', lw=1, ms=10, label='avg model ray U')
-        #     except:
-        #         pass
-        #     # plt.plot(self.data.dispR.gper, self.vprfwrd.data.dispR.gvelp, 'k-', lw=1, ms=10, label='avg model ray U')
-        # if initdisp:
-        #     if wtype == 'ray':
-        #         plt.plot(self.data.dispR.pper, self.data.dispR.pvelp, 'c-', lw=1, ms=10, label='init model')
-        #     elif wtype == 'lov':
-        #         plt.plot(self.data.dispL.pper, self.data.dispL.pvelp, 'c-', lw=1, ms=10, label='init model')
-        #     else:
-        #         plt.plot(self.data.dispR.pper, self.data.dispR.pvelp, 'c-', lw=3, ms=10, label='init model ray')
-        #         plt.plot(self.data.dispL.pper, self.data.dispL.pvelp, '-', lw=3, ms=10, color='purple', label='init model lov')
-        ###
-        # vpr = postvpr(thresh=0.5, factor=1.)
-        # vpr.read_inv_data('/home/leon/code/pyMCinv/workingdir_no_monoc/mc_inv.BOTH.npz')
-        # vpr.read_data('/home/leon/code/pyMCinv/workingdir_no_monoc/mc_data.BOTH.npz')
-        # vpr.get_vmodel()
-        # vpr.run_avg_fwrd()
-        # disp_avg    = vpr.vprfwrd.data.dispR.pvelp
-        # plt.plot(self.data.dispR.pper, disp_avg, 'r--', lw=3, ms=10, label='avg model phase')
-        # disp_avg    = vpr.vprfwrd.data.dispR.gvelp
-        # plt.plot(self.data.dispR.gper, disp_avg, 'g--', lw=3, ms=10, label='avg model group')
-        ###
+        s1  = ((pvelo - pvelp)**2/stdpvelo**2).sum()
+        pvelp   = self.data.dispL.pvelp - disp_minR[ind]
+        plt.plot(self.data.dispL.pper, pvelp*1000., 'k--', lw=3, ms=10, label='predicted')
         
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
-        plt.xlabel('Period (sec)', fontsize=30)
+        s2  = ((pvelo - pvelp)**2/stdpvelo**2).sum()
+        
+        print np.sqrt(s1/pvelo.size), np.sqrt(s2/pvelo.size)
+        
+        
+        ax.tick_params(axis='x', labelsize=50)
+        ax.tick_params(axis='y', labelsize=50)
+        plt.xlabel('Period (sec)', fontsize=80)
         label_type  = {'ray': 'Rayleigh', 'lov': 'Love'}
         if wtype == 'ray' or wtype == 'lov':
             plt.ylabel(label_type[disptype]+' phase velocity (km/s)', fontsize=30)
         else:
-            plt.ylabel('CLove - CRayleigh (m/s)', fontsize=30)
+            plt.ylabel('CLove - CRayleigh (m/s)', fontsize=80)
         plt.title(title+' '+self.code, fontsize=15)
         # plt.legend(loc=0, fontsize=20)
         # plt.ylim([250., 650.])
@@ -712,107 +696,7 @@ class postvpr(object):
         if showfig:
             plt.show()
         return
-    # 
-    # def plot_profile(self, title='Vs profile', alpha=0.05, minvpr=True, avgvpr=True, assemvpr=True, realvpr=False,\
-    #         showfig=True, layer=False, savefig=False, fname=None):
-    #     """
-    #     plot vs profiles
-    #     =================================================================================================
-    #     ::: input :::
-    #     title       - title for the figure
-    #     minvpr      - plot minimum misfit vs profile or not
-    #     avgvpr      - plot the the average of accepted models or not 
-    #     assemvpr    - plot the assemble of accepted models or not
-    #     realvpr     - plot the real models or not, used for synthetic test only
-    #     =================================================================================================
-    #     """
-    #     plt.figure(figsize=[8.6, 9.6])
-    #     ax  = plt.subplot()
-    #     if assemvpr:
-    #         for i in self.ind_thresh:
-    #             paraval     = self.invdata[i, 2:(self.npara+2)]
-    #             if self.waterdepth <= 0.:
-    #                 self.temp_model.get_para_model(paraval=paraval)
-    #             else:
-    #                 self.temp_model.get_para_model(paraval=paraval, waterdepth=self.waterdepth, vpwater=self.vpwater, nmod=4, \
-    #                     numbp=np.array([1, 2, 4, 5]), mtype = np.array([5, 4, 2, 2]), vpvs = np.array([0, 2., 1.75, 1.75]), maxdepth=200.)
-    #             if layer:
-    #                 plt.plot(self.temp_model.VsvArr, self.temp_model.zArr, '-',color='grey',  alpha=alpha, lw=3)
-    #             else:
-    #                 zArr, VsvArr    =  self.temp_model.get_grid_mod()
-    #                 plt.plot(VsvArr, zArr, '-',color='grey',  alpha=alpha, lw=3)
-    #     if minvpr:
-    #         if layer:
-    #             plt.plot(self.min_model.VsvArr, self.min_model.zArr, 'y-', lw=3, label='min model')
-    #         else:
-    #             zArr, VsvArr    =  self.min_model.get_grid_mod()
-    #             plt.plot(VsvArr, zArr, 'y-', lw=3, label='min model')
-    #     if avgvpr:
-    #         if layer:
-    #             plt.plot(self.avg_model.VsvArr, self.avg_model.zArr, 'r-', lw=3, label='avg model')
-    #         else:
-    #             zArr, VsvArr    =  self.avg_model.get_grid_mod()
-    #             plt.plot(VsvArr, zArr, 'r-', lw=3, label='avg model')
-    #     if realvpr:
-    #         if layer:
-    #             plt.plot(self.real_model.VsvArr, self.real_model.zArr, 'g-', lw=3, label='real model')
-    #         else:
-    #             zArr, VsvArr    =  self.real_model.get_grid_mod()
-    #             plt.plot(VsvArr, zArr, 'g-', lw=3, label='real model')
-    #     ax.tick_params(axis='x', labelsize=20)
-    #     ax.tick_params(axis='y', labelsize=20)
-    #     plt.xlabel('Vs (km/s)', fontsize=30)
-    #     plt.ylabel('Depth (km)', fontsize=30)
-    #     plt.title(title+' '+self.code, fontsize=30)
-    #     plt.legend(loc=0, fontsize=20)
-    #     plt.ylim([0, 200.])
-    #     # plt.xlim([2.5, 4.])
-    #     plt.gca().invert_yaxis()
-    #     # plt.xlabel('Velocity(km/s)', fontsize=30)
-    #     plt.axvline(x=4.5, c='k', linestyle='-.')
-    #     plt.legend(fontsize=20)
-    #     if savefig:
-    #         if fname is None:
-    #             plt.savefig('vs.jpg')
-    #         else:
-    #             plt.savefig(fname)
-    #     if showfig:
-    #         plt.show()
-    #     
-    #     return
-
-    # def plot_ensemble(self, title='Vs profile', savefig=False, showfig=True, aspectratio=2.):
-    #     plt.figure(figsize=[5.6, 9.6])
-    #     ax  = plt.subplot()
-    #     plt.plot(self.vs_upper_bound, self.zArr_ensemble, 'k-', lw=2)
-    #     plt.plot(self.vs_lower_bound, self.zArr_ensemble, 'k-', lw=2)
-    #     plt.plot(self.vs_avg, self.zArr_ensemble, 'k-', lw=3)
-    #     plt.fill_betweenx(self.zArr_ensemble, self.vs_lower_bound, self.vs_upper_bound, color='grey', alpha=0.5)
-    #     
-    #     plt.plot(self.vs_1sig_upper, self.zArr_ensemble, 'r-', lw=2)
-    #     plt.plot(self.vs_1sig_lower, self.zArr_ensemble, 'r-', lw=2)
-    #     
-    #     ax.tick_params(axis='x', labelsize=15)
-    #     ax.tick_params(axis='y', labelsize=15)
-    #     plt.xlabel('Vs (km/sec)', fontsize=20)
-    #     plt.ylabel('Depth (km)', fontsize=20)
-    #     # plt.title(title+' '+self.code, fontsize=20)
-    #     plt.legend(loc=0, fontsize=20)        
-    #     ax.set_aspect(2.5/150.*aspectratio)
-    #     plt.ylim([0, 150.])
-    #     plt.xlim([2.5, 5.])
-    #     plt.gca().invert_yaxis()
-    #     # plt.xlabel('Velocity(km/s)', fontsize=30)
-    #     plt.legend(fontsize=20)
-    #     if savefig:
-    #         if fname is None:
-    #             plt.savefig('vs.jpg')
-    #         else:
-    #             plt.savefig(fname)
-    #     if showfig:
-    #         plt.show()
-    #     return
-    # 
+    
     def plot_hist(self, pindex=0, bins=50, dbin=0.5, title='', xlabel='', plotfig=True, showfig=True, savefig=False, fname=None,
                   plot_avg=False, plot_min=False, plot_prior=False):
         """
@@ -833,7 +717,9 @@ class postvpr(object):
             xlabel  = 'Mantle anisotropy (%)'
         elif pindex == -2:
             xlabel  = 'Crustal anisotropy (%)'
-        if pindex == -3:
+        elif pindex == -3:
+            xlabel  = 'Sedimentary anisotropy (%)'
+        if pindex == -4:
             paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex] + (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, -2]
         else:
             paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex]
@@ -855,9 +741,9 @@ class postvpr(object):
         # Set the formatter
         plt.gca().yaxis.set_major_formatter(formatter)
         plt.xlabel(xlabel, fontsize=30)
-        plt.ylabel('Percentage', fontsize=30)
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
+        plt.ylabel('Percentage (%)', fontsize=30)
+        ax.tick_params(axis='x', labelsize=60)
+        ax.tick_params(axis='y', labelsize=60)
         plt.title(title, fontsize=35)
         min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
         avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
@@ -872,6 +758,7 @@ class postvpr(object):
             if plot_avg:
                 plt.axvline(x=avg_paraval[pindex], c='y', label='average value')
         plt.legend(loc=0, fontsize=15)
+        # plt.ylim([0., 0.2])
         if savefig:
             if fname is None:
                 plt.savefig('hist.jpg')
@@ -895,6 +782,7 @@ class postvpr(object):
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
         plt.title(title, fontsize=35)
+        
         if savefig:
             if fname is None:
                 plt.savefig('hist.jpg')
@@ -910,7 +798,7 @@ class postvpr(object):
         plt.figure(figsize=[10, 10])
         ax          = plt.subplot()
         #
-        tm  = self.min_misfit + 0.5
+        tm  = self.min_misfit + 0.8
         vpr = copy.deepcopy(self)
         vpr.get_thresh_model_2(thresh_misfit=tm)
         gamma_crust     = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -2]
@@ -937,14 +825,80 @@ class postvpr(object):
         if plot_origin:
             plt.axvline(x=0., c='r', linestyle='--')
             plt.axhline(y=0., c='r', linestyle='--')
-        plt.ylabel('Crustal anisotropy (%)', fontsize=30)
-        plt.xlabel('Mantle anisotropy (%)', fontsize=30)
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
+        plt.ylabel('Crustal anisotropy (%)', fontsize=50)
+        plt.xlabel('Mantle anisotropy (%)', fontsize=50)
+        ax.tick_params(axis='x', labelsize=40)
+        ax.tick_params(axis='y', labelsize=40)
         plt.title(title, fontsize=35)
-        plt.xlim([4, 9])
-        plt.ylim([-1, 4])
-        plt.axis('equal')
+        # plt.xlim([4, 9])
+        # plt.ylim([-1, 4])
+        
+        tm  = self.min_misfit + 0.5
+        vpr = copy.deepcopy(self)
+        vpr.get_thresh_model_2(thresh_misfit=tm)
+        gamma_crust     = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -2]
+        gamma_mantle    = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -1]
+        xmin = min(-0.5, np.floor(gamma_mantle.min()))
+        plt.axis(option='equal', ymin=-0.5, ymax=8.5, xmin=xmin, xmax = xmin+9.)
+        # plt.ylim([-0.5, 8.5])
+        if savefig:
+            if fname is None:
+                plt.savefig('hist.jpg')
+            else:
+                plt.savefig(fname)
+        if showfig:
+            plt.show()
+        return
+    
+    def plot_trade_off_3(self, title='',plot_origin=True, savefig=False, fname=None, showfig=True):
+        
+        
+        plt.figure(figsize=[10, 10])
+        ax          = plt.subplot()
+        #
+        tm  = self.min_misfit + 0.8
+        vpr = copy.deepcopy(self)
+        vpr.get_thresh_model_2(thresh_misfit=tm)
+        gamma_crust     = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -3]
+        gamma_mantle    = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -2]
+        plt.plot(gamma_mantle, gamma_crust, 'o', markerfacecolor='grey', markeredgecolor='none', ms =10)
+        #
+        #
+        tm  = self.min_misfit + 0.3
+        vpr = copy.deepcopy(self)
+        vpr.get_thresh_model_2(thresh_misfit=tm)
+        gamma_crust     = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -3]
+        gamma_mantle    = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -2]
+        plt.plot(gamma_mantle, gamma_crust, 'o', markerfacecolor='blue',markeredgecolor='none', ms =10)
+        #
+        #
+        tm  = self.min_misfit + 0.1
+        vpr = copy.deepcopy(self)
+        vpr.get_thresh_model_2(thresh_misfit=tm)
+        gamma_crust     = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -3]
+        gamma_mantle    = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -2]
+        plt.plot(gamma_mantle, gamma_crust, 'o', markerfacecolor='red',markeredgecolor='none', ms =10)
+        #
+        
+        if plot_origin:
+            plt.axvline(x=0., c='r', linestyle='--')
+            plt.axhline(y=0., c='r', linestyle='--')
+        plt.ylabel('Sedimentary anisotropy (%)', fontsize=50)
+        plt.xlabel('Crustal anisotropy (%)', fontsize=50)
+        ax.tick_params(axis='x', labelsize=40)
+        ax.tick_params(axis='y', labelsize=40)
+        plt.title(title, fontsize=35)
+        # plt.xlim([4, 9])
+        # plt.ylim([-1, 4])
+        
+        tm  = self.min_misfit + 0.5
+        vpr = copy.deepcopy(self)
+        vpr.get_thresh_model_2(thresh_misfit=tm)
+        gamma_crust     = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -3]
+        gamma_mantle    = (vpr.invdata[vpr.ind_thresh, 2:(vpr.npara+2)])[:, -2]
+        xmin = min(-0.5, np.floor(gamma_mantle.min()))
+        plt.axis(option='equal', ymin=-0.5, ymax=8.5, xmin=xmin, xmax = xmin+9.)
+        # plt.ylim([-0.5, 8.5])
         if savefig:
             if fname is None:
                 plt.savefig('hist.jpg')
@@ -953,276 +907,7 @@ class postvpr(object):
         if showfig:
             plt.show()
         return 
-    # 
-    # def plot_hist_vs(self, depth=None, depthavg=0., depth_dis=None, dvs=0.02, plotfig=True, xlabel='Vs (km/sec)', title='',
-    #                  savefig=False, fname=None, showfig=True, plot_prior=False):
-    #     """
-    #     Plot a histogram of Vs at a given depth
-    #     =================================================================================================
-    #     ::: input :::
-    #     depth       - depth of 
-    #     =================================================================================================
-    #     """
-    #     if depth is None and depth_dis is None:
-    #         raise ValueError('At least one of depth/depth_dis needs to be specified!')
-    #     data            = np.zeros(self.ind_thresh.size)
-    #     zArr            = self.zArr_ensemble
-    #     i               = 0
-    #     if depth is not None:
-    #         for index in self.ind_thresh:
-    #             vsArr   = self.vs_ensemble[i, :]
-    #             ind_vs  = (zArr <= (depth + depthavg))*(zArr >= (depth - depthavg))
-    #             vs      = vsArr[ind_vs].mean()
-    #             data[i] = vs
-    #             i       += 1
-    #     else:
-    #         for index in self.ind_thresh:
-    #             paraval         = self.invdata[index, 2:(self.npara+2)]
-    #             mohodepth       = paraval[-1] + paraval[-2]
-    #             if self.waterdepth > 0.:
-    #                 mohodepth   += self.waterdepth
-    #             vsArr           = self.vs_ensemble[i, :]
-    #             if depth_dis > 0.:
-    #                 ind_vs      = (zArr <= (mohodepth + depth_dis))*(zArr > (mohodepth))
-    #             else:
-    #                 ind_vs      = (zArr >= (mohodepth + depth_dis))*(zArr < (mohodepth))
-    #             vs              = vsArr[ind_vs].mean()
-    #             data[i]         = vs
-    #             i               += 1
-    #     if not plotfig:
-    #         return data
-    #     # plot the data
-    #     plt.figure(figsize=[18, 9.6])
-    #     ax                      = plt.subplot()
-    #     weights                 = np.ones_like(data)/float(data.size)
-    #     bins                    = np.arange(min(data), max(data) + dvs, dvs)
-    #     plt.hist(data, bins=bins, weights=weights, alpha=1., color='r')
-    #     if plot_prior:
-    #         prior_data          = self.prior_vpr.plot_hist_vs(depth=depth, depthavg=depthavg, depth_dis=depth_dis, plotfig=False)
-    #         weights             = np.ones_like(prior_data)/float(prior_data.size)
-    #         bins                = np.arange(min(prior_data), max(prior_data) + dvs, dvs)
-    #         plt.hist(prior_data, bins=bins, weights=weights, alpha=1., edgecolor='k', facecolor='None')
-    #     formatter = FuncFormatter(to_percent)
-    #     # Set the formatter
-    #     plt.gca().yaxis.set_major_formatter(formatter)
-    #     plt.xlabel(xlabel, fontsize=30)
-    #     plt.ylabel('Percentage', fontsize=30)
-    #     ax.tick_params(axis='x', labelsize=20)
-    #     ax.tick_params(axis='y', labelsize=20)
-    #     plt.title(title, fontsize=35)
-    #     plt.legend(loc=0, fontsize=15)
-    #     if savefig:
-    #         if fname is None:
-    #             plt.savefig('hist.jpg')
-    #         else:
-    #             plt.savefig(fname)
-    #     if showfig:
-    #         plt.show()
-    #     return
-    # 
-    # def plot_all_paraval_hist(self, bins=50, title='', xlabel='', showfig=False, outdir='.'):
-    #     if not os.path.isdir(outdir):
-    #         os.makedirs(outdir)
-    #     for pindex in range(13):
-    #         if pindex == 0:
-    #             self.plot_hist(pindex=pindex, bins=bins, title=title+' vs at top of sediments', xlabel='Vs (km/s)',\
-    #                         showfig=False, savefig=True, fname = outdir+'/'+title+'0.jpg')
-    #         elif pindex == 1:
-    #             self.plot_hist(pindex=pindex, bins=bins, title=title+' vs at bottom of sediments', xlabel='Vs (km/s)',\
-    #                         showfig=False, savefig=True, fname = outdir+'/'+title+'1.jpg')
-    #         elif pindex>= 2 and pindex <= 5:
-    #             self.plot_hist(pindex=pindex, bins=bins, title=title+' '+str(pindex-1)+' B spline coeffient in the crust', xlabel='Vs (km/s)',\
-    #                         showfig=False, savefig=True, fname = outdir+'/'+title+str(pindex)+'.jpg')
-    #         elif pindex>= 6 and pindex <= 10:
-    #             self.plot_hist(pindex=pindex, bins=bins, title=title+' '+str(pindex-5)+' B spline coeffient in the mantle', xlabel='Vs (km/s)',\
-    #                         showfig=False, savefig=True, fname = outdir+'/'+title+str(pindex)+'.jpg')
-    #         elif pindex == 11:
-    #             self.plot_hist(pindex=pindex, bins=bins, title=title+' sediment thickness', xlabel='km',\
-    #                         showfig=False, savefig=True, fname = outdir+'/'+title+'11.jpg')
-    #         else:
-    #             self.plot_hist(pindex=pindex, bins=bins, title=title+' crustal thickness', xlabel='km',\
-    #                         showfig=False, savefig=True, fname = outdir+'/'+title+'12.jpg')
-    #         
-    # def plot_hist_two_group(self, x1min, x1max, x2min, x2max, ind_s, ind_p, bins1=50, bins2=50,  title='', xlabel='', showfig=True):
-    #     """
-    #     Plot a histogram of one specified model parameter
-    #     =================================================================================================
-    #     ::: input :::
-    #     pindex  - parameter index in the paraval array
-    #     bins    - integer or sequence or ‘auto’, optional
-    #                 If an integer is given, bins + 1 bin edges are calculated and returned,
-    #                     consistent with numpy.histogram().
-    #                 If bins is a sequence, gives bin edges, including left edge of first bin and
-    #                     right edge of last bin. In this case, bins is returned unmodified.
-    #     title   - title for the figure
-    #     xlabel  - x axis label for the figure
-    #     =================================================================================================
-    #     """
-    #     ax      = plt.subplot()
-    #     paraval0= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, ind_p]
-    #     index1  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x1min)\
-    #                 * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x1max))[0]
-    #     paraval1= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index1, ind_p]
-    #     weights1= np.ones_like(paraval1)/float(paraval0.size)
-    #     index2  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x2min)\
-    #                 * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x2max))[0]
-    #     paraval2= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index2, ind_p]
-    #     weights2= np.ones_like(paraval2)/float(paraval0.size)
-    #     plt.hist(paraval1, bins=bins1, weights=weights1, alpha=0.5, color='r')
-    #     plt.hist(paraval2, bins=bins2, weights=weights2, alpha=0.5, color='b')
-    #     formatter = FuncFormatter(to_percent)
-    #     # Set the formatter
-    #     plt.gca().yaxis.set_major_formatter(formatter)
-    #     plt.xlabel(xlabel, fontsize=30)
-    #     plt.ylabel('Percentage', fontsize=30)
-    #     ax.tick_params(axis='x', labelsize=20)
-    #     ax.tick_params(axis='y', labelsize=20)
-    #     plt.title(title, fontsize=35)
-    #     min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
-    #     avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
-    #     plt.axvline(x=min_paraval[pindex], c='k', linestyle='-.', label='min misfit value')
-    #     plt.axvline(x=avg_paraval[pindex], c='b', label='average value')
-    #     plt.legend(loc=0, fontsize=15)
-    #     if showfig:
-    #         plt.show()
-    #     return
-    # 
-    # def plot_hist_three_group(self, x1min, x1max, x2min, x2max, x3min, x3max, ind_s, ind_p, bins1=50, bins2=50, bins3=50, title='', xlabel='', showfig=True):
-    #     """
-    #     Plot a histogram of one specified model parameter
-    #     =================================================================================================
-    #     ::: input :::
-    #     pindex  - parameter index in the paraval array
-    #     bins    - integer or sequence or ‘auto’, optional
-    #                 If an integer is given, bins + 1 bin edges are calculated and returned,
-    #                     consistent with numpy.histogram().
-    #                 If bins is a sequence, gives bin edges, including left edge of first bin and
-    #                     right edge of last bin. In this case, bins is returned unmodified.
-    #     title   - title for the figure
-    #     xlabel  - x axis label for the figure
-    #     =================================================================================================
-    #     """
-    #     ax      = plt.subplot()
-    #     paraval0= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, ind_p]
-    #     index1  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x1min)\
-    #                 * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x1max))[0]
-    #     paraval1= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index1, ind_p]
-    #     weights1= np.ones_like(paraval1)/float(paraval0.size)
-    #     index2  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x2min)\
-    #                 * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x2max))[0]
-    #     paraval2= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index2, ind_p]
-    #     weights2= np.ones_like(paraval2)/float(paraval0.size)
-    #     index3  = np.where((self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] >= x3min)\
-    #                 * (self.invdata[self.ind_thresh, 2:(self.npara+2)][:, ind_s] <= x3max))[0]
-    #     paraval3= (self.invdata[self.ind_thresh, 2:(self.npara+2)])[index3, ind_p]
-    #     weights3= np.ones_like(paraval3)/float(paraval0.size)
-    #     plt.hist(paraval1, bins=bins1, weights=weights1, alpha=0.5, color='r')
-    #     plt.hist(paraval2, bins=bins2, weights=weights2, alpha=0.5, color='b')
-    #     plt.hist(paraval3, bins=bins3, weights=weights3, alpha=0.5, color='g')
-    #     formatter = FuncFormatter(to_percent)
-    #     # Set the formatter
-    #     plt.gca().yaxis.set_major_formatter(formatter)
-    #     plt.xlabel(xlabel, fontsize=30)
-    #     plt.ylabel('Percentage', fontsize=30)
-    #     ax.tick_params(axis='x', labelsize=20)
-    #     ax.tick_params(axis='y', labelsize=20)
-    #     plt.title(title, fontsize=35)
-    #     min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
-    #     # avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
-    #     plt.axvline(x=min_paraval[ind_p], c='k', linestyle='-.', label='min misfit value')
-    #     # plt.axvline(x=avg_paraval[pindex], c='b', label='average value')
-    #     plt.legend(loc=0, fontsize=15)
-    #     if showfig:
-    #         plt.show()
-    #     return
-    # 
-    # def plot_misfit_evolve(self, is_acc=False, is_runmin=False, step4uwalk=1500, Nplt=1e9, normed=False, \
-    #                         mininitial=False, alpha=0.5, showfig=True):
-    #     Ntotal      = self.misfit.size
-    #     Nuwalk      = int(Ntotal/step4uwalk)
-    #     if (Nuwalk*step4uwalk - Ntotal) != 0.:
-    #         raise ValueError('Incompatible number of steps for uniform random walk with the total number of runs!')
-    #     ax          = plt.subplot()
-    #     misfit      = np.zeros(step4uwalk)
-    #     iterations  = np.arange(step4uwalk)+1.
-    #     if mininitial:
-    #         ind0    = int(np.ceil(self.ind_min/step4uwalk)*step4uwalk)
-    #         ind1    = ind0 + step4uwalk
-    #         misfit  = self.misfit[ind0:ind1]
-    #         if is_acc:
-    #             ind_acc = self.ind_acc[ind0:ind1]
-    #             mt_plt  = misfit[ind_acc]
-    #             iter_plt= iterations[ind_acc]
-    #         elif is_runmin:
-    #             mt_plt  = _get_running_min(misfit)
-    #             iter_plt= iterations  
-    #         else:
-    #             mt_plt  = misfit
-    #             iter_plt= iterations
-    #         if normed:
-    #             plt.plot(iter_plt, mt_plt/mt_plt.min(), '-',  alpha=alpha, lw=2)
-    #         else:
-    #             plt.plot(iter_plt, mt_plt, '-',  alpha=alpha, lw=2)
-    #             
-    #     for i in range(Nuwalk):
-    #         if i >= Nplt:
-    #             break
-    #         ind0    = i * step4uwalk
-    #         ind1    = (i+1) * step4uwalk
-    #         misfit  = self.misfit[ind0:ind1]
-    #         if is_acc:
-    #             ind_acc = self.ind_acc[ind0:ind1]
-    #             mt_plt  = misfit[ind_acc]
-    #             iter_plt= iterations[ind_acc]
-    #         elif is_runmin:
-    #             mt_plt  = _get_running_min(misfit)
-    #             iter_plt= iterations  
-    #         else:
-    #             mt_plt  = misfit
-    #             iter_plt= iterations
-    #         if normed:
-    #             plt.plot(iter_plt, mt_plt/mt_plt.min(), '-',  alpha=alpha, lw=2)
-    #         else:
-    #             plt.plot(iter_plt, mt_plt, '-',  alpha=alpha, lw=2)
-    #     ax.tick_params(axis='x', labelsize=20)
-    #     ax.tick_params(axis='y', labelsize=20)
-    #     plt.xlabel('Iterations', fontsize=30)
-    #     if normed:
-    #         plt.ylabel('normed misfit', fontsize=30)
-    #     else:
-    #         plt.ylabel('misfit', fontsize=30)
-    #     if showfig:
-    #         plt.show()
-    #         
-    # def plot_num_threshmodel(self, thresh_misfit=None, step4uwalk=1500, Nplt=1e9, showfig=True):
-    #     Ntotal      = self.misfit.size
-    #     Nuwalk      = int(Ntotal/step4uwalk)
-    #     if thresh_misfit is None:
-    #         thresh_val  = self.min_misfit*self.factor+ self.thresh
-    #     else:
-    #         thresh_val  = thresh_misfit
-    #     if (Nuwalk*step4uwalk - Ntotal) != 0.:
-    #         raise ValueError('Incompatible number of steps for uniform random walk with the total number of runs!')
-    #     ax          = plt.subplot()
-    #     Nacc_arr    = np.zeros(Nuwalk)
-    #     for i in range(Nuwalk):
-    #         if i >= Nplt:
-    #             break
-    #         ind0    = i * step4uwalk
-    #         ind1    = (i+1) * step4uwalk
-    #         misfit  = self.misfit[ind0:ind1]
-    #         ind_acc = self.ind_acc[ind0:ind1]
-    #         Nacc    = np.where(misfit[ind_acc]<thresh_val)[0].size
-    #         Nacc_arr[i]\
-    #                 = Nacc
-    #     plt.plot(Nacc_arr, 'o', lw=2)
-    #     ax.tick_params(axis='x', labelsize=20)
-    #     ax.tick_params(axis='y', labelsize=20)
-    #     plt.xlabel('Initial point index', fontsize=30)
-    #     plt.ylabel('Number of accepted models', fontsize=30)
-    #     if showfig:
-    #         plt.show() 
-            
+    
     
     
     

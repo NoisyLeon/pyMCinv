@@ -375,6 +375,30 @@ class disp(object):
             raise ValueError('Unexpected dtype: '+dtype)
         return True
     
+    def get_azi_disp(self, indata):
+        """
+        get dispersion curve data from a input numpy array
+        ==========================================================================
+        ::: input :::
+        indata      - input array (3, N)
+        dtype       - data type (phase/group)
+        ::: output :::
+        dispersion curve is stored
+        ==========================================================================
+        """
+        self.isphase        = True
+        # isotropic phase vel
+        self.pper           = indata[0, :]
+        self.pvelo          = indata[1, :]
+        self.npper          = self.pper.size
+        self.stdpvelo       = indata[2, :]
+        # azimuthal terms
+        self.psi2           = indata[3, :]
+        self.unpsi2         = indata[4, :]
+        self.amp            = indata[5, :]
+        self.unamp          = indata[6, :]
+        return True
+    
     def writedisptxt(self, outfname, dtype='ph', predisp=True, obsdisp=True):
         """
         Write dispersion curve to a txt file
@@ -721,6 +745,39 @@ class disp(object):
         """check the differences between reference dispersion curve and predicted dispersion curve
         """
         return (abs(self.pvelref - self.pvelp)/self.pvelref).max()*100. > thresh
+    
+    def plot_azi_fit(self):
+        plt.figure(figsize=[18, 9.6])
+        ax      = plt.subplot()
+        plt.errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='o')
+        plt.plot(self.pper, self.ppsi2, 'b-', lw=3 )
+        plt.ylabel('Fast azimuth (deg)', fontsize=50)
+        plt.xlabel('Period (sec)', fontsize=50)
+        ax.tick_params(axis='x', labelsize=50)
+        ax.tick_params(axis='y', labelsize=50)
+        #
+        plt.figure(figsize=[18, 9.6])
+        ax      = plt.subplot()
+        plt.errorbar(self.pper, self.amp, yerr=self.unamp, fmt='o')
+        plt.plot(self.pper, self.pamp, 'b-', lw=3 )
+        plt.ylabel('Anisotropy amplitude (%)', fontsize=50)
+        plt.xlabel('Period (sec)', fontsize=50)
+        ax.tick_params(axis='x', labelsize=50)
+        ax.tick_params(axis='y', labelsize=50)
+        
+        plt.show()
+    
+    def get_misfit_hti(self):
+        temp1                   = ((self.amp - self.pamp)**2/self.unamp**2).sum()
+        psidiff                 = abs(self.psi2 - self.ppsi2)
+        psidiff[psidiff>90.]    = 180. - psidiff[psidiff>90.]
+        temp2                   = (psidiff**2/self.unpsi2**2).sum()
+        self.pS                 = temp1+temp2
+        tS                      = temp1+temp2
+        self.pmisfit            = np.sqrt(tS/2./self.npper)
+        if tS > 50.:
+            tS                  = np.sqrt(tS*50.)
+        self.pL                 = np.exp(-0.5 * tS)
         
 class data1d(object):
     """
@@ -797,4 +854,13 @@ class data1d(object):
        if tS > 50.:
            tS      = np.sqrt(tS*50.)
        self.L      = np.exp(-0.5 * tS)
+       return
+    
+    def get_misfit_hti(self):
+       """
+       compute misfit for inversion of Vertical TI models, only applies to phase velocity dispersion
+       """
+       self.dispR.get_misfit_hti()
+       self.misfit = self.dispR.pmisfit
+       self.L      = self.dispR.pL
        return

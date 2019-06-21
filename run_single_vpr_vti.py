@@ -5,35 +5,31 @@ import copy
 import matplotlib.pyplot as plt
 import numpy as np
 
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190322_osci.h5')
-    
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190501_no_osci_vti_sediment_15_crust_10_mantle_10.h5')
+###
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190501_no_osci_vti_sed_25_crt_10_mantle_0_col.h5')
+# dset.read_hybridtomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_Love_20190318.h5',\
+#                            runid=0, semfactor=2., Tmin=8., Tmax=50., wtype='lov')
+
+
+# vpr1 = dset.get_vpr_vti(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_sed_25_crust_0_mantle_10_vti_col',\
+#     lon=-155.+360., lat=69., thresh=0.5)
 vpr = dset.get_vpr_vti(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_15_mantle_10_vti',\
-    lon=-152.+360., lat=60., thresh=0.5)
-# 
+    lon=-156.+360., lat=67.5, thresh=0.5)
+
+# vpr2 = dset.get_vpr_vti(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_sed_25_crust_0_mantle_10_vti_col',\
+#     lon=-155.+360., lat=68.5, thresh=0.5)
+# # 
 # vpr = dset.get_vpr_vti(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_0_mantle_10_vti',\
 #     lon=-155.+360., lat=68., thresh=0.5)
 
 # 
 # vpr1 = dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190325_150000_vti',
 #                 numbrun=150000, nprocess=35, verbose=False, group=False, outlon=-142., outlat = 60.)
-# vpr = dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190325_150000_vti',
-#                 numbrun=150000, nprocess=35, verbose=False, group=False, outlon=-166, outlat = 54.5)
-# 
-# # vpr = dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190325_150000_vti',
-# #                 numbrun=150000, nprocess=35, verbose=False, group=False, outlon=-150, outlat = 65)
-# dset.close()
-# vpr.get_period()
-# vpr.update_mod(mtype = 'vti')
-# vpr.get_vmodel(mtype = 'vti')
-# vpr.model.vtimod.para2mod()
-# vpr.model.vtimod.get_paraind()
-# vpr.model.vtimod.update()
-# vpr.model.get_vti_vmodel()
-# vpr.model.vtimod.mod2para()
-# vpr.get_period()
-# vpr.compute_tcps_vti(wtype='ray')
-# vpr.compute_tcps_vti(wtype='lov')
-# vpr.mc_joint_inv_vti_mp(outdir='./test_working_vti_water', solver_type=0, numbrun=150000, nprocess=20, verbose=True)
+# vpr = dset.mc_inv_vti(use_ref=True, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_vti',
+#                 numbrun=150000, nprocess=35, verbose=False, group=False, outlon=-150., outlat = 68.)
+# # 
+# vpr.mc_joint_inv_vti_mp(outdir='./test_working_vti_sed_2', solver_type=1, numbrun=150000, nprocess=20, verbose=True)
     
 
 

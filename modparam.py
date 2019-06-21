@@ -16,6 +16,7 @@ from scipy.optimize import lsq_linear
 import scipy.interpolate
 import scipy.signal
 import copy
+from uncertainties import unumpy
 
 class para1d(object):
     """
@@ -873,6 +874,114 @@ class isomod(object):
         self.thickness[-1]          = 200. - self.thickness[:-1].sum()
         return
     
+    def isgood_test(self, m0, m1, g0, g1, dvs_thresh=0.05):
+        """
+        check the model is good or not
+        ==========================================================================
+        ::: input   :::
+        m0, m1  - index of group for monotonic change checking
+        g0, g1  - index of group for gradient change checking
+        ==========================================================================
+        """
+        # velocity constrast, contraint (5) in 4.2 of Shen et al., 2012
+        for i in range (self.nmod-1):
+            nlay        = self.nlay[i]
+            if self.vs[0, i+1] < self.vs[nlay-1, i]:
+                return False
+        #
+        # Vs < 4.9 km/sec , contraint (6) in 4.2 of Shen et al., 2012
+        if np.any(self.vs > 4.9):
+            return False
+        #
+        if m1 >= self.nmod:
+            m1  = self.nmod -1
+        if m0 < 0:
+            m0  = 0
+        if g1 >= self.nmod:
+            g1  = self.nmod -1
+        if g0 < 0:
+            g0  = 0
+        # monotonic change
+        # contraint (3) and (4) in 4.2 of Shen et al., 2012
+        if m0 <= m1:
+            for j in range(m0, m1+1):
+                vs0     = self.vs[:self.nlay[j]-1, j]
+                vs1     = self.vs[1:self.nlay[j], j]
+                if np.any(np.greater(vs0, vs1)):
+                    return False
+        # constrain the last layer Vs in crust
+        nlay_crust      = self.nlay[self.nmod-2]
+        if self.vs[nlay_crust-1, self.nmod-2] > 4.3:
+            return False
+        # constrain the first layer Vs in mantle
+        if self.vs[0, self.nmod-1] > 4.6:
+            return False
+        if self.vs[0, self.nmod-1] < 4.0:
+            return False
+        #
+        # constrain the bottom layer Vs in mantle
+        nlay_mantle     = self.nlay[self.nmod-1]
+        if self.vs[nlay_mantle-1, self.nmod-1] < 4.3:
+            return False
+
+        #-------------------------------------------------------------------
+        # penalize oscillations with differences in local/maximum extrema 
+        #-------------------------------------------------------------------
+        dv_osci = 0.01
+        hArr    = np.zeros(self.nlay.sum(), dtype = np.float64)
+        vs      = np.zeros(self.nlay.sum(), dtype = np.float64)
+        for i in range(self.nmod):
+            if i == 0:
+                hArr[:self.nlay[0]]                             = self.hArr[:self.nlay[0], 0]
+            elif i < self.nmod - 1:
+                hArr[self.nlay[:i].sum():self.nlay[:i+1].sum()] = self.hArr[:self.nlay[i], i]
+            else:
+                hArr[self.nlay[:i].sum():]                      = self.hArr[:self.nlay[i], i]
+            if self.mtype[i] == 5 and i == 0:
+                vs[0]                   = 0.
+            elif (i == 0 and self.mtype[i] != 5):
+                vs[:self.nlay[0]]       = self.vs[:self.nlay[i], i]
+            elif (i == 1 and self.mtype[0] == 5) and self.nmod > 2:
+                vs[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = self.vs[:self.nlay[i], i]
+            elif (i == 1 and self.mtype[0] == 5) and self.nmod == 2:
+                vs[self.nlay[:i].sum():]    = self.vs[:self.nlay[i], i]
+            elif i < self.nmod - 1:
+                vs[self.nlay[:i].sum():self.nlay[:i+1].sum()]   = self.vs[:self.nlay[i], i]
+            # changed on 2019/01/17, Hacker & Abers, 2004
+            else:
+                vs[self.nlay[:i].sum():]    = self.vs[:self.nlay[i], i]
+        depth           = hArr.cumsum()
+        
+        vs_mantle       = self.vs[:self.nlay[self.nmod-1], self.nmod-1]
+        local_indmax    = scipy.signal.argrelmax(vs_mantle)[0]
+        local_indmin    = scipy.signal.argrelmin(vs_mantle)[0]
+        if local_indmin.size > 0 and local_indmax.size > 0:
+            if local_indmin.size == local_indmax.size:
+                vmin    = vs_mantle[local_indmin]
+                vmax    = vs_mantle[local_indmax]
+            else:
+                Ndiff   = local_indmax.size - local_indmin.size
+                if Ndiff > 0:
+                    vmin    = vs_mantle[local_indmin]
+                    vmax    = vs_mantle[local_indmax[:-Ndiff]]
+                else:
+                    vmin    = vs_mantle[local_indmin[:Ndiff]]
+                    vmax    = vs_mantle[local_indmax]
+            if (vmax-vmin).max() > dv_osci and (local_indmax.size + local_indmin.size) >= 3:
+                return False
+        vs_trim         = vs[depth > 60.]
+        local_indmax    = scipy.signal.argrelmax(vs_trim)[0]
+        local_indmin    = scipy.signal.argrelmin(vs_trim)[0]
+        # if local_indmax.size >= 1 and local_indmin.size >= 1:
+        #     if abs(vs_trim[local_indmax].max() - vs_trim[local_indmin].min())>= dv_osci:
+        #         return False
+        ###
+        # vs_trim         = vs[depth > 80.]
+        # if np.any(vs_trim<4.0):
+        #     return False
+        
+        return True
+    
     def isgood(self, m0, m1, g0, g1, dvs_thresh=0.05):
         """
         check the model is good or not
@@ -1000,9 +1109,9 @@ class isomod(object):
             if abs(vs_trim[local_indmax].max() - vs_trim[local_indmin].min())>= dv_osci:
                 return False
         ###
-        vs_trim         = vs[depth > 80.]
-        if np.any(vs_trim<4.0):
-            return False
+        # vs_trim         = vs[depth > 80.]
+        # if np.any(vs_trim<4.0):
+        #     return False
         
         #########################
         # vs_mantle       = self.vs[:self.nlay[self.nmod-1], self.nmod-1]
@@ -1598,7 +1707,7 @@ class vtimod(object):
             self.para.paraindex[4, ipara]       = 0.            
         return
         
-    def get_paraind_gamma(self, perturb_thk=False, std_paraval=np.array([])):
+    def get_paraind_gamma(self, perturb_thk=False, std_paraval=np.array([]), issedani=True):
         """
         get parameter index arrays for para
         =============================================================================================================================
@@ -1624,7 +1733,7 @@ class vtimod(object):
         """
         self.use_gamma  = True
         numbp_sum       = self.numbp.sum()
-        npara           = numbp_sum  + self.nmod + 1
+        npara           = numbp_sum  + self.nmod + 2
         # water layer
         if self.mtype[0] == 5:
             npara       -= 2
@@ -1698,6 +1807,21 @@ class vtimod(object):
         else:
             self.para.paraindex[4, ipara]       = 0.
         #-------------------------------
+        # gamma value in the sediment
+        #-------------------------------
+        ipara   += 1
+        self.para.paraindex[0, ipara]           = 3
+        self.para.paraindex[1, ipara]           = 1 ##  perturb flag
+        self.para.paraindex[2, ipara]           = 25. # +- 10 % in radial anisotropy
+        self.para.paraindex[3, ipara]           = 1.
+        if self.nmod >= 3:
+            if self.mtype[0] == 5: # water layer
+                self.para.paraindex[4, ipara]   = 1.
+            else:
+                self.para.paraindex[4, ipara]   = 0.
+        else:
+            self.para.paraindex[4, ipara]       = 0.
+        #-------------------------------
         # gamma value in the crust
         #-------------------------------
         ipara   += 1
@@ -1717,7 +1841,7 @@ class vtimod(object):
         #-------------------------------
         ipara   += 1
         self.para.paraindex[0, ipara]           = 3
-        self.para.paraindex[1, ipara]           = 1 #  perturb flag
+        self.para.paraindex[1, ipara]           = 0 #  perturb flag
         self.para.paraindex[2, ipara]           = 10.
         self.para.paraindex[3, ipara]           = 1.
         if self.nmod >= 3:
@@ -1770,6 +1894,9 @@ class vtimod(object):
                     else:
                         valmin  = val - val*self.para.paraindex[2, i]/100.
                         valmax  = val + val*self.para.paraindex[2, i]/100.
+                ## no negative sedimentary anisotropy
+                if i == 13:
+                    valmin  = val
                 # radial anisotropy
                 if int(self.para.paraindex[0, i]) != 3:
                     valmin      = max (0., valmin)
@@ -2090,7 +2217,68 @@ class vtimod(object):
         self.para2mod()
         self.update()
         return True
-
+    
+    
+class htimod(object):
+    """
+    An object for handling parameterization of 1D Horizontal TI model for the inversion
+    =====================================================================================================================
+    ::: parameters :::
+    :   numbers     :
+    nmod        - number of model groups
+    :   1D arrays   :
+    depth       - size: nmod+1; depth array indicating depth distribution of anisotropic parameters
+                    if depth < 0.
+                    -1 - use sediment depth
+                    -2 - use moho depth
+                    -3 - use maxdepth
+    =====================================================================================================================
+    """
+    
+    def __init__(self):
+        self.nmod           = 0
+        return
+    
+    def init_arr(self, nmod):
+        """
+        initialization of arrays
+        """
+        self.nmod       = nmod
+        # arrays of size nmod
+        self.Gc         = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.unGc       = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.Gs         = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.unGs       = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.psi2       = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.unpsi2     = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.amp        = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.unamp      = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        # # # self.Bc         = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        # # # self.Bs         = np.zeros(np.int64(self.nmod), dtype=np.float64)
+        self.depth      = np.zeros(np.int64(self.nmod+1), dtype=np.float64)
+        self.layer_ind  = np.zeros(( np.int64(self.nmod), np.int64(2) ), dtype=np.int32)
+        return
+    
+    
+    def set_two_layer_crust(self, depth_mid_crust=15.):
+        self.init_arr(3)
+        self.depth[0]   = -1
+        self.depth[1]   = depth_mid_crust
+        self.depth[2]   = -2
+        self.depth[3]   = -3
+        
+    def GcGs_to_azi(self):
+        self.psi2[:]                    = np.arctan2(self.Gs, self.Gc)/2./np.pi*180.
+        self.psi2[self.psi2<0.]         += 180.
+        self.amp[:]                     = np.sqrt(self.Gs**2 + self.Gc**2)/2.*100.
+        Gc_with_un                      = unumpy.uarray(self.Gc, self.unGc)
+        Gs_with_un                      = unumpy.uarray(self.Gs, self.unGs)
+        self.unpsi2[:]                  = unumpy.std_devs( unumpy.arctan2(Gs_with_un, Gc_with_un)/2./np.pi*180.)
+        self.unpsi2[self.unpsi2>90.]    = 90.
+        self.unamp[:]                   = unumpy.std_devs( unumpy.sqrt(Gs_with_un**2 + Gc_with_un**2)/2.*100.)
+        self.unamp[self.unamp>self.amp] = self.amp[self.unamp>self.amp] 
+    
+    
     
     
     

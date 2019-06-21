@@ -1,9 +1,12 @@
 import mcpost_vti
 import numpy as np
 
-# vpr = mcpost_vti.postvpr(thresh=0.5, factor=1., stdfactor=2.)
-# vpr.read_inv_data('./test_working_vti/mc_inv.MC.npz')
-# vpr.read_data('./test_working_vti/MC')
+vpr = mcpost_vti.postvpr(thresh=0.5, factor=1., stdfactor=2.)
+vpr.read_inv_data('./test_working_vti_no_crt_2/mc_inv.MC.npz')
+vpr.read_data('./test_working_vti_no_crt_2/MC')
+vpr.get_paraval()
+vpr.get_vmodel()
+vpr.run_avg_fwrd()
 # vpr.get_vmodel()
 
 # vpr = mcpost_vti.postvpr(thresh=0.5, factor=1., stdfactor=2.)
@@ -12,8 +15,8 @@ import numpy as np
 # # vpr.code = '206.0_64.0'
 # vpr.get_vmodel()
 
-vpr = mcpost_vti.postvpr(thresh=0.5, factor=1., stdfactor=2.)
-vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_0_mantle_10_vti/mc_inv.196.0_64.0.npz')
-vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_0_mantle_10_vti/196.0_64.0')
-# vpr.code = '206.0_64.0'
-vpr.get_vmodel()
+# vpr = mcpost_vti.postvpr(thresh=0.5, factor=1., stdfactor=2.)
+# vpr.read_inv_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_0_mantle_10_vti/mc_inv.196.0_64.0.npz')
+# vpr.read_data('/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_0_mantle_10_vti/196.0_64.0')
+# # vpr.code = '206.0_64.0'
+# vpr.get_vmodel()

@@ -239,7 +239,6 @@ class eigkernel(object):
                         self.dcdL[i, j] = 0. + 2.*self.F[j]/((self.A[j]-2.*self.L[j])**2)*self.dcdn[i, j]
                     else:
                         self.dcdL[i, j] = 0.5/np.sqrt(self.L[j]*self.rho[j])*self.dcdbv[i,j] + 2.*self.F[j]/((self.A[j]-2.*self.L[j])**2)*self.dcdn[i, j]
-                    ### self.dcdN[i, j] = 0.5/np.sqrt(self.N[j]*self.rho[j])*self.dcdbh[i,j]
                     self.dcdrl[i, j]= -0.5*self.dcdah[i, j]*np.sqrt(self.A[j]/(self.rho[j]**3)) - 0.5*self.dcdav[i, j]*np.sqrt(self.C[j]/(self.rho[j]**3))\
                                         -0.5*self.dcdbh[i, j]*np.sqrt(self.N[j]/(self.rho[j]**3)) -0.5*self.dcdbv[i, j]*np.sqrt(self.L[j]/(self.rho[j]**3))\
                                             + self.dcdr[i, j]

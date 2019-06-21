@@ -20,7 +20,7 @@ import os
 def to_percent(y, position):
     # Ignore the passed in position. This has the effect of scaling the default
     # tick locations.
-    s = str(100. * y)
+    s = '%.0f' %(100. * y)
     # The percent symbol needs escaping in latex
     if matplotlib.rcParams['text.usetex'] is True:
         return s + r'$\%$'
@@ -246,7 +246,9 @@ class postvpr(object):
         get the ensemble vs array (num_accepted_models, num_grid_depth)
         """
         ###
+        # pfx = '/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190501_150000_sed_25_crust_0_mantle_10_vti_col'
         pfx = '/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190327_150000_crust_15_mantle_10_vti'
+        
         print self.code
         lon     = float(self.code.split('_')[0])
         lat     = float(self.code.split('_')[1])
@@ -257,16 +259,19 @@ class postvpr(object):
         vpr         = mcpost_vti.postvpr(waterdepth=-0., factor=1., thresh=0.5)
         vpr.read_inv_data(infname = infname, verbose=True)
         vpr.get_paraval()
+        gammas      = vpr.avg_paraval[-3]
         gamma1      = vpr.avg_paraval[-2]
         gamma2      = vpr.avg_paraval[-1]
         gamma1    = (1. + gamma1/200.)/(1 - gamma1/200.)
         gamma2    = (1. + gamma2/200.)/(1 - gamma2/200.)
+        gammas    = (1. + gammas/200.)/(1 - gammas/200.)
          
         ####
         
         self.avg_model_sh = copy.deepcopy(self.avg_model)
-        self.avg_model_sh.isomod.para.paraval[2:6] *= gamma1
-        self.avg_model_sh.isomod.para.paraval[6:11]*= gamma2
+        self.avg_model_sh.isomod.para.paraval[:2]   *= gammas
+        self.avg_model_sh.isomod.para.paraval[2:6]  *= gamma1
+        self.avg_model_sh.isomod.para.paraval[6:11] *= gamma2
         self.avg_model_sh.isomod.para2mod()
         self.avg_model_sh.isomod.update()
         self.avg_model_sh.get_iso_vmodel()
@@ -681,12 +686,13 @@ class postvpr(object):
         ax  = plt.subplot()
         plt.plot(self.vs_upper_bound, self.zArr_ensemble, 'k-', lw=2)
         plt.plot(self.vs_lower_bound, self.zArr_ensemble, 'k-', lw=2)
-        plt.plot(self.vs_avg, self.zArr_ensemble, 'k-', lw=3)
+        plt.plot(self.vs_avg, self.zArr_ensemble, 'b-', lw=3)
         plt.fill_betweenx(self.zArr_ensemble, self.vs_lower_bound, self.vs_upper_bound, color='grey', alpha=0.5)
         
+        self.vs_1sig_upper      = self.vs_avg + self.vs_std
+        self.vs_1sig_lower      = self.vs_avg - self.vs_std
         plt.plot(self.vs_1sig_upper, self.zArr_ensemble, 'r-', lw=2)
         plt.plot(self.vs_1sig_lower, self.zArr_ensemble, 'r-', lw=2)
-        
         ax.tick_params(axis='x', labelsize=15)
         ax.tick_params(axis='y', labelsize=15)
         plt.xlabel(xlabel, fontsize=20)
@@ -711,32 +717,31 @@ class postvpr(object):
     def plot_ensemble_2(self, title='Vs profile', savefig=False, showfig=True, aspectratio=2.):
         plt.figure(figsize=[5.6, 9.6])
         ax  = plt.subplot()
-        plt.plot(self.vs_upper_bound, self.zArr_ensemble, 'k-', lw=2, alpha = 0.5)
-        plt.plot(self.vs_lower_bound, self.zArr_ensemble, 'k-', lw=2, alpha = 0.5)
-        plt.plot(self.vs_avg, self.zArr_ensemble, 'k-', lw=3, alpha = 0.5)
-        plt.fill_betweenx(self.zArr_ensemble, self.vs_lower_bound, self.vs_upper_bound, color='grey', alpha=0.2)
-        
-        
-        
-        plt.plot(self.vsh_upper_bound, self.zArr_ensemble, 'k--', lw=2, alpha = 0.5)
-        plt.plot(self.vsh_lower_bound, self.zArr_ensemble, 'k--', lw=2, alpha = 0.5)
-        plt.plot(self.vsh_avg, self.zArr_ensemble, 'k--', lw=3, alpha = 0.5)
-        plt.fill_betweenx(self.zArr_ensemble, self.vsh_lower_bound, self.vsh_upper_bound, color='grey', alpha=0.8)
+        # plt.plot(self.vs_upper_bound, self.zArr_ensemble, 'k-', lw=2, alpha = 0.5)
+        # plt.plot(self.vs_lower_bound, self.zArr_ensemble, 'k-', lw=2, alpha = 0.5)
+        plt.plot(self.vs_avg, self.zArr_ensemble, 'r-', lw=3, alpha = 0.9, label='Vsv')
+        # plt.fill_betweenx(self.zArr_ensemble, self.vs_lower_bound, self.vs_upper_bound, color='grey', alpha=0.2)
+
+        # plt.plot(self.vsh_upper_bound, self.zArr_ensemble, 'k--', lw=2, alpha = 0.5)
+        # plt.plot(self.vsh_lower_bound, self.zArr_ensemble, 'k--', lw=2, alpha = 0.5)
+        plt.plot(self.vsh_avg, self.zArr_ensemble, 'b--', lw=3, alpha = 0.9, label='Vsh')
+        # plt.fill_betweenx(self.zArr_ensemble, self.vsh_lower_bound, self.vsh_upper_bound, color='grey', alpha=0.8)
         # plt.plot(self.vs_1sig_upper, self.zArr_ensemble, 'r-', lw=2)
         # plt.plot(self.vs_1sig_lower, self.zArr_ensemble, 'r-', lw=2)
         
-        ax.tick_params(axis='x', labelsize=15)
-        ax.tick_params(axis='y', labelsize=15)
-        plt.xlabel('Vs (km/sec)', fontsize=20)
-        plt.ylabel('Depth (km)', fontsize=20)
+        ax.tick_params(axis='x', labelsize=30)
+        ax.tick_params(axis='y', labelsize=30)
+        plt.xlabel('Vs (km/sec)', fontsize=60)
+        plt.xticks(np.arange(0, 6, step=1))
+        plt.ylabel('Depth (km)', fontsize=60)
         # plt.title(title+' '+self.code, fontsize=20)
         plt.legend(loc=0, fontsize=20)        
-        ax.set_aspect(2.5/150.*aspectratio)
+        # ax.set_aspect(2.5/150.*aspectratio)
         plt.ylim([0, 150.])
-        plt.xlim([2.5, 5.])
+        # plt.xlim([2.5, 5.])
         plt.gca().invert_yaxis()
         # plt.xlabel('Velocity(km/s)', fontsize=30)
-        plt.legend(fontsize=20)
+        plt.legend(fontsize=30, loc=3)
         if savefig:
             if fname is None:
                 plt.savefig('vs.jpg')
@@ -746,7 +751,7 @@ class postvpr(object):
             plt.show()
         return
     
-    def plot_hist(self, pindex=0, bins=50, dbin=None, title='', xlabel='', plotfig=True, showfig=True, savefig=False, fname=None,
+    def plot_hist(self, pindex=0, bins=50, dbin=1., title='', xlabel='', plotfig=True, showfig=True, savefig=False, fname=None,
                   plot_avg=False, plot_min=False, plot_prior=False):
         """
         Plot a histogram of one specified model parameter
@@ -766,8 +771,14 @@ class postvpr(object):
         if pindex == -1:
             paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex] + (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, -2]
             xlabel  = 'Crustal thickness (km)'
+        elif pindex == 'jump':
+            p1      = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, 5]
+            p2      = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, 6]
+            paraval = 2.*(p2 - p1)/(p1+p2)*100.
+            xlabel  = 'Velocity jump (%)'
         else:
             paraval = (self.invdata[self.ind_thresh, 2:(self.npara+2)])[:, pindex]
+            
         if not plotfig:
             return paraval
         weights     = np.ones_like(paraval)/float(paraval.size)
@@ -786,9 +797,9 @@ class postvpr(object):
         # Set the formatter
         plt.gca().yaxis.set_major_formatter(formatter)
         plt.xlabel(xlabel, fontsize=30)
-        plt.ylabel('Percentage', fontsize=30)
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
+        plt.ylabel('Percentage (%)', fontsize=60)
+        ax.tick_params(axis='x', labelsize=60)
+        ax.tick_params(axis='y', labelsize=60)
         plt.title(title, fontsize=35)
         min_paraval     = self.invdata[self.ind_min, 2:(self.npara+2)]
         avg_paraval     = (self.invdata[self.ind_thresh, 2:(self.npara+2)]).mean(axis=0)
@@ -863,10 +874,10 @@ class postvpr(object):
         formatter = FuncFormatter(to_percent)
         # Set the formatter
         plt.gca().yaxis.set_major_formatter(formatter)
-        plt.xlabel(xlabel, fontsize=30)
-        plt.ylabel('Percentage', fontsize=30)
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel(xlabel, fontsize=60)
+        plt.ylabel('Percentage (%)', fontsize=60)
+        ax.tick_params(axis='x', labelsize=60)
+        ax.tick_params(axis='y', labelsize=60)
         plt.title(title, fontsize=35)
         plt.legend(loc=0, fontsize=15)
         if savefig:

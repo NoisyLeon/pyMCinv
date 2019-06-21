@@ -17,7 +17,7 @@ for depth in dlst:
     vmax    = 0.16
     outfname= outdir+'/un_'+str(int(depth))+'km.jpg'
     print 'plotting: '+outfname
-    dset.plot_paraval(pindex='vs_std_ray', depth=depth, depthavg=0., is_smooth=False, clabel='Uncertainties (km/s)', cmap=cmap,\
+    dset.plot_paraval(pindex='vs_std_ray', depth=depth, depthavg=0., is_smooth=True, clabel='Uncertainties (km/s)', cmap=cmap,\
             title=str(int(depth))+' km', projection='lambert',  vmin=vmin, vmax=vmax, showfig=False, outimg = outfname)
     # break
     i   += 1

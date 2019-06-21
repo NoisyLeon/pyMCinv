@@ -47,11 +47,15 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 
 # vpr1 = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both', lon=-155., lat=68., thresh=0.1)
 # 
-vpr = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190320_150000_both_crust1_no_ocsi', lon=-156., lat=67.5, thresh=0.5)
-# vpr = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190404_150000_both_crust1_no_ocsi', lon=-156., lat=67.5, thresh=0.5)
+# vpr = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190320_150000_both_crust1_no_ocsi', lon=-155.+360., lat=69., thresh=0.5)
+vpr = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190320_150000_both_crust1_no_ocsi', lon=-156.+360., lat=67.5, thresh=0.5)
+# vpr = dset.get_vpr(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190320_150000_both_crust1_no_ocsi', lon=-148.+360., lat=64., thresh=0.5)
 vpr.get_ensemble_2()
-vpr.run_prior_fwrd()
+vpr.run_prior_fwrd(overwrite = False)
 vpr.prior_vpr.get_ensemble() 
 vpr.get_vs_std()
+
+
+
 
 
