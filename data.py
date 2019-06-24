@@ -779,6 +779,10 @@ class disp(object):
             tS                  = np.sqrt(tS*50.)
         self.pL                 = np.exp(-0.5 * tS)
         
+    def check_disp(self, thresh=0.4):
+        diff_vel                = abs(self.pvelo - self.pvelp)
+        return np.any(diff_vel>thresh)
+        
 class data1d(object):
     """
     An object for handling input data for inversion

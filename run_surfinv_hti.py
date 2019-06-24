@@ -3,7 +3,7 @@ import surfdbase
 import copy
 
 
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190620.h5_old')
+dset = surfdbase.invhdf5('/home/lili/azi_20190620.h5')
 
 
 #-------------------------
@@ -15,33 +15,16 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190620.h5_
 # -------------------------
 # inversion
 # -------------------------
-# dset.compute_kernels_hti()
+# dset.compute_kernels_hti(misfit_thresh=5.)
+# vpr = dset.compute_kernels_hti(misfit_thresh=5.)
+# vpr = dset.compute_kernels_hti(outlon=196., outlat=63.)
 # vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65.)
-vpr = dset.linear_inv_hti(outlon=-155.+360., outlat = 63.)
-# # 
-# # # # # # #-------------------------
-# # # # # # # read inversion results
-# # # # # # #-------------------------
-# dset.read_inv(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190404_150000_both_crust1_no_ocsi', avgqc=False)
-# # # 
-# 
-# #-------------------------
-# # interpolation/smoothing
-# #-------------------------
-# # # # dset.get_raytomo_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2)
-# # # # # # # OR
-# dset.get_hybrid_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_20190318.h5', runid=0)
-# # # # # # 
-# dset.get_topo_arr(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
-# # # # # # # 
-# # # # # # # 
-# # # # # # # dset.paraval_arrays(dtype='min')
-# # # # # # # dset.construct_3d(dtype='min')
-# # # # # # # dset.construct_3d(dtype='min', is_smooth=True)
-# # # # # # # 
-# dset.paraval_arrays(dtype='avg')
-# # # # dset.construct_3d(dtype='avg')
-# dset.construct_3d(dtype='avg', is_smooth=True)
+# vpr = dset.linear_inv_hti(outlon=-155.+360., outlat = 63.)
+# vpr = dset.linear_inv_hti(misfit_thresh=10.)
+# dset.linear_inv_hti(misfit_thresh=10.)
+
+
+# dset.construct_hti_model()
 
 # # # 
 # depth = 100.
