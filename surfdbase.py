@@ -1669,21 +1669,23 @@ class invhdf5(h5py.File):
                 azi_grp[grd_id].create_dataset(name='dcdF', data=vpr.eigkR.dcdF)
                 azi_grp[grd_id].create_dataset(name='dcdL', data=vpr.eigkR.dcdL)
                 azi_grp[grd_id].create_dataset(name='iso_misfit', data=vpr.data.misfit)
+                iso_misfit      = vpr.data.misfit
                 azi_grp[grd_id].create_dataset(name='pvel_ref', data=vpr.data.dispR.pvelref)
             else:
                 iso_misfit      = azi_grp[grd_id+'/iso_misfit'].value
-                if iso_misfit > misfit_thresh:
-                    print 'Large misfit value: '+grd_id+', misfit = '+str(iso_misfit)
-                    continue
             dcdA                = azi_grp[grd_id+'/dcdA'].value
             dcdC                = azi_grp[grd_id+'/dcdC'].value
             dcdF                = azi_grp[grd_id+'/dcdF'].value
             dcdL                = azi_grp[grd_id+'/dcdL'].value
-            try:
-                pvelref             = azi_grp[grd_id+'/pvel_ref'].value
-            except:
-                pvelref             = vpr.data.dispR.pvelo
+            # try:
+            pvelref             = azi_grp[grd_id+'/pvel_ref'].value
+            # except:
+            #     pvelref             = vpr.data.dispR.pvelo
             vpr.get_reference_hti(pvelref=pvelref, dcdA=dcdA, dcdC=dcdC, dcdF=dcdF, dcdL=dcdL)
+            vpr.linear_inv_hti(isBcs=True, useref=False, depth_mid_crust=15.)
+            if iso_misfit > misfit_thresh:
+                print 'Large misfit value: '+grd_id+', misfit = '+str(iso_misfit)
+                continue
             #------------
             # inversion
             #------------       
@@ -1692,34 +1694,14 @@ class invhdf5(h5py.File):
                     continue
                 else:
                     return vpr
-            # ###cmax                = vpr.data.dispR.pvelo.max()+0.3
-            # if grd_lat < 68.:
-            #     continue
-            # try:
-            #     disp_gr_ray = grd_grp[grd_id+'/disp_gr_ray'].value
-            #     temp_pers   = disp_gr_ray[0, :]
-            #     temp_U      = disp_gr_ray[1, temp_pers==10.]
-            #     if temp_U > 2.5:
-            #         continue
-            # except:
-            #     continue
-            # # if grd_lon != -163. or grd_lat != 69.:
-            # #     continue
-            # # else:
-            # #     return vpr
-            # ###
-            # start_time_grd  = time.time()
-            # print '=== MC VTI inversion for grid: lon = '+str(grd_lon)+', lat = '+str(grd_lat)+', '+str(igrd)+'/'+str(Ngrd)
-            # if parallel:
-            #     vpr.mc_joint_inv_vti_mp(outdir=outdir, run_inv=True, solver_type=solver_type, isconstrt=isconstrt, pfx=grd_id,\
-            #             verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, savedata=True, subsize=subsize, \
-            #             nprocess=nprocess, merge=True, Ntotalruns=Ntotalruns, misfit_thresh=misfit_thresh, Nmodelthresh=Nmodelthresh)
-            # else:
-            #     vpr.mc_joint_inv_vti(outdir=outdir, run_inv=True, solver_type=solver_type, numbcheck=None, misfit_thresh=misfit_thresh, \
-            #         isconstrt=isconstrt, pfx=grd_id, verbose=verbose, step4uwalk=step4uwalk, numbrun=numbrun, init_run=True, savedata=True)
-            # # end_time_grd    = time.time()
-            # end_time    = time.time()
-            # print '--- Elasped time = '+str(end_time - start_time_grd) + ' sec; total elasped time = '+str(end_time - start_time_total)
+            #-------------------------
+            # save inversion results
+            #-------------------------
+            azi_grp[grd_id].create_dataset(name='azi_misfit', data=vpr.data.misfit)
+            azi_grp[grd_id].create_dataset(name='psi2', data=vpr.model.htimod.psi2)
+            azi_grp[grd_id].create_dataset(name='unpsi2', data=vpr.model.htimod.unpsi2)
+            azi_grp[grd_id].create_dataset(name='amp', data=vpr.model.htimod.amp)
+            azi_grp[grd_id].create_dataset(name='unamp', data=vpr.model.htimod.unamp)
         return
     
     #==================================================================

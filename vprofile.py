@@ -1737,7 +1737,7 @@ class vprofile1d(object):
     #==========================================
     # functions for HTI inversions
     #==========================================
-    def linear_inv_vti(self, isBcs=True, useref=False, depth_mid_crust=15.):
+    def linear_inv_hti(self, isBcs=True, useref=False, depth_mid_crust=15.):
         # construct data array
         dc      = np.zeros(self.data.dispR.npper, dtype=np.float64)
         ds      = np.zeros(self.data.dispR.npper, dtype=np.float64)
@@ -1774,6 +1774,7 @@ class vprofile1d(object):
         self.model.htimod.init_arr(nmod)
         self.model.htimod.set_two_layer_crust(depth_mid_crust=depth_mid_crust)
         self.model.get_hti_layer_ind()
+        # forward matrix
         G           = np.zeros((self.data.dispR.npper, nmod), dtype=np.float64)
         for i in range(nmod):
             ind0    = self.model.htimod.layer_ind[i, 0]
