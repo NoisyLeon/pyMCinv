@@ -746,10 +746,13 @@ class disp(object):
         """
         return (abs(self.pvelref - self.pvelp)/self.pvelref).max()*100. > thresh
     
-    def plot_azi_fit(self):
+    def plot_azi_fit_old(self):
         plt.figure(figsize=[18, 9.6])
         ax      = plt.subplot()
-        plt.errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='o')
+        self.psi2[self.psi2 - self.ppsi2 > 90.] -= 180.
+        self.psi2[self.psi2 - self.ppsi2 < -90.] += 180.
+        
+        plt.errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ro')
         plt.plot(self.pper, self.ppsi2, 'b-', lw=3 )
         plt.ylabel('Fast azimuth (deg)', fontsize=50)
         plt.xlabel('Period (sec)', fontsize=50)
@@ -758,13 +761,50 @@ class disp(object):
         #
         plt.figure(figsize=[18, 9.6])
         ax      = plt.subplot()
-        plt.errorbar(self.pper, self.amp, yerr=self.unamp, fmt='o')
+        plt.errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ro')
         plt.plot(self.pper, self.pamp, 'b-', lw=3 )
         plt.ylabel('Anisotropy amplitude (%)', fontsize=50)
         plt.xlabel('Period (sec)', fontsize=50)
         ax.tick_params(axis='x', labelsize=50)
         ax.tick_params(axis='y', labelsize=50)
+        ymax    = (self.amp+self.unamp).max()
+        plt.ylim([0., ymax])
+        plt.show()
         
+    def plot_azi_fit(self, psitype=0, title=''):
+        # plt.figure(figsize=[18, 9.6])
+        fig, axs = plt.subplots(2, 1)
+        if psitype == 0:
+            self.psi2[self.psi2 - self.ppsi2 > 90.] -= 180.
+            self.psi2[self.psi2 - self.ppsi2 < -90.] += 180.
+        elif psitype == 1:
+            self.psi2[self.psi2<0.]     += 180.
+            self.ppsi2[self.ppsi2<0.]     += 180.
+        elif psitype == 2:
+            self.psi2[self.psi2>90.]   -= 180.
+        elif psitype == 3:
+            self.psi2[self.psi2>90.]    -= 180.
+            self.ppsi2[self.ppsi2>90.]  -= 180.
+            
+        
+        axs[0].errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ro')
+        axs[0].plot(self.pper, self.ppsi2, 'b-', lw=3 )
+        axs[0].set_ylabel('Fast azimuth (deg)', fontsize=20)
+        # axs[0].set_xlabel('Period (sec)', fontsize=30)
+        axs[0].tick_params(axis='x', labelsize=30)
+        axs[0].tick_params(axis='y', labelsize=15)
+        #
+        # plt.figure(figsize=[18, 9.6])
+        # ax      = plt.subplot()
+        axs[1].errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ro')
+        axs[1].plot(self.pper, self.pamp, 'b-', lw=3 )
+        axs[1].set_ylabel('Anisotropy amplitude (%)', fontsize=20)
+        axs[1].set_xlabel('Period (sec)', fontsize=30)
+        axs[1].tick_params(axis='x', labelsize=30)
+        axs[1].tick_params(axis='y', labelsize=15)
+        ymax    = (self.amp+self.unamp).max()
+        axs[1].set_ylim([0., ymax])
+        plt.suptitle('Misfit = %g' %self.pmisfit+title, fontsize=30)
         plt.show()
     
     def get_misfit_hti(self):

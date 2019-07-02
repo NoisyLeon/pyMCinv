@@ -3,8 +3,11 @@ import surfdbase
 import copy
 
 
-dset = surfdbase.invhdf5('/home/lili/azi_20190620.h5')
-
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190624_useref.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190626.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190624_unamp_4.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701_fourlay.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701.h5')
 
 #-------------------------
 # before inversion
@@ -17,74 +20,28 @@ dset = surfdbase.invhdf5('/home/lili/azi_20190620.h5')
 # -------------------------
 # dset.compute_kernels_hti(misfit_thresh=5.)
 # vpr = dset.compute_kernels_hti(misfit_thresh=5.)
-# vpr = dset.compute_kernels_hti(outlon=196., outlat=63.)
-# vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65.)
+# vpr = dset.compute_kernels_hti(outlon=209., outlat=63.1)
+# vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65., depth_mid_mantle=80.)
 # vpr = dset.linear_inv_hti(outlon=-155.+360., outlat = 63.)
 # vpr = dset.linear_inv_hti(misfit_thresh=10.)
-# dset.linear_inv_hti(misfit_thresh=10.)
-
-
+# dset.linear_inv_hti(misfit_thresh=5.)
+# # 
+# # 
 # dset.construct_hti_model()
 
-# # # 
-# depth = 100.
-# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=4.2, vmax=4.6, showfig=True)
-# 
-# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=4.05, vmax=4.65, showfig=True)
-# # # # 
-# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=None, vmax=None, showfig=True)
-# # # 
-# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=4.2, vmax=4.6, showfig=True)
-# # # # 
-# # # # dset.plot_horizontal(depth=10., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
-# # # #              geopolygons=None, vmin=None, vmax=None, showfig=True)
-# # # 
-# dset.plot_horizontal(depth=4., dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title='4 km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=2.5, vmax=3.5, showfig=True)
-# dset.plot_vertical_rel(lon1=-165+360, lon2=-150+360, lat1=65, lat2=55, maxdepth=100., dtype='avg', is_smooth=True)
-# 
-# dset.plot_vertical_rel(lon1=-170+360, lon2=-145+360, lat1=64, lat2=58, maxdepth=100., dtype='avg', is_smooth=True)
-# import obspy
-# cat     = obspy.read_events('alaska_events.xml')
-# dset.plot_vertical_rel(plottype=1, lon1=-160+360, lon2=-150+360, lat1=62, lat2=58, maxdepth=120.,\
-#                         dtype='avg', is_smooth=True, incat = cat, vmin2=-5., vmax2=5., vs_mantle=4.35)
-# dset.plot_vertical_rel(plottype=1, lon1=-151+360, lon2=-150+360, lat1=69, lat2=58, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-# dset.plot_vertical_rel(plottype=1, lon1=-130+360, lon2=-150+360, lat1=68, lat2=58, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-# 
-# dset.plot_vertical_rel(plottype=1, lon1=-130+360, lon2=-150+360, lat1=68, lat2=58, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
+# vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65., depth_mid_mantle=80.)
 
-## Jademec
+
+# dset.linear_inv_hti(misfit_thresh=5., depth_mid_mantle=80.)
+# dset.construct_hti_model_four_lay()
 
 # 
-# 
-# # # dset.plot_vertical_rel_2(plottype=1, lon1=-157.5+360, lon2=-146+360, lat1=62, lat2=59, maxdepth=120.,\
-# # #                        dtype='avg', is_smooth=True, incat = None, vmin2=4.2, vmax2=4.5, vs_mantle=4.35)
-# 
-# dset.plot_vertical_rel(plottype=1, lon1=-150+360, lon2=-150.+360, lat1=58, lat2=70, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
+# cmap = surfdbase.discrete_cmap(6, 'hot_r')
+# dset.plot_hti(scaled=True, normv=5.,factor=5, gindex=2, datatype='misfit', ampref=.3, plot_data=True, plot_axis=False, cmap=cmap, vmin=0.5, vmax=2.0)
 
-# dset.plot_vertical_rel(plottype=1, lon1=-146+360, lon2=-159+360, lat1=59, lat2=62, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-
-# dset.plot_vertical_rel(plottype=1, lon2=-146+360, lon1=-159+360, lat2=59, lat1=62, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-
-# dset.plot_vertical_rel(plottype=1, lon1=-145+360, lon2=-142+360, lat1=59, lat2=64, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-
-# dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
-#                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-
-# dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
-#               dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
-
+# dset.plot_hti_vel(depth=100., gindex=2, scaled=True, factor=5, ampref=2., normv=1., vmin=4.1, vmax=4.6)
+# dset.plot_hti_vel(depth=20., gindex=1, scaled=True, factor=5, ampref=2., normv=1., vmin=3.4, vmax=3.8)
+# dset.plot_hti_vel(depth=20., gindex=1, scaled=True, factor=5, ampref=2., normv=2., vmin=3.4, vmax=3.8, ticks=[3.4, 3.5, 3.6, 3.7, 3.8])
 
 # vpr = dset.generate_disp_vs_figs(datadir ='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both',\
 #                 outdir='/home/leon/ALASKA_disp_vs')
@@ -120,3 +77,26 @@ dset = surfdbase.invhdf5('/home/lili/azi_20190620.h5')
 # dset.plot_crust1( infname='crsthk.xyz', vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)
 # dset.plot_miller_moho_finer(vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)
 # dset.convert_to_vts(outdir='outvts', depthavg=-1.)
+
+
+# # # 
+# # # import copy
+# # # vpr     = dset.compute_kernels_hti(misfit_thresh=5., outlon=-155.+360., outlat = 61.3)
+# # # vpr2    = copy.deepcopy(vpr)
+# # # 
+# # # vpr.compute_reference_vti(wtype='ray')
+# # # vpr2.compute_reference_vti_2(wtype='ray')
+# # # v0 = vpr.data.dispR.pvelref.copy()
+# # # 
+# # # vpr.eigkR.bveti[-10:]    *= 1.02
+# # # vpr2.eigkR.bveti[-10:]   *= 1.02
+# # # vpr.model.vsv[-10:]    *= 1.02
+# # # vpr2.model.vsv[-10:]    *= 1.02
+# # # 
+# # # v1 = v0 + vpr.eigkR.eti_perturb_vel()
+# # # v2 = v0 + vpr2.eigkR.eti_perturb_vel()
+# # # 
+# # # vpr.model.vel2love()
+# # # vpr.compute_reference_vti(wtype='ray')
+# # # v3 = vpr.data.dispR.pvelref.copy()
+

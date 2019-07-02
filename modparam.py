@@ -147,11 +147,17 @@ class para1d(object):
         if not self.isspace:
             print('Parameter space for perturbation has not been initialized yet!')
             return False
+        # # # if ptype == 0:
+        # # #     newparaval      = np.random.uniform(self.space[0, :], self.space[1, :], size=self.npara)
+        # # #     ind_perturb     = (self.paraindex[1, :]).astype(int)!= 0
+        # # #     self.paraval[ind_perturb] \
+        # # #                     = newparaval[ind_perturb]
         if ptype == 0:
-            newparaval      = np.random.uniform(self.space[0, :], self.space[1, :], size=self.npara)
-            ind_perturb     = (self.paraindex[1, :]).astype(int)!= 0
-            self.paraval[ind_perturb] \
-                            = newparaval[ind_perturb]
+            for i in range(self.npara):
+                if int(self.paraindex[1, i]) == 0:
+                    continue
+                tval            = random.random()
+                self.paraval[i] = tval * ( self.space[1, i] - self.space[0, i] ) + self.space[0, i]
         elif ptype == 1:
             for i in range(self.npara):
                 #====================================
@@ -171,7 +177,9 @@ class para1d(object):
                     j           += 1
                 # bug fix on 2019/01/18
                 if j >= 1000:
-                    self.paraval[i] = np.random.uniform(self.space[0, i], self.space[1, i], size=1)
+                    tval            = random.random()
+                    self.paraval[i] = tval * ( self.space[1, i] - self.space[0, i] ) + self.space[0, i]
+                    # # # self.paraval[i] = np.random.uniform(self.space[0, i], self.space[1, i], size=1)
                 else:
                     self.paraval[i] = newval
         else:
@@ -2266,6 +2274,20 @@ class htimod(object):
         self.depth[1]   = depth_mid_crust
         self.depth[2]   = -2
         self.depth[3]   = -3
+    
+    def set_depth_disontinuity(self, depth_mid_crust=15., depth_mid_mantle=-1.):
+        self.depth[0]   = -1
+        i                   = 1
+        if depth_mid_crust > 0.:
+            self.depth[i]   = depth_mid_crust
+            i               += 1
+        self.depth[i]       = -2
+        i                   += 1
+        if depth_mid_mantle > 0.:
+            self.depth[i]   = depth_mid_mantle
+            i               += 1
+        self.depth[i]       = -3
+        return
         
     def GcGs_to_azi(self):
         self.psi2[:]                    = np.arctan2(self.Gs, self.Gc)/2./np.pi*180.

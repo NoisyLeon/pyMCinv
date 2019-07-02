@@ -390,6 +390,228 @@ class vprofile1d(object):
                 omega2d     = np.tile(omega, (nl_in, 1))
                 omega2d     = omega2d.T
                 # use spherical transformed model parameters
+                d_in        = d_out
+                TA_in       = TA_out
+                TC_in       = TC_out
+                TF_in       = TF_out
+                TL_in       = TL_out
+                TN_in       = TN_out
+                TRho_in     = TRho_out
+                # original model paramters should be used
+                # d_in        = self.model.h
+                # TA_in       = self.model.A
+                # TC_in       = self.model.C
+                # TF_in       = self.model.F
+                # TL_in       = self.model.L
+                # TN_in       = self.model.N
+                # TRho_in     = self.model.rho
+                
+                qai_in      = self.model.qp
+                qbi_in      = self.model.qs
+                etapi_in    = np.zeros(nl_in)
+                etasi_in    = np.zeros(nl_in)
+                frefpi_in   = np.ones(nl_in)
+                frefsi_in   = np.ones(nl_in)
+                # solve for group velocity, kernels and eigenfunctions
+                u_out, ur, tur, uz, tuz, dcdh, dcdav, dcdah, dcdbv, dcdbh, dcdn, dcdr = tregn96.tregn96(hs_in, hr_in, ohr_in, ohs_in,\
+                    refdep_in, dogam, nl_in, iflsph_in, d_in, TA_in, TC_in, TF_in, TL_in, TN_in, TRho_in, \
+                    qai_in, qbi_in, etapi_in, etasi_in, frefpi_in, frefsi_in, self.TRp.size, self.TRp, c_out[:nfval])
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # store output
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                self.data.dispR.gvelp   = np.float32(u_out)[:self.data.dispR.ngper]
+                # eigenfunctions
+                self.eigkR.get_eigen_psv(uz = uz[:nfval,:nl_in], tuz = tuz[:nfval,:nl_in],\
+                                         ur = ur[:nfval,:nl_in], tur = tur[:nfval,:nl_in])
+                # sensitivity kernels for velocity parameters and density
+                # dcdah, dcdav, dcdbh, dcdbv, dcdn, dcdr
+                self.eigkR.get_vkernel_psv(dcdah = dcdah[:nfval,:nl_in], dcdav = dcdav[:nfval,:nl_in], dcdbh = dcdbh[:nfval,:nl_in],\
+                        dcdbv = dcdbv[:nfval,:nl_in], dcdn = dcdn[:nfval,:nl_in], dcdr = dcdr[:nfval,:nl_in])
+                # Love parameters and density in the shape of nfval, nl_in
+                self.eigkR.compute_love_kernels()
+                self.disprefR   = True
+        elif wtype=='l' or wtype == 'love' or wtype == 'lov':
+            nfval       = self.TLp.size
+            freq        = 1./self.TLp
+            nl_in       = self.model.h.size
+            ilvry       = 1
+            self.eigkL.init_arr(nfreq=nfval, nlay=nl_in, ilvry=ilvry)
+            #- root-finding algorithm using tdisp96, compute phase velocities 
+            iflsph_in   = 1 # 1 - spherical Earth, 0 - flat Earth
+            # solve for phase velocity
+            c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
+                np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
+                self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho, nl_in,\
+                iflsph_in, 0., nmodes,  1., 1.)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store reference model and ET model
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.eigkL.get_ref_model(A = self.model.A, C = self.model.C, F = self.model.F,\
+                                    L = self.model.L, N = self.model.N, rho = self.model.rho)
+            self.eigkL.get_ref_model_vel(ah = self.model.vph, av = self.model.vpv, bh = self.model.vsh,\
+                                    bv = self.model.vsv, n = self.model.eta, r = self.model.rho)
+            self.eigkL.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                                Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+            self.eigkL.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                    bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store the reference dispersion curve
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.data.dispL.pvelref = np.float32(c_out[:nfval])
+            self.data.dispL.pvelp   = np.float32(c_out[:nfval])
+            if egn96:
+                hs_in       = 0.
+                hr_in       = 0.
+                ohr_in      = 0.
+                ohs_in      = 0.
+                refdep_in   = 0.
+                dogam       = True # turn on attenuation
+                nl_in       = self.model.h.size
+                k           = 2.*np.pi/c_out[:nfval]/self.TLp
+                k2d         = np.tile(k, (nl_in, 1))
+                k2d         = k2d.T
+                omega       = 2.*np.pi/self.TLp
+                omega2d     = np.tile(omega, (nl_in, 1))
+                omega2d     = omega2d.T
+                # use spherical transformed model parameters
+                d_in        = d_out
+                TA_in       = TA_out
+                TC_in       = TC_out
+                TF_in       = TF_out
+                TL_in       = TL_out
+                TN_in       = TN_out
+                TRho_in     = TRho_out
+                # original model paramters should be used
+                # d_in        = self.model.h
+                # TA_in       = self.model.A
+                # TC_in       = self.model.C
+                # TF_in       = self.model.F
+                # TL_in       = self.model.L
+                # TN_in       = self.model.N
+                # TRho_in     = self.model.rho
+                
+                qai_in      = self.model.qp
+                qbi_in      = self.model.qs
+                etapi_in    = np.zeros(nl_in)
+                etasi_in    = np.zeros(nl_in)
+                frefpi_in   = np.ones(nl_in)
+                frefsi_in   = np.ones(nl_in)
+                # solve for group velocity, kernels and eigenfunctions
+                u_out, ut, tut, dcdh, dcdav, dcdah, dcdbv, dcdbh, dcdn, dcdr = tlegn96.tlegn96(hs_in, hr_in, ohr_in, ohs_in,\
+                    refdep_in, dogam, nl_in, iflsph_in, d_in, TA_in, TC_in, TF_in, TL_in, TN_in, TRho_in, \
+                    qai_in,qbi_in,etapi_in,etasi_in, frefpi_in, frefsi_in, self.TLp.size, self.TLp, c_out[:nfval])
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # store output
+                #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                self.data.dispL.gvelp       = np.float32(u_out)[:self.data.dispL.ngper]
+                # eigenfunctions
+                self.eigkL.get_eigen_sh(ut = ut[:nfval,:nl_in], tut = tut[:nfval,:nl_in] )
+                # sensitivity kernels for velocity parameters and density
+                self.eigkL.get_vkernel_sh(dcdbh = dcdbh[:nfval,:nl_in], dcdbv = dcdbv[:nfval,:nl_in], dcdr = dcdr[:nfval,:nl_in])
+                # Love parameters and density in the shape of nfval, nl_in
+                self.eigkL.compute_love_kernels()
+                self.disprefL   = True
+        #----------------------------------------
+        # check the consistency with fast_surf
+        #----------------------------------------
+        if checkdisp:
+            hArr        = d_out
+            vsv         = np.sqrt(TL_out/TRho_out)
+            vpv         = np.sqrt(TC_out/TRho_out)
+            vsh         = np.sqrt(TN_out/TRho_out)
+            vph         = np.sqrt(TA_out/TRho_out)
+            rho         = TRho_out
+            qsinv       = 1./self.model.qs
+            if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+                ilvry               = 2
+                nper                = self.TRp.size
+                per                 = np.zeros(200, dtype=np.float32)
+                per[:nper]          = self.TRp[:]
+                (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(vsv.size, ilvry, \
+                                        vpv, vsv, rho, hArr, qsinv, per, nper)
+                pvelp               = cr0[:nper]
+                gvelp               = ur0[:nper]
+                if (abs(pvelp - self.data.dispR.pvelref)/pvelp*100.).max() > tol:
+                    # print('WARNING: reference dispersion curves may be erroneous!')
+                    return False
+            elif wtype=='l' or wtype == 'love' or wtype=='lov':
+                ilvry               = 1
+                nper                = self.TLp.size
+                per                 = np.zeros(200, dtype=np.float32)
+                per[:nper]          = self.TLp[:]
+                (ur0,ul0,cr0,cl0)   = fast_surf.fast_surf(vsh.size, ilvry, \
+                                       vph, vsh, rho, hArr, qsinv, per, nper)
+                pvelp               = cl0[:nper]
+                gvelp               = ul0[:nper]
+                if (abs(pvelp - self.data.dispL.pvelref)/pvelp*100.).max() > tol:
+                    # print('WARNING: reference dispersion curves may be erroneous!')
+                    return False
+        return True
+
+    def compute_reference_vti_2(self, wtype='ray', verbose=0, nmodes=1, cmin=-1., cmax=-1., egn96=True, checkdisp=True, tol=10.):
+        """
+        compute (reference) surface wave dispersion of Vertical TI model using tcps
+        ====================================================================================
+        ::: input :::
+        wtype       - wave type (Rayleigh or Love)
+        nmodes      - number of modes
+        cmin, cmax  - minimum/maximum value for phase velocity root searching
+        egn96       - computing eigenfunctions/kernels or not
+        checkdisp   - check the reasonability of dispersion curves with fast_surf
+        tol         - tolerence of maximum differences between tcps and fast_surf
+        ====================================================================================
+        """
+        wtype           = wtype.lower()
+        self.ref_hArr   = self.model.h.copy()
+        if wtype=='r' or wtype == 'rayleigh' or wtype=='ray':
+            nfval       = self.TRp.size
+            freq        = 1./ self.TRp
+            nl_in       = self.model.h.size
+            ilvry       = 2
+            iflsph_in   = 1 # 1 - spherical Earth, 0 - flat Earth
+            # initialize eigenkernel for Rayleigh wave
+            self.eigkR.init_arr(nfreq=nfval, nlay=nl_in, ilvry=ilvry)
+            # solve for phase velocity
+            c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
+                    np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
+                    self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho,
+                    nl_in, iflsph_in, 0., nmodes,  1., 1.)  ### used for VTI inversion 
+            # # # c_out,d_out,TA_out,TC_out,TF_out,TL_out,TN_out,TRho_out = tdisp96.disprs(ilvry, 1., nfval, 1, verbose, nfval, \
+            # # #         np.append(freq, np.zeros(2049-nfval)), cmin, cmax, \
+            # # #         self.model.h, self.model.A, self.model.C, self.model.F, self.model.L, self.model.N, self.model.rho,
+            # # #         nl_in, iflsph_in, 0., nmodes,  .5, .5) # used for HTI inversion
+            
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store reference model and ET model
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.eigkR.get_ref_model(A = self.model.A, C = self.model.C, F = self.model.F,\
+                                    L = self.model.L, N = self.model.N, rho = self.model.rho)
+            self.eigkR.get_ref_model_vel(ah = self.model.vph, av = self.model.vpv, bh = self.model.vsh,\
+                                    bv = self.model.vsv, n = self.model.eta, r = self.model.rho)
+            self.eigkR.get_ETI(Aeti = self.model.A, Ceti = self.model.C, Feti = self.model.F,\
+                                Leti = self.model.L, Neti = self.model.N, rhoeti = self.model.rho)
+            self.eigkR.get_ETI_vel(aheti = self.model.vph, aveti = self.model.vpv, bheti = self.model.vsh,\
+                                    bveti = self.model.vsv, neti = self.model.eta, reti = self.model.rho)
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # store the reference dispersion curve
+            #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            self.data.dispR.pvelref   = np.float32(c_out[:nfval])
+            self.data.dispR.pvelp     = np.float32(c_out[:nfval])
+            #- compute eigenfunction/kernels
+            if egn96:
+                hs_in       = 0.
+                hr_in       = 0.
+                ohr_in      = 0.
+                ohs_in      = 0.
+                refdep_in   = 0.
+                dogam       = True # turn on attenuation
+                k           = 2.*np.pi/c_out[:nfval]/self.TRp
+                k2d         = np.tile(k, (nl_in, 1))
+                k2d         = k2d.T
+                omega       = 2.*np.pi/self.TRp
+                omega2d     = np.tile(omega, (nl_in, 1))
+                omega2d     = omega2d.T
+                # use spherical transformed model parameters
                 # d_in        = d_out
                 # TA_in       = TA_out
                 # TC_in       = TC_out
@@ -1737,7 +1959,7 @@ class vprofile1d(object):
     #==========================================
     # functions for HTI inversions
     #==========================================
-    def linear_inv_hti(self, isBcs=True, useref=False, depth_mid_crust=15.):
+    def linear_inv_hti(self, isBcs=True, useref=False, depth_mid_crust=15., depth_mid_mantle=-1.):
         # construct data array
         dc      = np.zeros(self.data.dispR.npper, dtype=np.float64)
         ds      = np.zeros(self.data.dispR.npper, dtype=np.float64)
@@ -1770,9 +1992,13 @@ class vprofile1d(object):
         #--------------------------
         # forward operator matrix
         #--------------------------
-        nmod        = 3
+        nmod        = 2
+        if depth_mid_crust > 0.:
+            nmod    += 1
+        if depth_mid_mantle > 0.:
+            nmod    += 1
         self.model.htimod.init_arr(nmod)
-        self.model.htimod.set_two_layer_crust(depth_mid_crust=depth_mid_crust)
+        self.model.htimod.set_depth_disontinuity(depth_mid_crust=depth_mid_crust, depth_mid_mantle=depth_mid_mantle)
         self.model.get_hti_layer_ind()
         # forward matrix
         G           = np.zeros((self.data.dispR.npper, nmod), dtype=np.float64)

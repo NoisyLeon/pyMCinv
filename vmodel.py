@@ -478,6 +478,33 @@ class model1d(object):
             if self.htimod.depth[i] == -3.:
                 self.htimod.depth[i]        = self.vtimod.thickness.sum()
     
+    def get_hti_layer_ind_old(self):
+        temp_z  = self.h.cumsum()
+        for i in range(self.htimod.nmod):
+            z0  = self.htimod.depth[i]
+            z1  = self.htimod.depth[i+1]
+            if z0 == -1.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:2].sum()
+                else:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[0]
+            elif z0 == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:3].sum()
+                else:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:2].sum()
+            else:
+                self.htimod.layer_ind[i, 0]     = np.where(temp_z <= z0)[0][-1] + 1
+            if z1 == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 1] = self.vtimod.nlay[:3].sum()
+                else:
+                    self.htimod.layer_ind[i, 1] = self.vtimod.nlay[:2].sum()
+            elif z1 == -3.:
+                self.htimod.layer_ind[i, 1]     = self.vtimod.nlay.sum()
+            else:
+                self.htimod.layer_ind[i, 1]     = np.where(temp_z <= z1)[0][-1] + 1
+                
     def get_hti_layer_ind(self):
         temp_z  = self.h.cumsum()
         for i in range(self.htimod.nmod):
