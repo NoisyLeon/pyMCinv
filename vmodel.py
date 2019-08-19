@@ -11,6 +11,7 @@ Module for handling 1D velocity model objects.
 
 import numpy as np
 import modparam
+import matplotlib.pyplot as plt
 
 class model1d(object):
     """
@@ -264,7 +265,7 @@ class model1d(object):
         self.vel2love()
         return
     
-    def get_vti_vmodel(self):
+    def get_vti_vmodel(self, depth_mid_crt=-1., iulcrt=2):
         """
         get the Vertical TI (VTI) model from vtimod
         """
@@ -439,7 +440,10 @@ class model1d(object):
         """
         return a grid model (depth and vs arrays)
         """
-        thickness   = self.isomod.thickness.copy()
+        try:
+            thickness   = self.isomod.thickness.copy()
+        except:
+            thickness   = self.vtimod.thickness.copy()
         depth_dis   = thickness.cumsum()
         indlay      = np.arange(self.nlay+1, dtype=np.int32)
         indgrid     = indlay*2
@@ -531,4 +535,72 @@ class model1d(object):
                 self.htimod.layer_ind[i, 1]     = self.vtimod.nlay.sum()
             else:
                 self.htimod.layer_ind[i, 1]     = np.where(temp_z <= z1)[0][-1] + 1
+                
+    def get_hti_layer_ind_2d(self):
+        temp_z  = self.h.cumsum()
+        for i in range(self.htimod.nmod):
+            z0  = self.htimod.depth2d[i, 0]
+            z1  = self.htimod.depth2d[i, 1]
+            if z0 == -1.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:2].sum()
+                else:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[0]
+            elif z0 == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:3].sum()
+                else:
+                    self.htimod.layer_ind[i, 0] = self.vtimod.nlay[:2].sum()
+            else:
+                self.htimod.layer_ind[i, 0]     = np.where(temp_z <= z0)[0][-1] + 1
+            if z1 == -2.:
+                if self.vtimod.mtype[0] == 5:
+                    self.htimod.layer_ind[i, 1] = self.vtimod.nlay[:3].sum()
+                else:
+                    self.htimod.layer_ind[i, 1] = self.vtimod.nlay[:2].sum()
+            elif z1 == -3.:
+                self.htimod.layer_ind[i, 1]     = self.vtimod.nlay.sum()
+            else:
+                self.htimod.layer_ind[i, 1]     = np.where(temp_z <= z1)[0][-1] + 1
+                
+    
+    def plot_profile(self, title='Vs profile', showfig=True, layer=False, savefig=False):
+        """
+        plot vs profiles
+        =================================================================================================
+        ::: input :::
+        title       - title for the figure
+        minvpr      - plot minimum misfit vs profile or not
+        avgvpr      - plot the the average of accepted models or not 
+        assemvpr    - plot the assemble of accepted models or not
+        realvpr     - plot the real models or not, used for synthetic test only
+        =================================================================================================
+        """
+        # plt.figure(figsize=[8.6, 9.6])
+        plt.figure(figsize=[5.6, 9.6])
+        ax  = plt.subplot()
+        ax  = plt.subplot()
+        if layer:
+            plt.plot(self.VsvArr, self.zArr, 'b-', lw=3)
+        else:
+            # zArr, VsvArr    =  self.get_grid_mod()
+            zArr    = self.h.cumsum()
+            VsvArr  = self.vsv
+            plt.plot(VsvArr, zArr, 'b-', lw=3)
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        plt.xlabel('Vs (km/s)', fontsize=30)
+        plt.ylabel('Depth (km)', fontsize=30)
+        # # # plt.title(title+' '+self.code, fontsize=30)
+        plt.legend(loc=0, fontsize=20)
+        plt.ylim([0, 200.])
+        plt.xlim([2.5, 5.])
+        plt.gca().invert_yaxis()
+        # plt.axvline(x=4.35, c='k', linestyle='-.')
+        plt.legend(fontsize=20)
+        
+        if showfig:
+            plt.show()
+        
+        return
         

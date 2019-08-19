@@ -3,11 +3,11 @@ import surfdbase
 import copy
 
 
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190624_useref.h5')
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190626.h5')
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190624_unamp_4.h5')
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701_fourlay.h5')
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701_threelay_psimisfit.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190705_twolayer_lab_extrapolate.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701_trans_0.3_0.75.h5')
+
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701_threelay.h5')
 
 #-------------------------
 # before inversion
@@ -16,26 +16,50 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701.h5'
 
 
 # -------------------------
-# inversion
+# computing kernels
 # -------------------------
 # dset.compute_kernels_hti(misfit_thresh=5.)
+
+#-------------------------
+# LAB
+#-------------------------
+# dset.read_LAB()
+# dset.construct_dvs()
+# dset.construct_slab_edge()
+
+# -------------------------
+# inversion
+# -------------------------
+
+# three layer
+# -------------------------
+# dset.linear_inv_hti(misfit_thresh=5.)
+# dset.construct_hti_model()
+# -------------------------
+
+
+
 # vpr = dset.compute_kernels_hti(misfit_thresh=5.)
 # vpr = dset.compute_kernels_hti(outlon=209., outlat=63.1)
 # vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65., depth_mid_mantle=80.)
 # vpr = dset.linear_inv_hti(outlon=-155.+360., outlat = 63.)
-# vpr = dset.linear_inv_hti(misfit_thresh=10.)
 # dset.linear_inv_hti(misfit_thresh=5.)
-# # 
-# # 
 # dset.construct_hti_model()
 
-# vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65., depth_mid_mantle=80.)
-
-
-# dset.linear_inv_hti(misfit_thresh=5., depth_mid_mantle=80.)
+# dset.linear_inv_hti_transdimensional(misfit_thresh=5., improve_thresh=.3)
 # dset.construct_hti_model_four_lay()
 
+# vpr = dset.linear_inv_hti(outlon=-150.+360., outlat = 65., depth_mid_mantle=80.)
 # 
+# dset.linear_inv_hti_adaptive(misfit_thresh=5., labthresh=80.)
+# dset.construct_hti_model_three_lay()
+# dset.construct_hti_model_four_lay()
+# 
+# # dset.linear_inv_hti(misfit_thresh=5., depth_mid_mantle=80.)
+# # dset.construct_hti_model_four_lay()
+# 
+# # d = dset.plot_hti_diff_misfit(inh5fname='/work1/leon/ALASKA_work/azi_inv_files/azi_20190701_fourlay.h5')
+# # 
 # cmap = surfdbase.discrete_cmap(6, 'hot_r')
 # dset.plot_hti(scaled=True, normv=5.,factor=5, gindex=2, datatype='misfit', ampref=.3, plot_data=True, plot_axis=False, cmap=cmap, vmin=0.5, vmax=2.0)
 
@@ -43,16 +67,15 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/azi_inv_files/azi_20190701.h5'
 # dset.plot_hti_vel(depth=20., gindex=1, scaled=True, factor=5, ampref=2., normv=1., vmin=3.4, vmax=3.8)
 # dset.plot_hti_vel(depth=20., gindex=1, scaled=True, factor=5, ampref=2., normv=2., vmin=3.4, vmax=3.8, ticks=[3.4, 3.5, 3.6, 3.7, 3.8])
 
-# vpr = dset.generate_disp_vs_figs(datadir ='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181105_150000_both',\
-#                 outdir='/home/leon/ALASKA_disp_vs')
+# dset.plot_hti_vel(depth=60., gindex=2, scaled=True, factor=5, ampref=2., normv=1., vmin=4.15, vmax=4.55)
 
-# vpr = dset.generate_disp_vs_figs(datadir ='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20181202_150000_both_miller',\
-#                 outdir='/home/leon/ALASKA_disp_vs')
+# dset.plot_hti_vel(depth=120., gindex=3, scaled=True, factor=5, ampref=2., normv=1., vmin=4.1, vmax=4.6)
 
-# dset.plot_paraval(pindex='min_misfit', is_smooth=False, cmap='jet', vmin=0.2, vmax=2.0, outfname='min_misfit.txt')
-# dset.plot_paraval(pindex='avg_misfit', is_smooth=False, cmap='hot', vmin=0.2, vmax=2.0, outfname='avg_misfit.txt')
-# dset.plot_paraval(pindex='fitratio', is_smooth=False, cmap='jet', vmin=0.3, vmax=1.0, outfname='fitratio.txt')
+##
+# LAB
+#
 
+# dset.plot_hti(gindex=-1, datatype='labarr', plot_data=True, plot_axis=False)
 # dset.plot_paraval(pindex='moho', isthk=True, is_smooth=True, cmap='gist_ncar', vmin=20., vmax=60.0, clabel='Moho Depth (km)')
 # 
 # import matplotlib.pyplot as plt

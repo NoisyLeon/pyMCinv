@@ -312,6 +312,21 @@ class eigkernel(object):
                 for j in xrange(self.nlay):
                     dpvel[i]    = dpvel[i] + self.dcdL[i, j] * dL[j] + self.dcdN[i, j] * dN[j] 
         return dpvel
+    
+    def bottom_padding(self):
+        if self.ilvry == 2:
+            for i in xrange(self.nfreq):
+                self.dcdA[i, -1]    = self.dcdA[i, -2]
+                self.dcdC[i, -1]    = self.dcdC[i, -2]
+                self.dcdF[i, -1]    = self.dcdF[i, -2]
+                self.dcdL[i, -1]    = self.dcdL[i, -2]
+                self.dcdrl[i, -1]   = self.dcdrl[i, -2]
+        else:
+            for i in xrange(self.nfreq):
+                self.dcdL[i, -1]    = self.dcdL[i, -2]
+                self.dcdN[i, -1]    = self.dcdN[i, -2]
+                self.dcdrl[i, -1]   = self.dcdrl[i, -2]
+        return
         
     # def aa_perturb(self):
     #     """

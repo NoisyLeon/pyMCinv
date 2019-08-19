@@ -236,7 +236,7 @@ class vprofile1d(object):
             raise ValueError('Unexpected wave type: '+ mtype)
         return 
     
-    def get_vmodel(self, mtype='iso'):
+    def get_vmodel(self, mtype='iso', depth_mid_crt=-1., iulcrt=2):
         """
         get the velocity model arrays
         =====================================================================
@@ -247,7 +247,7 @@ class vprofile1d(object):
         if mtype == 'iso' or mtype == 'isotropic':
             self.model.get_iso_vmodel()
         elif mtype=='vti':
-            self.model.get_vti_vmodel()
+            self.model.get_vti_vmodel(depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
         else:
             raise ValueError('Unexpected wave type: '+ mtype)
         return 
@@ -1551,7 +1551,8 @@ class vprofile1d(object):
     # functions for VTI inversions
     #==========================================
     def mc_joint_inv_vti(self, outdir='./workingdir', run_inv=True, solver_type=1, numbcheck=None, misfit_thresh=1., \
-                isconstrt=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, init_run=True, savedata=True):
+                isconstrt=True, pfx='MC', verbose=False, step4uwalk=1500, numbrun=15000, init_run=True, savedata=True, \
+                depth_mid_crt=-1., iulcrt=2):
         """
         Bayesian Monte Carlo joint inversion of receiver function and surface wave data for an isotropic model
         =================================================================================================================
@@ -1585,7 +1586,7 @@ class vprofile1d(object):
         #-------------------------------
         self.get_period()
         self.update_mod(mtype = 'vti')
-        self.get_vmodel(mtype = 'vti')
+        self.get_vmodel(mtype = 'vti', depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
         # output arrays
         npara           = self.model.vtimod.para.npara
         outmodarr       = np.zeros((numbrun, npara+9)) # original
@@ -1811,7 +1812,7 @@ class vprofile1d(object):
     
     def mc_joint_inv_vti_mp(self, outdir='./workingdir', run_inv=True, solver_type=1, isconstrt=True, pfx='MC',\
                 verbose=False, step4uwalk=1500, numbrun=15000, savedata=True, subsize=1000,
-                nprocess=None, merge=True, Ntotalruns=2, misfit_thresh=2.0, Nmodelthresh=200):
+                nprocess=None, merge=True, Ntotalruns=2, misfit_thresh=2.0, Nmodelthresh=200, depth_mid_crt=-1., iulcrt=2):
         """
         Parallelized version of mc_joint_inv_iso
         ==================================================================================================================
@@ -1870,21 +1871,24 @@ class vprofile1d(object):
                     print 'Subset:', isub,'in',Nsub,'sets'
                     cvpr_lst        = vpr_lst[isub*subsize:(isub+1)*subsize]
                     MCINV           = partial(mc4mp_vti, outdir=outdir, run_inv=run_inv, solver_type=solver_type,
-                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh, \
+                                        depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
                     pool            = multiprocessing.Pool(processes=nprocess)
                     pool.map(MCINV, cvpr_lst) #make our results with a map call
                     pool.close() #we are not adding any more processes
                     pool.join() #tell it to wait until all threads are done before going on
                 cvpr_lst            = vpr_lst[(isub+1)*subsize:]
                 MCINV               = partial(mc4mp_vti, outdir=outdir, run_inv=run_inv, solver_type=solver_type,
-                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh, \
+                                        depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
                 pool                = multiprocessing.Pool(processes=nprocess)
                 pool.map(MCINV, cvpr_lst) #make our results with a map call
                 pool.close() #we are not adding any more processes
                 pool.join() #tell it to wait until all threads are done before going on
             else:
                 MCINV               = partial(mc4mp_vti, outdir=outdir, run_inv=run_inv, solver_type=solver_type,
-                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh)
+                                        isconstrt=isconstrt, pfx=pfx, verbose=verbose, numbrun=step4uwalk, misfit_thresh=misfit_thresh, \
+                                        depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
                 pool                = multiprocessing.Pool(processes=nprocess)
                 pool.map(MCINV, vpr_lst) #make our results with a map call
                 pool.close() #we are not adding any more processes
@@ -1959,7 +1963,7 @@ class vprofile1d(object):
     #==========================================
     # functions for HTI inversions
     #==========================================
-    def linear_inv_hti(self, isBcs=True, useref=False, depth_mid_crust=15., depth_mid_mantle=-1.):
+    def linear_inv_hti(self, isBcs=True, useref=False, depth_mid_crust=15., depth_mid_mantle=-1., usespl_man=False):
         # construct data array
         dc      = np.zeros(self.data.dispR.npper, dtype=np.float64)
         ds      = np.zeros(self.data.dispR.npper, dtype=np.float64)
@@ -2000,6 +2004,102 @@ class vprofile1d(object):
         self.model.htimod.init_arr(nmod)
         self.model.htimod.set_depth_disontinuity(depth_mid_crust=depth_mid_crust, depth_mid_mantle=depth_mid_mantle)
         self.model.get_hti_layer_ind()
+        # if usespl_man:
+            
+        # forward matrix
+        G           = np.zeros((self.data.dispR.npper, nmod), dtype=np.float64)
+        for i in range(nmod):
+            ind0    = self.model.htimod.layer_ind[i, 0]
+            ind1    = self.model.htimod.layer_ind[i, 1]
+            dcdX    = self.eigkR.dcdL[:, ind0:ind1]
+            if isBcs:
+                dcdX+= self.eigkR.dcdA[:, ind0:ind1] * self.eigkR.Aeti[ind0:ind1]/self.eigkR.Leti[ind0:ind1]
+            dcdX    *= self.eigkR.Leti[ind0:ind1]
+            G[:, i] = dcdX.sum(axis=1)
+        #--------------------------
+        # solve the inverse problem
+        #--------------------------
+        # cosine terms
+        Ginv1                       = np.linalg.inv( np.dot( np.dot(G.T, np.linalg.inv(Cdc)), G) )
+        Ginv2                       = np.dot( np.dot(G.T, np.linalg.inv(Cdc)), dc)
+        modelC                      = np.dot(Ginv1, Ginv2)
+        Cmc                         = Ginv1 # model covariance matrix
+        pcovc                       = np.sqrt(np.absolute(Cmc))
+        self.model.htimod.Gc[:]     = modelC[:]
+        self.model.htimod.unGc[:]   = pcovc.diagonal()
+        # sine terms
+        Ginv1                       = np.linalg.inv( np.dot( np.dot(G.T, np.linalg.inv(Cds)), G) )
+        Ginv2                       = np.dot( np.dot(G.T, np.linalg.inv(Cds)), ds)
+        modelS                      = np.dot(Ginv1, Ginv2)
+        Cms                         = Ginv1 # model covariance matrix
+        pcovs                       = np.sqrt(np.absolute(Cms))
+        self.model.htimod.Gs[:]     = modelS[:]
+        self.model.htimod.unGs[:]   = pcovs.diagonal()
+        self.model.htimod.GcGs_to_azi()
+        #--------------------------
+        # predictions
+        #--------------------------
+        pre_dc                  = np.dot(G, self.model.htimod.Gc)
+        pre_ds                  = np.dot(G, self.model.htimod.Gs)
+        pre_amp                 = np.sqrt(pre_dc**2 + pre_ds**2)
+        pre_amp                 = pre_amp/vel_iso*100.
+        self.data.dispR.pamp    = pre_amp
+        pre_psi                 = np.arctan2(pre_ds, pre_dc)/2./np.pi*180.
+        pre_psi[pre_psi<0.]     += 180.
+        self.data.dispR.ppsi2   = pre_psi
+        self.data.get_misfit_hti()
+        return
+    
+    def linear_inv_hti_twolayer(self, depth=-2., isBcs=True, useref=False, maxdepth=-3.,\
+                                depth2d = np.array([])):
+        # construct data array
+        dc      = np.zeros(self.data.dispR.npper, dtype=np.float64)
+        ds      = np.zeros(self.data.dispR.npper, dtype=np.float64)
+        if useref:
+            try:
+                A2      = self.data.dispR.amp/100.*self.data.dispR.pvelref
+                unA2    = self.data.dispR.unamp/100.*self.data.dispR.pvelref
+                vel_iso = self.data.dispR.pvelref
+            except:
+                raise ValueError('No refernce dispersion curve stored!')
+        else:
+            A2      = self.data.dispR.amp/100.*self.data.dispR.pvelo
+            unA2    = self.data.dispR.unamp/100.*self.data.dispR.pvelo
+            vel_iso = self.data.dispR.pvelo
+        dc[:]       = A2*np.cos(2. * (self.data.dispR.psi2/180.*np.pi) )
+        ds[:]       = A2*np.sin(2. * (self.data.dispR.psi2/180.*np.pi) )
+        #--------------------------
+        # data covariance matrix
+        #--------------------------
+        A2_with_un  = unumpy.uarray(A2, unA2)
+        psi2_with_un= unumpy.uarray(self.data.dispR.psi2, self.data.dispR.unpsi2)
+        # dc
+        Cdc         = np.zeros((self.data.dispR.npper, self.data.dispR.npper), dtype=np.float64)
+        undc        = unumpy.std_devs( A2_with_un * unumpy.cos(2. * (psi2_with_un/180.*np.pi)) )
+        np.fill_diagonal(Cdc, undc**2)
+        # ds
+        Cds         = np.zeros((self.data.dispR.npper, self.data.dispR.npper), dtype=np.float64)
+        unds        = unumpy.std_devs( A2_with_un * unumpy.sin(2. * (psi2_with_un/180.*np.pi)) )
+        np.fill_diagonal(Cds, unds**2)
+        #--------------------------
+        # forward operator matrix
+        #--------------------------
+        nmod        = 2
+        self.model.htimod.init_arr(nmod)
+        if depth2d.shape[0] != nmod:       
+            self.model.htimod.depth[0]  = -1
+            self.model.htimod.depth[1]  = depth
+            self.model.htimod.depth[2]  = maxdepth
+            self.model.get_hti_layer_ind()
+        else:
+            self.model.htimod.depth2d[:, :] = depth2d.copy()
+            if self.model.htimod.depth2d[1, 1]  == -3.:
+                self.model.htimod.depth2d[1, 1] = maxdepth
+            # # # self.model.htimod.depth2d[0, 0] = -1
+            # # # self.model.htimod.depth2d[0, 1] = 15.
+            # # # self.model.htimod.depth2d[1, 0] = depth
+            # # # self.model.htimod.depth2d[1, 1] = maxdepth
+            self.model.get_hti_layer_ind_2d()
         # forward matrix
         G           = np.zeros((self.data.dispR.npper, nmod), dtype=np.float64)
         for i in range(nmod):
@@ -2055,13 +2155,16 @@ def mc4mp(invpr, outdir, dispdtype, wdisp, rffactor, isconstrt, pfx, verbose, nu
                        isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
     return
 
-def mc4mp_vti(invpr, outdir, run_inv, solver_type, isconstrt, pfx, verbose, numbrun, misfit_thresh):
+def mc4mp_vti(invpr, outdir, run_inv, solver_type, isconstrt, pfx, verbose, numbrun, misfit_thresh, \
+              depth_mid_crt, iulcrt):
     # print '--- MC inversion for station/grid: '+pfx+', process id: '+str(invpr.process_id)
     pfx     = pfx +'_'+str(invpr.process_id)
     if invpr.process_id == 0:
         invpr.mc_joint_inv_vti(outdir=outdir, run_inv=run_inv, misfit_thresh=misfit_thresh, \
-            isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False)
+            isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=True, savedata=False, \
+            depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
     else:
         invpr.mc_joint_inv_vti(outdir=outdir, run_inv=run_inv, misfit_thresh=misfit_thresh, \
-            isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False)
+            isconstrt=isconstrt, pfx=pfx, verbose=False, step4uwalk=numbrun, numbrun=numbrun, init_run=False, savedata=False, \
+            depth_mid_crt=depth_mid_crt, iulcrt=iulcrt)
     return

@@ -746,27 +746,40 @@ class disp(object):
         """
         return (abs(self.pvelref - self.pvelp)/self.pvelref).max()*100. > thresh
     
-    def plot_azi_fit_old(self):
+    def plot_azi_fit_old(self, inpsi=[], inamp=[]):
         plt.figure(figsize=[18, 9.6])
         ax      = plt.subplot()
-        self.psi2[self.psi2 - self.ppsi2 > 90.] -= 180.
-        self.psi2[self.psi2 - self.ppsi2 < -90.] += 180.
+        #self.psi2[self.psi2 - self.ppsi2 > 90.]     -= 180.
+        #self.psi2[self.psi2 - self.ppsi2 < -90.]    += 180.
+        self.ppsi2[self.ppsi2 - self.psi2 > 90.]     -= 180.
+        self.ppsi2[self.ppsi2 - self.psi2 < -90.]     += 180.
+	if len(inpsi) > 0:
+		inpsi[inpsi - self.psi2 > 90.]     -= 180.
+		inpsi[inpsi - self.psi2 < -90.]     += 180.
         
-        plt.errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ro')
-        plt.plot(self.pper, self.ppsi2, 'b-', lw=3 )
+        plt.errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ko')
+        plt.plot(self.pper, self.ppsi2, 'b-', lw=3, label='two-layer model')
+        if len(inpsi) == self.npper:
+            plt.plot(self.pper, inpsi, 'r--', lw=3, label='three-layer model')
         plt.ylabel('Fast azimuth (deg)', fontsize=50)
         plt.xlabel('Period (sec)', fontsize=50)
-        ax.tick_params(axis='x', labelsize=50)
-        ax.tick_params(axis='y', labelsize=50)
+        ax.tick_params(axis='x', labelsize=30)
+        ax.tick_params(axis='y', labelsize=30)
+        if len(inamp) == self.npper:
+            plt.legend(fontsize=30)
         #
         plt.figure(figsize=[18, 9.6])
         ax      = plt.subplot()
-        plt.errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ro')
-        plt.plot(self.pper, self.pamp, 'b-', lw=3 )
+        plt.errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ko')
+        plt.plot(self.pper, self.pamp, 'b-', lw=3, label='two-layer model')
+        if len(inamp) == self.npper:
+            plt.plot(self.pper, inamp, 'r--', lw=3, label='three-layer model')
         plt.ylabel('Anisotropy amplitude (%)', fontsize=50)
         plt.xlabel('Period (sec)', fontsize=50)
-        ax.tick_params(axis='x', labelsize=50)
-        ax.tick_params(axis='y', labelsize=50)
+        ax.tick_params(axis='x', labelsize=30)
+        ax.tick_params(axis='y', labelsize=30)
+        if len(inamp) == self.npper:
+            plt.legend(fontsize=30)
         ymax    = (self.amp+self.unamp).max()
         plt.ylim([0., ymax])
         plt.show()
@@ -782,12 +795,13 @@ class disp(object):
             self.ppsi2[self.ppsi2<0.]     += 180.
         elif psitype == 2:
             self.psi2[self.psi2>90.]   -= 180.
+            self.ppsi2[self.ppsi2>90.]   -= 180.
         elif psitype == 3:
             self.psi2[self.psi2>90.]    -= 180.
             self.ppsi2[self.ppsi2>90.]  -= 180.
             
         
-        axs[0].errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ro')
+        axs[0].errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ko')
         axs[0].plot(self.pper, self.ppsi2, 'b-', lw=3 )
         axs[0].set_ylabel('Fast azimuth (deg)', fontsize=20)
         # axs[0].set_xlabel('Period (sec)', fontsize=30)
@@ -796,7 +810,52 @@ class disp(object):
         #
         # plt.figure(figsize=[18, 9.6])
         # ax      = plt.subplot()
-        axs[1].errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ro')
+        axs[1].errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ko')
+        axs[1].plot(self.pper, self.pamp, 'b-', lw=3 )
+        axs[1].set_ylabel('Anisotropy amplitude (%)', fontsize=20)
+        axs[1].set_xlabel('Period (sec)', fontsize=30)
+        axs[1].tick_params(axis='x', labelsize=30)
+        axs[1].tick_params(axis='y', labelsize=15)
+        ymax    = (self.amp+self.unamp).max()
+        axs[1].set_ylim([0., ymax])
+        plt.suptitle('Misfit = %g' %self.pmisfit+title, fontsize=30)
+        plt.show()
+        
+    def plot_azi_fit_2(self, psitype=0, title=''):
+        # plt.figure(figsize=[18, 9.6])
+        fig, axs = plt.subplots(2, 1)
+        if psitype == 0:
+            self.psi2[self.psi2 - self.ppsi2 > 90.] -= 180.
+            self.psi2[self.psi2 - self.ppsi2 < -90.] += 180.
+        elif psitype == 1:
+            self.psi2[self.psi2<0.]     += 180.
+            self.ppsi2[self.ppsi2<0.]     += 180.
+        elif psitype == 2:
+            self.psi2[self.psi2>90.]   -= 180.
+            self.ppsi2[self.ppsi2>90.]   -= 180.
+        elif psitype == 3:
+            self.psi2[self.psi2>90.]    -= 180.
+            self.ppsi2[self.ppsi2>90.]  -= 180.
+        
+        #
+        min_psi2 = self.psi2 - self.unpsi2
+        max_psi2 = self.psi2 + self.unpsi2
+        if np.any(self.ppsi2 > max_psi2):
+            self.unpsi2[self.ppsi2 > max_psi2] *= 1.5
+        if np.any(self.ppsi2 < min_psi2):
+            self.unpsi2[self.ppsi2 > min_psi2] *= 1.5
+        #
+        
+        axs[0].errorbar(self.pper, self.psi2, yerr=self.unpsi2, fmt='ko')
+        axs[0].plot(self.pper, self.ppsi2, 'b-', lw=3 )
+        axs[0].set_ylabel('Fast azimuth (deg)', fontsize=20)
+        # axs[0].set_xlabel('Period (sec)', fontsize=30)
+        axs[0].tick_params(axis='x', labelsize=30)
+        axs[0].tick_params(axis='y', labelsize=15)
+        #
+        # plt.figure(figsize=[18, 9.6])
+        # ax      = plt.subplot()
+        axs[1].errorbar(self.pper, self.amp, yerr=self.unamp, fmt='ko')
         axs[1].plot(self.pper, self.pamp, 'b-', lw=3 )
         axs[1].set_ylabel('Anisotropy amplitude (%)', fontsize=20)
         axs[1].set_xlabel('Period (sec)', fontsize=30)
@@ -812,12 +871,21 @@ class disp(object):
         psidiff                 = abs(self.psi2 - self.ppsi2)
         psidiff[psidiff>90.]    = 180. - psidiff[psidiff>90.]
         temp2                   = (psidiff**2/self.unpsi2**2).sum()
+        #
         self.pS                 = temp1+temp2
         tS                      = temp1+temp2
         self.pmisfit            = np.sqrt(tS/2./self.npper)
+        #
+        self.pS_amp             = temp1
+        self.pmisfit_amp        = np.sqrt(temp1/self.npper)
+        #
+        self.pS_psi             = temp2
+        self.pmisfit_psi        = np.sqrt(temp2/self.npper)
+        
         if tS > 50.:
             tS                  = np.sqrt(tS*50.)
         self.pL                 = np.exp(-0.5 * tS)
+        
         
     def check_disp(self, thresh=0.4):
         diff_vel                = abs(self.pvelo - self.pvelp)

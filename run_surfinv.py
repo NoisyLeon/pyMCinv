@@ -7,9 +7,9 @@ import copy
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_ready4post.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190322_osci.h5')
 # dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190404_no_osci.h5')
-# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190320_no_ocsi.h5')
+dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190320_no_ocsi.h5')
 
-dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190701_no_ocsi.h5')
+# dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_surf_20190701_no_ocsi.h5')
 
 
 #-------------------------
@@ -17,29 +17,29 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 #-------------------------
 # dset.read_raytomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2, Tmin=8., Tmax=50.)
 # # OR
-dset.read_hybridtomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_20190318.h5', runid=0, semfactor=2., Tmin=8., Tmax=85.)
-dset.read_etopo(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
-# # # dset.read_crust_thickness(replace_moho=10., 
-# #     # infname_refine='/home/leon/miller_alaskamoho_srl2018-1.2.2/miller_alaskamoho_srl2018/Models/AlaskaMoHiErrs-AlaskaMohoFineGrid.npz')
-dset.read_crust_thickness(replace_moho=None)
-dset.read_sediment_thickness()
+# dset.read_hybridtomo_dbase(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_20190318.h5', runid=0, semfactor=2., Tmin=8., Tmax=85.)
+# dset.read_etopo(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
+# # # # dset.read_crust_thickness(replace_moho=10., 
+# # #     # infname_refine='/home/leon/miller_alaskamoho_srl2018-1.2.2/miller_alaskamoho_srl2018/Models/AlaskaMoHiErrs-AlaskaMohoFineGrid.npz')
+# dset.read_crust_thickness(replace_moho=None)
+# dset.read_sediment_thickness()
+# # # # 
+# # # # # # # 
+# # # # # # group
+# dset.read_raytomo_dbase_group(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_bks/ray_tomo_Alaska_20190318_gr.h5', runid=1, Tmin=8., Tmax=50.)
+# # # #
 # # # 
-# # # # # # 
-# # # # # group
-dset.read_raytomo_dbase_group(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_bks/ray_tomo_Alaska_20190318_gr.h5', runid=1, Tmin=8., Tmax=50.)
-# # #
-# # 
-# # # -------------------------
-# # # inversion
-# # # -------------------------
-# # 
-dset.mc_inv_iso(use_ref=False, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190701_150000_both_crust1_no_ocsi',
-                numbrun=150000, nprocess=30, verbose=False, group=True, Ntotalruns=2)
-# # 
-# # # # # # #-------------------------
-# # # # # # # read inversion results
-# # # # # # #-------------------------
-dset.read_inv(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190701_150000_both_crust1_no_ocsi', avgqc=False)
+# # # # -------------------------
+# # # # inversion
+# # # # -------------------------
+# # # 
+# dset.mc_inv_iso(use_ref=False, outdir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190701_150000_both_crust1_no_ocsi',
+#                 numbrun=150000, nprocess=30, verbose=False, group=True, Ntotalruns=2)
+# # # 
+# # # # # # # #-------------------------
+# # # # # # # # read inversion results
+# # # # # # # #-------------------------
+# dset.read_inv(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190701_150000_both_crust1_no_ocsi', avgqc=False)
 # # # 
 # 
 # #-------------------------
@@ -47,26 +47,25 @@ dset.read_inv(datadir='/work1/leon/ALASKA_work/mc_inv_files/mc_alaska_surf_20190
 # #-------------------------
 # # # # dset.get_raytomo_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/ray_tomo_Alaska_LD.h5', runid=2)
 # # # # # # # OR
-dset.get_hybrid_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_20190318.h5', runid=0)
-# # # # # # 
-dset.get_topo_arr(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
+# dset.get_hybrid_mask(inh5fname='/work1/leon/ALASKA_work/hdf5_files/eikonal_hybrid_20190318.h5', runid=0)
 # # # # # # # 
-# # # # # # # 
-# # # # # # # dset.paraval_arrays(dtype='min')
-# # # # # # # dset.construct_3d(dtype='min')
-# # # # # # # dset.construct_3d(dtype='min', is_smooth=True)
-# # # # # # # 
-dset.paraval_arrays(dtype='avg')
-# # # # dset.construct_3d(dtype='avg')
-dset.construct_3d(dtype='avg', is_smooth=True)
-
-# # # 
-# depth = 100.
-# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=4.2, vmax=4.6, showfig=True)
+# dset.get_topo_arr(infname='/home/leon/station_map/grd_dir/ETOPO2v2g_f4.nc')
+# # # # # # # # 
+# # # # # # # # 
+# # # # # # # # 
+# dset.paraval_arrays(dtype='avg')
+# dset.construct_3d(dtype='avg')
+# dset.construct_3d(dtype='avg', is_smooth=True)
 # 
-# dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
-#              geopolygons=None, vmin=4.05, vmax=4.65, showfig=True)
+# # # # 
+depth = 100.
+# dset.plot_horizontal(depth=depth, dtype='sem', is_smooth=False, shpfx=None, clabel='Uncertainties (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+#              geopolygons=None,  showfig=True)
+# # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=False, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+# #              geopolygons=None, vmin=4.1, vmax=4.6, showfig=True)
+# # 
+# dset.plot_horizontal_zoomin(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
+#              geopolygons=None, vmin=4.1, vmax=4.6, showfig=True)
 # # # # 
 # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=True, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
 #              geopolygons=None, vmin=None, vmax=None, showfig=True)
@@ -113,7 +112,11 @@ dset.construct_3d(dtype='avg', is_smooth=True)
 # dset.plot_vertical_rel(plottype=1, lon1=-145+360, lon2=-142+360, lat1=59, lat2=64, maxdepth=120.,\
 #                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
-# dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
+# dset.plot_vertical_rel_2(plottype=1, lon1=-153.+360, lon2=-153+360, lat1=68., lat2=65., maxdepth=200.,\
+                       # dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
+
+
+# dset.plot_vertical_rel_2(plottype=1, lon1=-156.+360, lon2=-143+360, lat1=64., lat2=60., maxdepth=120.,\
 #                        dtype='avg', is_smooth=True, incat = -1, vmin2=-5., vmax2=5., vs_mantle=4.35)
 
 # dset.plot_vertical_rel(plottype=0, lon1=-160+360, lon2=-136+360, lat1=60, lat2=60.5, maxdepth=120.,\
@@ -138,18 +141,21 @@ dset.construct_3d(dtype='avg', is_smooth=True)
 # # 
 # # # Transparent colours
 # # from matplotlib.colors import ListedColormap
-# # 
+# # dset.plot_paraval(pindex='moho', isthk=False, is_smooth=True, cmap=cmap, vmin=25., vmax=45.0, clabel='Crustal thickness (km)')
 # # colA = cmap(np.arange(cmap.N))
 # # colA[:,-1] = 0.25 + 0.5 * np.linspace(-1.0, 1.0, cmap.N)**2.0
 # # 
 # # # Create new colormap
 # cmap = ListedColormap(colA)
 # cmap = surfdbase.discrete_cmap(10, 'RdYlBu')
-# cmap = surfdbase.discrete_cmap(10, 'hot_r')
+cmap = surfdbase.discrete_cmap(8, 'jet_r')
 # # # # dset.plot_paraval(pindex='avg_misfit', is_smooth=False, cmap=cmap, vmin=0.0, vmax=2.0, outfname='avg_misfit.txt', clabel='Misfit')
 # dset.plot_paraval(pindex='moho', isthk=False, is_smooth=True, cmap=cmap, vmin=25., vmax=45.0, clabel='Crustal thickness (km)')
 # dset.plot_paraval(pindex='moho', isthk=True, dtype='std', is_smooth=True, cmap=cmap, vmin=0., vmax=10.0, clabel='Uncertainties of Crustal Thickness (km)')
-# # # dset.plot_paraval(pindex='vs_std', is_smooth=False, depth=10., depthavg = 0.)
+
+cmap = surfdbase.discrete_cmap(5, 'jet_r')
+dset.plot_paraval(pindex='rel_moho_std', isthk=True, dtype='std', is_smooth=True, cmap=cmap, vmin=0., vmax=0.25, clabel='Uncertainties of Crustal Thickness (km)')
+# dset.plot_paraval(pindex='vs_std_ray', is_smooth=True, depth=100., depthavg = 3., cmap=cmap, vmin=0., vmax=0.16)
 # # 
 # dset.plot_crust1( infname='crsthk.xyz', vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)
 # dset.plot_miller_moho_finer(vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)

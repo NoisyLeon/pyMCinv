@@ -1819,7 +1819,7 @@ class vtimod(object):
         #-------------------------------
         ipara   += 1
         self.para.paraindex[0, ipara]           = 3
-        self.para.paraindex[1, ipara]           = 1 ##  perturb flag
+        self.para.paraindex[1, ipara]           = 0 ##  perturb flag
         self.para.paraindex[2, ipara]           = 25. # +- 10 % in radial anisotropy
         self.para.paraindex[3, ipara]           = 1.
         if self.nmod >= 3:
@@ -1849,7 +1849,7 @@ class vtimod(object):
         #-------------------------------
         ipara   += 1
         self.para.paraindex[0, ipara]           = 3
-        self.para.paraindex[1, ipara]           = 0 #  perturb flag
+        self.para.paraindex[1, ipara]           = 1 #  perturb flag
         self.para.paraindex[2, ipara]           = 10.
         self.para.paraindex[3, ipara]           = 1.
         if self.nmod >= 3:
@@ -2110,7 +2110,7 @@ class vtimod(object):
                 return False
         return True
 
-    def get_vmodel(self):
+    def get_vmodel(self, depth_mid_crt=-1., iulcrt=2):
         """
         get velocity models
         ==========================================================================
@@ -2188,6 +2188,22 @@ class vtimod(object):
                 qs[self.nlay[:i].sum():]    = 150.*np.ones(self.nlay[i], dtype=np.float64)
                 qp[self.nlay[:i].sum():]    = 1400.*np.ones(self.nlay[i], dtype=np.float64)
         depth               = hArr.cumsum()
+        # reset upper/lower crust Vsh
+        if depth_mid_crt > 0.:
+            if self.mtype[0] == 5:
+                icrt    = 2
+            else:
+                icrt    = 1
+            tvsh        = vsh[self.nlay[:icrt].sum():self.nlay[:icrt+1].sum()].copy()
+            tvsv        = vsv[self.nlay[:icrt].sum():self.nlay[:icrt+1].sum()].copy()
+            tdepth      = depth[self.nlay[:icrt].sum():self.nlay[:icrt+1].sum()].copy()
+            if iulcrt == 1:
+                ind         = tdepth > depth_mid_crt
+            else:
+                ind         = tdepth <= depth_mid_crt
+            tvsh[ind]   = tvsv[ind]
+            vsh[self.nlay[:icrt].sum():self.nlay[:icrt+1].sum()]    = tvsh
+        #
         return hArr, vph, vpv, vsh, vsv, eta, rho, qs, qp, nlay
     
     def new_paraval(self, ptype, m0=0, m1=1, g0=1, g1=0, dvs_thresh=0.05, Nthresh=10000, isconstrt=True):
@@ -2264,6 +2280,7 @@ class htimod(object):
         # # # self.Bc         = np.zeros(np.int64(self.nmod), dtype=np.float64)
         # # # self.Bs         = np.zeros(np.int64(self.nmod), dtype=np.float64)
         self.depth      = np.zeros(np.int64(self.nmod+1), dtype=np.float64)
+        self.depth2d    = np.zeros((np.int64(self.nmod), np.int64(2) ), dtype=np.int32)
         self.layer_ind  = np.zeros(( np.int64(self.nmod), np.int64(2) ), dtype=np.int32)
         return
     
@@ -2298,7 +2315,33 @@ class htimod(object):
         self.unpsi2[:]                  = unumpy.std_devs( unumpy.arctan2(Gs_with_un, Gc_with_un)/2./np.pi*180.)
         self.unpsi2[self.unpsi2>90.]    = 90.
         self.unamp[:]                   = unumpy.std_devs( unumpy.sqrt(Gs_with_un**2 + Gc_with_un**2)/2.*100.)
-        self.unamp[self.unamp>self.amp] = self.amp[self.unamp>self.amp] 
+        self.unamp[self.unamp>self.amp] = self.amp[self.unamp>self.amp]
+        
+    def bspline(self, nlay, thickness, nBs=2, degBs=2):
+        """
+        Compute B-spline basis given group id
+        The actual degree is k = degBs - 1
+        e.g. nBs = 5, degBs = 4, k = 3, cubic B spline
+        ::: output :::
+        self.spl    - (nBs+k, npts)
+                        [:nBs, :] B spline basis for nBs control points
+                        [nBs:, :] can be ignored
+        """
+        zmin_Bs     = 0.
+        zmax_Bs     = thickness
+        disfacBs    = 2.
+        npts        = nlay
+        nbasis, t   = bspl_basis(nBs, degBs, zmin_Bs, zmax_Bs, disfacBs, npts)
+        m           = nBs-1+degBs
+        
+        # self.spl[:nBs, :npts, i]= nbasis[:nBs, :]
+        # self.isspl[i]           = True
+        # self.knot_vector[:(nBs+degBs), i]\
+        #                         = t
+        # self.Nknot[i]           = t.size
+        self.spl        = nbasis
+        self.knot_vector= t
+        return 
     
     
     
