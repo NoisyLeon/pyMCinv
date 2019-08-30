@@ -493,28 +493,19 @@ class postvpr(object):
         pvelo   = self.data.dispR.pvelo
         pvelp   = self.vprfwrd.data.dispR.pvelp
         un      = self.data.dispR.stdpvelo
-        # # # while np.any((pvelo - pvelp)>un):
-        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
-        # # # while np.any((pvelo - pvelp)<-un):
-        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
+
         plt.errorbar(self.data.dispR.pper, pvelo, yerr=self.data.dispR.stdpvelo, fmt='o', color='b', lw=2, ms=5,label='observed ray')
         ###
         pvelo   = self.data.dispL.pvelo
         pvelp   = self.vprfwrd.data.dispL.pvelp
         un      = self.data.dispL.stdpvelo
-        # # # while np.any((pvelo - pvelp)>un):
-        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
-        # # # while np.any((pvelo - pvelp)<-un):
-        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
+
         plt.errorbar(self.data.dispL.pper, pvelo, yerr=self.data.dispL.stdpvelo, fmt='o', color='k', lw=2, ms=5,label='observed lov')
         try:
             gvelo   = self.data.dispR.gvelo
             gvelp   = self.vprfwrd.data.dispR.gvelp
             un      = self.data.dispR.stdgvelo
-            while np.any((gvelo - gvelp)>un):
-                gvelo[(gvelo - gvelp)>un] -= 0.002
-            while np.any((gvelo - gvelp)<-un):
-                gvelo[(gvelo - gvelp)<-un] += 0.002
+
             plt.errorbar(self.data.dispR.gper, gvelo, yerr=self.data.dispR.stdgvelo, fmt='o', color='r', lw=2, ms=5,label='observed ray U')
         except:
             pass
@@ -638,19 +629,13 @@ class postvpr(object):
         pvelo   = self.data.dispR.pvelo
         pvelp   = self.vprfwrd.data.dispR.pvelp
         un      = self.data.dispR.stdpvelo
-        # # # while np.any((pvelo - pvelp)>un):
-        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
-        # # # while np.any((pvelo - pvelp)<-un):
-        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
+
         pveloR  = pvelo
         ##
         pvelo   = self.data.dispL.pvelo
         pvelp   = self.vprfwrd.data.dispL.pvelp
         un      = self.data.dispL.stdpvelo
-        # # # while np.any((pvelo - pvelp)>un):
-        # # #     pvelo[(pvelo - pvelp)>un] -= 0.002
-        # # # while np.any((pvelo - pvelp)<-un):
-        # # #     pvelo[(pvelo - pvelp)<-un] += 0.002
+
         pveloL  = pvelo
         
         pvelo   = pveloL - pveloR[ind]
@@ -660,10 +645,7 @@ class postvpr(object):
         pvelp   = disp_minL - disp_minR[ind]
         
         un      = stdpvelo
-        # # # while np.any((pvelo - pvelp)>un):
-        # # #     pvelo[(pvelo - pvelp)>un] -= 0.001
-        # # # while np.any((pvelo - pvelp)<-un):
-        # # #     pvelo[(pvelo - pvelp)<-un] += 0.001
+        
         
         plt.errorbar(self.data.dispL.pper, pvelo*1000., yerr=stdpvelo*1000., fmt='o', color='k', lw=2, ms=10, label='observed')
         plt.plot(self.data.dispL.pper, pvelp*1000., 'k-', lw=3, ms=10, label='predicted')

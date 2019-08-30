@@ -58,7 +58,7 @@ dset = surfdbase.invhdf5('/work1/leon/ALASKA_work/mc_inv_files/inversion_alaska_
 # dset.construct_3d(dtype='avg', is_smooth=True)
 # 
 # # # # 
-depth = 100.
+# depth = 100.
 # dset.plot_horizontal(depth=depth, dtype='sem', is_smooth=False, shpfx=None, clabel='Uncertainties (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
 #              geopolygons=None,  showfig=True)
 # # dset.plot_horizontal(depth=depth, dtype='avg', is_smooth=False, shpfx=None, clabel='Vs (km/s)', cmap='cv', title=str(int(depth))+' km', projection='lambert', hillshade=False,\
@@ -148,13 +148,13 @@ depth = 100.
 # # # Create new colormap
 # cmap = ListedColormap(colA)
 # cmap = surfdbase.discrete_cmap(10, 'RdYlBu')
-cmap = surfdbase.discrete_cmap(8, 'jet_r')
+# cmap = surfdbase.discrete_cmap(8, 'jet_r')
 # # # # dset.plot_paraval(pindex='avg_misfit', is_smooth=False, cmap=cmap, vmin=0.0, vmax=2.0, outfname='avg_misfit.txt', clabel='Misfit')
 # dset.plot_paraval(pindex='moho', isthk=False, is_smooth=True, cmap=cmap, vmin=25., vmax=45.0, clabel='Crustal thickness (km)')
 # dset.plot_paraval(pindex='moho', isthk=True, dtype='std', is_smooth=True, cmap=cmap, vmin=0., vmax=10.0, clabel='Uncertainties of Crustal Thickness (km)')
 
-cmap = surfdbase.discrete_cmap(5, 'jet_r')
-dset.plot_paraval(pindex='rel_moho_std', isthk=True, dtype='std', is_smooth=True, cmap=cmap, vmin=0., vmax=0.25, clabel='Uncertainties of Crustal Thickness (km)')
+# cmap = surfdbase.discrete_cmap(5, 'jet_r')
+# dset.plot_paraval(pindex='rel_moho_std', isthk=True, dtype='std', is_smooth=True, cmap=cmap, vmin=0., vmax=0.25, clabel='Uncertainties of Crustal Thickness (km)')
 # dset.plot_paraval(pindex='vs_std_ray', is_smooth=True, depth=100., depthavg = 3., cmap=cmap, vmin=0., vmax=0.16)
 # # 
 # dset.plot_crust1( infname='crsthk.xyz', vmin=25., vmax=45., clabel='Crustal thickness (km)', cmap=cmap)

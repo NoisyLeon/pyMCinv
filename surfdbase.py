@@ -2646,16 +2646,6 @@ class invhdf5(h5py.File):
                 except ValueError:
                     try:
                         data[ind_lat, ind_lon]  = grp.attrs[pindex]
-                        
-                        if pindex == 'avg_misfit_vti_gr':
-                            if data[ind_lat, ind_lon] > 3.5:
-                                data[ind_lat, ind_lon]  = 3.5
-                            if self.lats[ind_lat] < 60. and data[ind_lat, ind_lon] > 2.:
-                                data[ind_lat, ind_lon]  = 2.
-                        if grd_lon == -152.+360. and grd_lat == 60.:
-                            data[ind_lat, ind_lon]  = 0.8
-                        if grd_lon == -152.5+360. and grd_lat == 60.:
-                            data[ind_lat, ind_lon]  = 0.8
                     except:
                         pass
             # convert thickness to depth
@@ -6743,8 +6733,6 @@ class invhdf5(h5py.File):
             plt.show()
         return
     
-    
-    
     def plot_horizontal(self, depth, depthb=None, depthavg=None, dtype='avg', is_smooth=True, shpfx=None, clabel='', title='',\
             cmap='cv', projection='lambert', hillshade=False, geopolygons=None, vmin=None, vmax=None, \
             lonplt=[], latplt=[], incat=None, plotevents=False, showfig=True, outfname=None):
@@ -8881,8 +8869,6 @@ class invhdf5(h5py.File):
         
         if showfig:
             plt.show()
-    
-    
             
     def plot_crust1(self, infname='crsthk.xyz', vmin=20., vmax=60., clabel='Crustal thickness (km)',
                     cmap='gist_ncar',showfig=True, projection='lambert'):
@@ -9158,4 +9144,23 @@ class invhdf5(h5py.File):
             outarr      = outarr.reshape(2, 3)
             outarr      = outarr.T
             np.savetxt(gammafname, outarr, fmt='%g', header='gamma(%) Error_gamma(%) ')
+            
+    def save_group_vel(self, outdir, Tmax=24.):
+        grd_lst = self['grd_pts'].keys()
+        for grd_id in grd_lst:
+            try:
+                data            = self['grd_pts/'+grd_id+'/disp_gr_ray'].value
+            except:
+                continue
+            # Vsv
+            grpfname    = outdir + '/'+grd_id+'_U.txt'
+            
+            # outarr      = np.append(z, vs)
+            # outarr      = np.append(outarr, unvs)
+            # outarr      = outarr.reshape(3, z.size)
+            # outarr      = outarr.T
+            
+            ind         = data[0, :] <= Tmax
+            data        = data[:, ind]
+            np.savetxt(grpfname, data.T, fmt='%g', header='Period(sec) U(km/s) Error_U(km/s)')
                 
